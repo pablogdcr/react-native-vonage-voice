@@ -3,7 +3,7 @@ import Foundation
 import VonageClientSDKVoice
 
 @objc(RNVonageVoiceCall)
-class RNVonageVoiceCall {
+class RNVonageVoiceCall: NSObject {
   let client = VGVoiceClient()
   private var _isVoipRegistered = false
   private var _lastVoipToken = ""
@@ -87,47 +87,47 @@ class RNVonageVoiceCall {
     NSLog("[RNVonageVoiceCall] didReceiveIncomingPushWithPayload payload.dictionaryPayload = %@, type = %@", payload.dictionaryPayload, type)
 #endif
 
-    sendEvent(withName: "RNVonageVoiceCallRemoteNotificationReceivedEvent", body: payload.dictionaryPayload)
+    // sendEvent(withName: "RNVonageVoiceCallRemoteNotificationReceivedEvent", body: payload.dictionaryPayload)
   }
 }
 
-extension RNVonageVoiceCall: RCTEventEmitter {
-  private var _completionHandlers = [String: RCTPromiseResolveBlock]()
-  private var hasListeners = false
-  private var _delayedEvents = [Any]()
+// class RNVonageVoiceCallManager: RCTEventEmitter {
+//   private var _completionHandlers = [String: RCTPromiseResolveBlock]()
+//   private var hasListeners = false
+//   private var _delayedEvents = [Any]()
 
-  override static func requiresMainQueueSetup() -> Bool {
-      return true
-  }
+//   override static func requiresMainQueueSetup() -> Bool {
+//       return true
+//   }
 
-  override deinit {
-    NotificationCenter.default.removeObserver(self)
-    for (_, completion) in _completionHandlers {
-      completion()
-    }
-    _completionHandlers.removeAll()
-  }
+//   override deinit {
+//     NotificationCenter.default.removeObserver(self)
+//     for (_, completion) in _completionHandlers {
+//       completion()
+//     }
+//     _completionHandlers.removeAll()
+//   }
 
-  override func supportedEvents() -> [String]! {
-    return [
-      "RNVonageVoiceCallRemoteNotificationsRegisteredEvent",
-      "RNVonageVoiceCallRemoteNotificationReceivedEvent",
-      "RNVonageVoiceCallDidLoadWithEvents",
-    ]
-  }
+//   override func supportedEvents() -> [String]! {
+//     return [
+//       "RNVonageVoiceCallRemoteNotificationsRegisteredEvent",
+//       "RNVonageVoiceCallRemoteNotificationReceivedEvent",
+//       "RNVonageVoiceCallDidLoadWithEvents",
+//     ]
+//   }
 
   
-  override func startObserving() {
-    self.hasListeners = true
-    if !_delayedEvents.isEmpty {
-      sendEvent(withName: "RNVonageVoiceCallDidLoadWithEvents", body: _delayedEvents)
-    }
-  }
+//   override func startObserving() {
+//     self.hasListeners = true
+//     if !_delayedEvents.isEmpty {
+//       sendEvent(withName: "RNVonageVoiceCallDidLoadWithEvents", body: _delayedEvents)
+//     }
+//   }
 
-  override func stopObserving() {
-    self.hasListeners = false
-  }
-}
+//   override func stopObserving() {
+//     self.hasListeners = false
+//   }
+// }
 
 extension RNVonageVoiceCall: VGVoiceClientDelegate {
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: String, from caller: String, with type: VGVoiceChannelType) {
