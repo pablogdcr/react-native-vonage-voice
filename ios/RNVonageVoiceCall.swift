@@ -64,9 +64,9 @@ class RNVonageVoiceCall: NSObject {
 
   @objc(didUpdatePushCredentials:forType:)
   func didUpdatePushCredentials(_ credentials: PKPushCredentials, forType type: String) {
-#if DEBUG
-    NSLog("[RNVonageVoiceCall] didUpdatePushCredentials credentials.token = %@, type = %@", credentials.token, type)
-#endif
+// #if DEBUG
+//     NSLog("[RNVonageVoiceCall] didUpdatePushCredentials credentials.token = %@, type = %@", credentials.token, type)
+// #endif
     let voipTokenLength = credentials.token.count
     if voipTokenLength == 0 {
       return
