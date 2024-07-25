@@ -32,7 +32,9 @@ public class RNVonageVoiceCall: NSObject {
       isSandbox = true
     #endif
 
-    let credentials = PKPushCredentials(type: PKPushType.voIP, token: token.data(using: .utf8)!)
+    let credentials = PKPushCredentials()
+    credentials.token = token.data(using: .utf8)!
+
     client.registerVoipToken(credentials, isSandbox: isSandbox) { error, deviceId in
       if let error = error {
         print("[RNVonageVoiceCall] Error registering voip token: \(error)")
