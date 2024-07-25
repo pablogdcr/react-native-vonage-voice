@@ -3,7 +3,7 @@ import Foundation
 import VonageClientSDKVoice
 
 @objc(RNVonageVoiceCall)
-public class RNVonageVoiceCall: NSObject {
+class RNVonageVoiceCall {
   let client = VGVoiceClient()
   private var _isVoipRegistered = false
   private var _lastVoipToken = ""
