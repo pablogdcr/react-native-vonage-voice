@@ -93,6 +93,12 @@ public class RNVonageVoiceCall: NSObject {
 
 extension RNVonageVoiceCall: RCTEventEmitter {
   private var _completionHandlers = [String: RCTPromiseResolveBlock]()
+  private var hasListeners = false
+  private var _delayedEvents = [Any]()
+
+  override static func requiresMainQueueSetup() -> Bool {
+      return true
+  }
 
   override deinit {
     NotificationCenter.default.removeObserver(self)
@@ -110,11 +116,16 @@ extension RNVonageVoiceCall: RCTEventEmitter {
     ]
   }
 
+  
   override func startObserving() {
-    _hasListeners = true
+    self.hasListeners = true
     if !_delayedEvents.isEmpty {
       sendEvent(withName: "RNVonageVoiceCallDidLoadWithEvents", body: _delayedEvents)
     }
+  }
+
+  override func stopObserving() {
+    self.hasListeners = false
   }
 }
 
