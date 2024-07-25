@@ -1,0 +1,27 @@
+{
+  "name": "react-native-vonage-voice-call",
+  "version": "0.1.0",
+  "description": "React-Native library for Vonage Voice Call SDK",
+  "main": "index.js",
+  "types": "./index.d.ts",
+  "scripts": {
+  },
+  "keywords": [
+    "react-native",
+    "react-native-vonage-voice-call",
+    "RNVonageVoiceCall"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pablogdcr/react-native-vonage-voice-call.git"
+  },
+  "author": "Pablo Giraud-Carrier <pablo@themobilefirst.co> (https://github.com/pablogdcr)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pablogdcr/react-native-vonage-voice-call/issues"
+  },
+  "homepage": "https://github.com/pablogdcr/react-native-vonage-voice-call#readme",
+  "peerDependencies": {
+    "react-native": ">=0.74.0"
+  }
+}
