@@ -7,34 +7,10 @@ public class RNVonageVoiceCall: NSObject {
   let client = VGVoiceClient()
   private var _isVoipRegistered = false
   private var _lastVoipToken = ""
-  private var _completionHandlers = [String: RCTPromiseResolveBlock]()
 
   override init() {
       super.init()
       client.delegate = self
-  }
-
-  deinit {
-    NotificationCenter.default.removeObserver(self)
-    for (_, completion) in _completionHandlers {
-      completion()
-    }
-    _completionHandlers.removeAll()
-  }
-
-  override func supportedEvents() -> [String]! {
-    return [
-      "RNVonageVoiceCallRemoteNotificationsRegisteredEvent",
-      "RNVonageVoiceCallRemoteNotificationReceivedEvent",
-      "RNVonageVoiceCallDidLoadWithEvents",
-    ]
-  }
-
-  override func startObserving() {
-    _hasListeners = true
-    if !_delayedEvents.isEmpty {
-      sendEvent(withName: "RNVonageVoiceCallDidLoadWithEvents", body: _delayedEvents)
-    }
   }
 
   @objc(createSession:resolver:rejecter:)
@@ -112,6 +88,33 @@ public class RNVonageVoiceCall: NSObject {
 #endif
 
     sendEvent(withName: "RNVonageVoiceCallRemoteNotificationReceivedEvent", body: payload.dictionaryPayload)
+  }
+}
+
+extension RNVonageVoiceCall: RCTEventEmitter {
+  private var _completionHandlers = [String: RCTPromiseResolveBlock]()
+
+  override deinit {
+    NotificationCenter.default.removeObserver(self)
+    for (_, completion) in _completionHandlers {
+      completion()
+    }
+    _completionHandlers.removeAll()
+  }
+
+  override func supportedEvents() -> [String]! {
+    return [
+      "RNVonageVoiceCallRemoteNotificationsRegisteredEvent",
+      "RNVonageVoiceCallRemoteNotificationReceivedEvent",
+      "RNVonageVoiceCallDidLoadWithEvents",
+    ]
+  }
+
+  override func startObserving() {
+    _hasListeners = true
+    if !_delayedEvents.isEmpty {
+      sendEvent(withName: "RNVonageVoiceCallDidLoadWithEvents", body: _delayedEvents)
+    }
   }
 }
 
