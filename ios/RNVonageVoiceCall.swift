@@ -38,7 +38,7 @@ class RNVonageVoiceCall: NSObject {
 #endif
     _isVoipRegistered = true
     DispatchQueue.main.async { [weak self] in
-      let voipRegistry: RNVonageVoiceCall = PKPushRegistry(queue: nil)
+      let voipRegistry: PKPushRegistry = PKPushRegistry(queue: nil)
 
       voipRegistry.delegate = self
       voipRegistry.desiredPushTypes = [PKPushType.voIP]
