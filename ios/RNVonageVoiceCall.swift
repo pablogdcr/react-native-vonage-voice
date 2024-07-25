@@ -1,16 +1,40 @@
-// Native module in swift: https://medium.com/@jtaverasv/native-modules-swift-based-the-basics-react-native-4ac2d0a712ca
-
-import Foundation
 import PushKit
+import Foundation
 import VonageClientSDKVoice
 
 @objc(RNVonageVoiceCall)
 public class RNVonageVoiceCall: NSObject {
   let client = VGVoiceClient()
+  private var _isVoipRegistered = false
+  private var _lastVoipToken = ""
+  private var _completionHandlers = [String: RCTPromiseResolveBlock]()
 
   override init() {
       super.init()
       client.delegate = self
+  }
+
+  deinit {
+    NotificationCenter.default.removeObserver(self)
+    for (_, completion) in _completionHandlers {
+      completion()
+    }
+    _completionHandlers.removeAll()
+  }
+
+  override func supportedEvents() -> [String]! {
+    return [
+      "RNVonageVoiceCallRemoteNotificationsRegisteredEvent",
+      "RNVonageVoiceCallRemoteNotificationReceivedEvent",
+      "RNVonageVoiceCallDidLoadWithEvents",
+    ]
+  }
+
+  override func startObserving() {
+    _hasListeners = true
+    if !_delayedEvents.isEmpty {
+      sendEvent(withName: "RNVonageVoiceCallDidLoadWithEvents", body: _delayedEvents)
+    }
   }
 
   @objc(createSession:resolver:rejecter:)
@@ -22,6 +46,26 @@ public class RNVonageVoiceCall: NSObject {
       } else {
         resolve(sessionId)
       }
+    }
+  }
+
+  @objc(registerForVoIPPushes)
+  func registerForVoIPPushes() {
+    if _isVoipRegistered {
+#if DEBUG
+        RCTLog(@"[RNVonageVoiceCallNotificationManager] voipRegistration is already registered. return _lastVoipToken = %@", _lastVoipToken);
+#endif
+      return
+    }
+#if DEBUG
+      RCTLog(@"[RNVonageVoiceCallNotificationManager] voipRegistration enter");
+#endif
+    _isVoipRegistered = true
+    DispatchQueue.main.async { [weak self] in
+      let voipRegistry = PKPushRegistry(queue: nil)
+
+      voipRegistry.delegate = self
+      voipRegistry.desiredPushTypes = [PKPushType.voIP]
     }
   }
 
@@ -40,6 +84,34 @@ public class RNVonageVoiceCall: NSObject {
         resolve(deviceId)
       }
     }
+  }
+
+  @objc(didUpdatePushCredentials:forType:)
+  func didUpdatePushCredentials(_ credentials: PKPushCredentials, forType type: String) {
+#if DEBUG
+    NSLog("[RNVonageVoiceCall] didUpdatePushCredentials credentials.token = %@, type = %@", credentials.token, type)
+#endif
+    let voipTokenLength = credentials.token.count
+    if voipTokenLength == 0 {
+      return
+    }
+
+    var hexString = ""
+    let bytes = [UInt8](credentials.token)
+    for byte in bytes {
+      hexString += String(format: "%02x", byte)
+    }
+
+    _lastVoipToken = hexString
+  }
+
+  @objc(didReceiveIncomingPushWithPayload:forType:)
+  func didReceiveIncomingPush(with payload: PKPushPayload, forType type: String) {
+#if DEBUG
+    NSLog("[RNVonageVoiceCall] didReceiveIncomingPushWithPayload payload.dictionaryPayload = %@, type = %@", payload.dictionaryPayload, type)
+#endif
+
+    sendEvent(withName: "RNVonageVoiceCallRemoteNotificationReceivedEvent", body: payload.dictionaryPayload)
   }
 }
 
@@ -76,10 +148,4 @@ extension RNVonageVoiceCall: VGVoiceClientDelegate {
         //     reasonString = "Unknown"
         // }
     }
-}
-
-extension RNVonageVoiceCall: PKPushRegistryDelegate {
-  public func pushRegistry(_ registry: PKPushRegistry, didUpdate credentials: PKPushCredentials, for type: PKPushType) {
-    NSLog("voip token: \(credentials.token)")
-  }
 }
