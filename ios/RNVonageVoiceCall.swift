@@ -45,22 +45,26 @@ public class RNVonageVoiceCall: NSObject {
 
 extension RNVonageVoiceCall: VGVoiceClientDelegate {
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: String, from caller: String, with type: VGVoiceChannelType) {
+      NSLog("Incoming call from \(caller)")
         // DispatchQueue.main.async { [weak self] in
         //     self?.displayIncomingCallAlert(callID: callId, caller: caller)
         // }
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, with reason: VGVoiceInviteCancelReason) {
+      NSLog("Call cancelled")
         // DispatchQueue.main.async { [weak self] in
         //     self?.dismiss(animated: true)
         // }
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: String, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
+      NSLog("Call ended")
         // self.callID = nil
     }
     
     public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
+      NSLog("Session error")
         // let reasonString: String!
         
         // switch reason {
