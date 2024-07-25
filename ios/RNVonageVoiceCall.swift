@@ -24,6 +24,23 @@ public class RNVonageVoiceCall: NSObject {
       }
     }
   }
+
+  @objc(registerVoipToken:resolver:rejecter:)
+  func registerVoipToken(_ token: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    var isSandbox = false
+    #if DEBUG
+      isSandbox = true
+    #endif
+
+    client.registerVoipToken(token, isSandbox: isSandbox) { error, deviceId in
+      if let error = error {
+        print("[RNVonageVoiceCall] Error registering voip token: \(error)")
+        reject("VOIP_TOKEN_ERROR", error.localizedDescription, error)
+      } else {
+        resolve(deviceId)
+      }
+    }
+  }
 }
 
 extension RNVonageVoiceCall: VGVoiceClientDelegate {

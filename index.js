@@ -12,4 +12,8 @@ export default class RNVonageVoiceCall {
   static createSession(jwt) {
     return RNVonageVoiceCallModule.createSession(jwt);
   }
+
+  static registerVoipToken(token) {
+    return RNVonageVoiceCallModule.registerVoipToken(token);
+  }
 };
