@@ -38,7 +38,7 @@ class RNVonageVoiceCall: NSObject {
 #endif
     _isVoipRegistered = true
     DispatchQueue.main.async { [weak self] in
-      let voipRegistry = PKPushRegistry(queue: nil)
+      let voipRegistry: RNVonageVoiceCall = PKPushRegistry(queue: nil)
 
       voipRegistry.delegate = self
       voipRegistry.desiredPushTypes = [PKPushType.voIP]
@@ -65,7 +65,7 @@ class RNVonageVoiceCall: NSObject {
   @objc(didUpdatePushCredentials:forType:)
   func didUpdatePushCredentials(_ credentials: PKPushCredentials, forType type: String) {
 #if DEBUG
-    NSLog("[RNVonageVoiceCall] didUpdatePushCredentials credentials.token = %@, type = %@", credentials.token, type)
+    NSLog("[RNVonageVoiceCall] didUpdatePushCredentials credentials.token = %@, type = %@", credentials.token!, type!)
 #endif
     let voipTokenLength = credentials.token.count
     if voipTokenLength == 0 {
