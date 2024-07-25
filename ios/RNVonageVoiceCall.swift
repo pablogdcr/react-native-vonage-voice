@@ -29,12 +29,12 @@ class RNVonageVoiceCall: NSObject {
   func registerForVoIPPushes() {
     if _isVoipRegistered {
 #if DEBUG
-        RCTLog(@"[RNVonageVoiceCallNotificationManager] voipRegistration is already registered. return _lastVoipToken = %@", _lastVoipToken);
+        NSLog("[RNVonageVoiceCallNotificationManager] voipRegistration is already registered. return _lastVoipToken = %@", _lastVoipToken);
 #endif
       return
     }
 #if DEBUG
-      RCTLog(@"[RNVonageVoiceCallNotificationManager] voipRegistration enter");
+      NSLog("[RNVonageVoiceCallNotificationManager] voipRegistration enter");
 #endif
     _isVoipRegistered = true
     DispatchQueue.main.async { [weak self] in
