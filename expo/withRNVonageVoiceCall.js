@@ -74,7 +74,7 @@ const withIosVonageVoiceCall = (config) => {
         config.modResults.contents = (0, generateCode.mergeContents)({
           tag: '@react-native-vonage-voice-call-didFinishLaunchingWithOptions',
           src: config.modResults.contents,
-          newSrc: methodInvocationBlock(options),
+          newSrc: methodInvocationBlock,
           anchor: methodInvocationLineMatcher,
           offset: 0,
           comment: '//',
@@ -87,7 +87,7 @@ const withIosVonageVoiceCall = (config) => {
         config.modResults.contents = (0, generateCode.mergeContents)({
           tag: '@react-native-vonage-voice-call-didFinishLaunchingWithOptions',
           src: config.modResults.contents,
-          newSrc: methodInvocationBlock(options),
+          newSrc: methodInvocationBlock,
           anchor: fallbackInvocationLineMatcher,
           // new line will be inserted right below matched anchor
           // or two lines, if the `{` is in the new line
