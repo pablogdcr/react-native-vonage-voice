@@ -4,7 +4,6 @@ import VonageClientSDKVoice
 
 final class RNVonageVoiceCall: NSObject {
   public var pushToken: Data?
-  weak var delegate: RNVonageVoiceCallDelegate?
 
   private let client = VGVoiceClient()
   private let providerDelegate = ProviderDelegate()
@@ -44,8 +43,8 @@ final class RNVonageVoiceCall: NSObject {
     client.setConfig(config)
   }
 
-  @objc(login:isPushLogin:resolver:rejecter:)
-  func login(jwt: String, isPushLogin: Bool = false, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+  @objc(login:isPushLogin:completion:)
+  func login(jwt: String, isPushLogin: Bool = false, completion: @escaping (Error?) -> Void) {
     print("VPush: Login - isPush:", isPushLogin)
     guard !isActiveCall else { return }
     
@@ -58,9 +57,9 @@ final class RNVonageVoiceCall: NSObject {
         } else {
           self.handleLogin()
         }
-        resolve(sessionID)
+        completion(nil)
       } else {
-        reject(error)
+        completion(error)
       }
     }
   }

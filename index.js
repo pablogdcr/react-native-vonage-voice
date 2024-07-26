@@ -6,10 +6,18 @@ const RNVonageVoiceCallModule = NativeModules.RNVonageVoiceCall;
 
 export default class RNVonageVoiceCall {
   static createSession(jwt, region) {
-    if (region != null) {
-      RNVonageVoiceCallModule.setRegion(region);
-    }
-    return RNVonageVoiceCallModule.login(jwt, false);
+    return new Promise((resolve, reject) => {
+      if (region != null) {
+        RNVonageVoiceCallModule.setRegion(region);
+      }
+      RNVonageVoiceCallModule.login(jwt, false, (error) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      });
+    });
   }
 
   static answer(callId) {
