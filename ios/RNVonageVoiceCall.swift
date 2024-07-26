@@ -1,12 +1,6 @@
 import Foundation
 import VonageClientSDKVoice
 
-enum ConfigRegion {
-    case .US
-    case .EU
-    case .AP
-}
-
 @objc(RNVonageVoiceCall)
 class RNVonageVoiceCall: NSObject {
   let client = VGVoiceClient()
