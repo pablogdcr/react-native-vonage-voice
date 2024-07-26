@@ -60,6 +60,19 @@ class RNVonageVoiceCall: NSObject {
       }
     }
   }
+
+  @objc(call:resolver:rejecter:)
+  func call(_ number: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    client.serverCall(["to": number]) { error, callId in
+      if let error {
+        print("[RNVonageVoiceCall] Error calling number: \(error)")
+        reject("CALL_ERROR", error.localizedDescription, error)
+      } else {
+        self.callId = callId
+        resolve(callId)
+      }
+    }
+  }
 }
 
 //   @objc(registerForVoIPPushes)
