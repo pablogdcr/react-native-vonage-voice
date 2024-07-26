@@ -7,10 +7,11 @@ class RNVonageVoiceCall: NSObject {
   var callId: String?
 
   override init() {
-      super.init()
       let initConfig = VGClientInitConfig(loggingLevel: .verbose)
 
       client = VGVoiceClient(initConfig)
+      super.init()
+
       client.delegate = self
   }
 
