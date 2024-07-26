@@ -1,22 +1,32 @@
+import PushKit
 import Foundation
 import VonageClientSDKVoice
 
-@objc(RNVonageVoiceCall)
-class RNVonageVoiceCall: NSObject {
-  let client: VGVoiceClient
-  var callId: String?
+final class RNVonageVoiceCall: NSObject {
+  public var pushToken: Data?
+  weak var delegate: RNVonageVoiceCallDelegate?
+
+  private let client = VGVoiceClient()
+  private let providerDelegate = ProviderDelegate()
+
+  private var ongoingPushLogin = false
+  private var ongoingPushKitCompletion: () -> Void = { }
+  private var storedAction: (() -> Void)?
+  private var isActiveCall = false
+
+  static let shared = RNVonageVoiceCall()
 
   override init() {
-      let initConfig = VGClientInitConfig(loggingLevel: .verbose)
-
-      client = VGVoiceClient(initConfig)
-      super.init()
-
-      client.delegate = self
+    super.init()
+    initializeClient()
   }
 
-  @objc(createSession:region:resolver:rejecter:)
-  func createSession(_ jwt: String, region: String?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+  private func initializeClient() {
+    client.delegate = self
+  }
+
+  @objc(setRegion:)
+  func setRegion(region: String?) {
     let config: VGClientConfig;
 
     if region == nil {
@@ -32,212 +42,199 @@ class RNVonageVoiceCall: NSObject {
       }
     }
     client.setConfig(config)
-    client.createSession(jwt) { error, sessionId in
-      if let error = error {
-        print("[RNVonageVoiceCall] Error creating session: \(error)")
-        reject("SESSION_ERROR", error.localizedDescription, error)
-      } else {
-        resolve(sessionId)
-      }
-    }
   }
 
-  @objc(answer:resolver:rejecter:)
-  func answer(_ callId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    client.answer(callId) { error in
-      if let error {
-        print("[RNVonageVoiceCall] Error answering call: \(error)")
-        reject("ANSWER_ERROR", error.localizedDescription, error)
-      } else {
-        self.callId = callId
-        resolve(nil)
-      }
-    }
-  }
-
-  @objc(reject:resolver:rejecter:)
-  func reject(_ callId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    client.reject(callId) { error in
-      if let error {
-        print("[RNVonageVoiceCall] Error rejecting call: \(error)")
-        reject("REJECT_ERROR", error.localizedDescription, error)
-      } else {
-        resolve(nil)
-      }
-    }
-  }
-
-  @objc(call:resolver:rejecter:)
-  func call(_ number: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    client.serverCall(["to": number]) { error, callId in
-      if let error {
-        print("[RNVonageVoiceCall] Error calling number: \(error)")
-        reject("CALL_ERROR", error.localizedDescription, error)
-      } else {
-        self.callId = callId
-        resolve(callId)
-      }
-    }
-  }
-
-  @objc(endCall:rejecter:)
-  func endCall(resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    if let callId = self.callId {
-      client.hangup(callId) { error in
-        if let error {
-          print("[RNVonageVoiceCall] Error hanging up call: \(error)")
-          reject("HANGUP_ERROR", error.localizedDescription, error)
+  @objc(login:isPushLogin:resolver:rejecter:)
+  func login(jwt: String, isPushLogin: Bool = false, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    print("VPush: Login - isPush:", isPushLogin)
+    guard !isActiveCall else { return }
+    
+    ongoingPushLogin = isPushLogin
+    
+    self.client.createSession(jwt) { error, sessionID in
+      if error == nil {
+        if isPushLogin {
+          self.handlePushLogin()
+        } else {
+          self.handleLogin()
         }
-        resolve(nil)
+        resolve(sessionID)
+      } else {
+        reject(error)
+      }
+    }
+  }
+
+  private func handlePushLogin() {
+    ongoingPushLogin = false
+
+    if let storedAction = storedAction {
+      storedAction()
+    }
+  }
+
+  private func handleLogin() {
+    if let token = pushToken {
+      registerPushIfNeeded(with: token)
+    }
+  }
+
+  @objc(isVonagePush:)
+  func isVonagePush(with userInfo: [AnyHashable : Any]) -> Bool {
+    VGVoiceClient.vonagePushType(userInfo) == .unknown ? false : true
+  }
+
+  @objc(invalidatePushToken:)
+  func invalidatePushToken(_ completion: (() -> Void)? = nil) {
+    if let deviceId = UserDefaults.standard.object(forKey: Constants.deviceId) as? String {
+      print("VPush: Invalidate token")
+      client.unregisterDeviceTokens(byDeviceId: deviceId) { error in
+        if error == nil {
+          self.pushToken = nil
+          UserDefaults.standard.removeObject(forKey: Constants.pushToken)
+          UserDefaults.standard.removeObject(forKey: Constants.deviceId)
+          completion?()
+        }
       }
     } else {
-      reject("NO_CALL", "No active call", nil)
+      completion?()
     }
   }
-}
-
-//   @objc(registerForVoIPPushes)
-//   func registerForVoIPPushes() {
-//     if _isVoipRegistered {
-// #if DEBUG
-//         NSLog("[RNVonageVoiceCallNotificationManager] voipRegistration is already registered. return _lastVoipToken = %@", _lastVoipToken);
-// #endif
-//       return
-//     }
-// #if DEBUG
-//       NSLog("[RNVonageVoiceCallNotificationManager] voipRegistration enter");
-// #endif
-//     _isVoipRegistered = true
-//     DispatchQueue.main.async { [weak self] in
-//       let voipRegistry: PKPushRegistry = PKPushRegistry(queue: nil)
-
-//       // voipRegistry.delegate = self
-//       voipRegistry.desiredPushTypes = [PKPushType.voIP]
-//     }
-//   }
-
-  // @objc(registerVoipToken:resolver:rejecter:)
-  // func registerVoipToken(_ token: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-  //   var isSandbox = false
-  //   #if DEBUG
-  //     isSandbox = true
-  //   #endif
-
-  //   client.registerVoipToken(token.data(using: .utf8)!, isSandbox: isSandbox) { error, deviceId in
-  //     if let error = error {
-  //       print("[RNVonageVoiceCall] Error registering voip token: \(error)")
-  //       reject("VOIP_TOKEN_ERROR", error.localizedDescription, error)
-  //     } else {
-  //       resolve(deviceId)
-  //     }
-  //   }
-  // }
-
-//   @objc(didUpdatePushCredentials:forType:)
-//   func didUpdatePushCredentials(_ credentials: PKPushCredentials, forType type: String) {
-// // #if DEBUG
-// //     NSLog("[RNVonageVoiceCall] didUpdatePushCredentials credentials.token = %@, type = %@", credentials.token, type)
-// // #endif
-//     let voipTokenLength = credentials.token.count
-//     if voipTokenLength == 0 {
-//       return
-//     }
-
-//     var hexString = ""
-//     let bytes = [UInt8](credentials.token)
-//     for byte in bytes {
-//       hexString += String(format: "%02x", byte)
-//     }
-
-//     _lastVoipToken = hexString
-//   }
-
-//   @objc(didReceiveIncomingPushWithPayload:forType:)
-//   func didReceiveIncomingPush(with payload: PKPushPayload, forType type: String) {
-// #if DEBUG
-//     NSLog("[RNVonageVoiceCall] didReceiveIncomingPushWithPayload payload.dictionaryPayload = %@, type = %@", payload.dictionaryPayload, type)
-// #endif
-
-//     // sendEvent(withName: "RNVonageVoiceCallRemoteNotificationReceivedEvent", body: payload.dictionaryPayload)
-//   }
-
-
-extension RNVonageVoiceCall: VGVoiceClientDelegate {
-  func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: String, from caller: String, with type: VGVoiceChannelType) {
-    NSLog("Incoming call from \(caller)")
-      // DispatchQueue.main.async { [weak self] in
-      //     self?.displayIncomingCallAlert(callId: callId, caller: caller)
-      // }
+    
+  /*
+    This function processes the payload from the voip push notification.
+    If successful it will return a call invite ID and `didReceiveInviteForCall`
+    would be called.
+    */
+  @objc(processPushPayload:pushKitCompletion:)
+  func processPushPayload(with payload: [AnyHashable : Any], pushKitCompletion: @escaping () -> Void) -> String? {
+    self.ongoingPushKitCompletion = pushKitCompletion
+    return client.processCallInvitePushData(payload)
+  }
+    
+  @objc(answer:completion:)
+  func answer(_ callID: String, completion: @escaping (Error?) -> Void) {
+    let answerAction = {
+      print("VPush: Answer", callID)
+      self.isActiveCall = true
+      self.client.answer(callID, callback: completion)
+    }
+      
+    if ongoingPushLogin {
+      print("VPush: Storing answer")
+      storedAction = answerAction
+    } else {
+      answerAction()
+    }
   }
 
-  func voiceClient(_ client: VGVoiceClient, didReceiveCallTransferForCall callId: String, with conversationId: String) {
-    NSLog("Call transfer")
-      // DispatchQueue.main.async { [weak self] in
-      //     self?.displayIncomingCallAlert(callId: callId, caller: caller)
-      // }
+  @objc(reject:completion:) 
+  func reject(_ callID: String, completion: @escaping (Error?) -> Void) {
+    let rejectAction = {
+      print("VPush: Reject", callID)
+      self.isActiveCall = false
+      self.client.reject(callID, callback: completion)
+    }
+    
+    if ongoingPushLogin {
+      print("VPush: Storing Reject")
+      storedAction = rejectAction
+    } else {
+      rejectAction()
+    }
+  }
+
+  @objc(voipRegistration)
+  func voipRegistration() {
+    DispatchQueue.main.async { [weak self] in
+      let voipRegistry: PKPushRegistry = PKPushRegistry(queue: nil)
+      voipRegistry.delegate = RCTSharedApplication().delegate as? RNVoipPushNotificationManager
+      voipRegistry.desiredPushTypes = [PKPushType.voIP]
+    }
+  }
+
+  /*
+  This function enabled push notifications with the client
+  if it has not already been done for the current token.
+  */
+  private func registerPushIfNeeded(with token: Data) {
+    shouldRegisterToken(with: token) { shouldRegister in
+      if shouldRegister {
+        self.client.registerVoipToken(token, isSandbox: true) { error, deviceId in
+          if error == nil {
+            print("VPush: push token registered")
+            UserDefaults.standard.setValue(token, forKey: Constants.pushToken)
+            UserDefaults.standard.setValue(deviceId, forKey: Constants.deviceId)
+          } else {
+            print("VPush: registration error: \(String(describing: error))")
+            return
+          }
+        }
+      }
+    }
+  }
+    
+  /*
+    Push tokens only need to be registered once.
+    So the token is stored locally and is invalidated if the incoming
+    token is new.
+    */
+  private func shouldRegisterToken(with token: Data, completion: @escaping (Bool) -> Void) {
+    let storedToken = UserDefaults.standard.object(forKey: Constants.pushToken) as? Data
+    
+    if let storedToken = storedToken, storedToken == token {
+      completion(false)
+      return
+    }
+    
+    invalidatePushToken {
+      completion(true)
+    }
+  }
+    
+}
+
+// MARK:-  VGVoiceClientDelegate
+
+extension RNVonageVoiceCall: VGVoiceClientDelegate {
+  /*
+    After the Client SDK is done processing the incoming push,
+    You will receive the call here
+  */
+  func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
+    print("VPush: Received invite", callId)
+    providerDelegate.reportCall(callId, caller: caller, completion: ongoingPushKitCompletion)
+  }
+  
+  func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
+    print("VPush: Received hangup")
+    isActiveCall = false
+    providerDelegate.didReceiveHangup(callId)
   }
   
   func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, with reason: VGVoiceInviteCancelReason) {
-    NSLog("Call cancelled")
-      // DispatchQueue.main.async { [weak self] in
-      //     self?.dismiss(animated: true)
-      // }
-  }
-  
-  func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: String, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
-    NSLog("Call ended")
-      self.callId = nil
+    print("VPush: Received invite cancel")
+    providerDelegate.reportFailedCall(callId)
   }
   
   func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
-    NSLog("Session error")
-      // let reasonString: String!
-      
-      // switch reason {
-      // case .tokenExpired:
-      //     reasonString = "Expired Token"
-      // case .pingTimeout, .transportClosed:
-      //     reasonString = "Network Error"
-      // default:
-      //     reasonString = "Unknown"
-      // }
+    let reasonString: String!
+    
+    switch reason {
+      case .tokenExpired:
+        reasonString = "Expired Token"
+      case .pingTimeout, .transportClosed:
+        reasonString = "Network Error"
+      default:
+        reasonString = "Unknown"
+    }
+    print("VPush: Session error", reasonString)
   }
 }
 
-// class RNVonageVoiceCallManager: RCTEventEmitter {
-//   private var _completionHandlers = [String: RCTPromiseResolveBlock]()
-//   private var hasListeners = false
-//   private var _delayedEvents = [Any]()
+// MARK:-  Constants
 
-//   override static func requiresMainQueueSetup() -> Bool {
-//       return true
-//   }
-
-//   override deinit {
-//     NotificationCenter.default.removeObserver(self)
-//     for (_, completion) in _completionHandlers {
-//       completion()
-//     }
-//     _completionHandlers.removeAll()
-//   }
-
-//   override func supportedEvents() -> [String]! {
-//     return [
-//       "RNVonageVoiceCallRemoteNotificationsRegisteredEvent",
-//       "RNVonageVoiceCallRemoteNotificationReceivedEvent",
-//       "RNVonageVoiceCallDidLoadWithEvents",
-//     ]
-//   }
-
-  
-//   override func startObserving() {
-//     self.hasListeners = true
-//     if !_delayedEvents.isEmpty {
-//       sendEvent(withName: "RNVonageVoiceCallDidLoadWithEvents", body: _delayedEvents)
-//     }
-//   }
-
-//   override func stopObserving() {
-//     self.hasListeners = false
-//   }
-// }
+struct Constants {
+  static let deviceId = "VGDeviceID"
+  static let pushToken = "VGPushToken"
+}
