@@ -1,1 +1,1 @@
-module.exports = require('./expo/withVonageVoiceCall');
+module.exports = require('./expo/withRNVonageVoiceCall');
