@@ -1,6 +1,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.withXcodeLinkBinaryWithLibraries = void 0;
 const config_plugins_1 = require("expo/config-plugins");
+const ensureHeaderSearchPath_1 = require("./ensureHeaderSearchPath");
+
+const withVoipPushNotificationHeaderSearchPath = (config) => {
+    const headerSearchPath = `"$(SRCROOT)/../node_modules/react-native-vonage-voice-call/ios/RNVoipPushNotification"`;
+    return (0, config_plugins_1.withXcodeProject)(config, (config) => {
+        (0, ensureHeaderSearchPath_1.ensureHeaderSearchPath)(config.modResults, headerSearchPath);
+        return config;
+    });
+};
 
 const withIosVonageVoiceCall = (config) => {
   config = (0, config_plugins_1.withInfoPlist)(config, (config) => {
@@ -15,6 +24,7 @@ const withIosVonageVoiceCall = (config) => {
     }
     return config;
   });
+  config = withVoipPushNotificationHeaderSearchPath(config);
   config = (0, exports.withXcodeLinkBinaryWithLibraries)(config, {
     library: "CallKit.framework",
   });
