@@ -19,20 +19,20 @@ class RNVonageVoiceCall: NSObject {
       config = VGClientConfig(region: .US)
     } else {
       switch region {
-        case "US":
-          config = VGClientConfig(region: .US)
         case "EU":
           config = VGClientConfig(region: .EU)
         case "AP":
           config = VGClientConfig(region: .AP)
+        default:
+          config = VGClientConfig(region: .US)
       }
     }
+    client.setConfig(config)
     client.createSession(jwt) { error, sessionId in
       if let error = error {
         print("[RNVonageVoiceCall] Error creating session: \(error)")
         reject("SESSION_ERROR", error.localizedDescription, error)
       } else {
-        client.setConfig(config)
         resolve(sessionId)
       }
     }
