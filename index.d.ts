@@ -3,5 +3,6 @@ declare module 'react-native-vonage-voice-call' {
     static createSession(jwt: string, region?: 'EU' | 'US' | 'AP'): Promise<string>;
     static registerVoipToken(voipToken: string): Promise<string>;
     static call(number: string): Promise<string>;
+    static endCall(): Promise<string>;
   }
 }

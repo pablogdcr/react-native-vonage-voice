@@ -73,6 +73,21 @@ class RNVonageVoiceCall: NSObject {
       }
     }
   }
+
+  @objc(endCall:rejecter:)
+  func endCall(resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    if let callId = self.callId {
+      client.hangup(callId) { error in
+        if let error {
+          print("[RNVonageVoiceCall] Error hanging up call: \(error)")
+          reject("HANGUP_ERROR", error.localizedDescription, error)
+        }
+        resolve(nil)
+      }
+    } else {
+      reject("NO_CALL", "No active call", nil)
+    }
+  }
 }
 
 //   @objc(registerForVoIPPushes)

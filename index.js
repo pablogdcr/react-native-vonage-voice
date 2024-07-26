@@ -21,4 +21,8 @@ export default class RNVonageVoiceCall {
   static call(number) {
     return RNVonageVoiceCallModule.call(number);
   }
+
+  static endCall() {
+    return RNVonageVoiceCallModule.endCall();
+  }
 };
