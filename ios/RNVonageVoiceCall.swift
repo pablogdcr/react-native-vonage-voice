@@ -122,7 +122,6 @@ class RNVonageVoiceCall: NSObject {
 
 //     // sendEvent(withName: "RNVonageVoiceCallRemoteNotificationReceivedEvent", body: payload.dictionaryPayload)
 //   }
-}
 
 
 extension RNVonageVoiceCall: VGVoiceClientDelegate {
