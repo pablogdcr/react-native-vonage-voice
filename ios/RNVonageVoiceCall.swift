@@ -45,12 +45,12 @@ class RNVonageVoiceCall: NSObject {
   @objc(answer:resolver:rejecter:)
   func answer(_ callId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     client.answer(callId) { error in
-      if error == nil {
-        self.callId = callId
-        resolve(nil)
-      } else {
+      if let error {
         print("[RNVonageVoiceCall] Error answering call: \(error)")
         reject("ANSWER_ERROR", error.localizedDescription, error)
+      } else {
+        self.callId = callId
+        resolve(nil)
       }
     }
   }
