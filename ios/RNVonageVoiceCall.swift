@@ -40,7 +40,7 @@ class RNVonageVoiceCall: NSObject {
 
   @objc(answer:caller:)
   func answer(_ callId: String, caller: String) {
-    client.answer(callId!) { error in
+    client.answer(callId) { error in
       if error == nil {
         self.callId = callId
       }
@@ -52,7 +52,7 @@ class RNVonageVoiceCall: NSObject {
     client.reject(callId) { error in
       if let error {
         print("[RNVonageVoiceCall] Error rejecting call: \(error)")
-        throw error
+        // throw error
       }
     }
   }
