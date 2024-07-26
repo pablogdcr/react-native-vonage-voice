@@ -2,6 +2,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.withXcodeLinkBinaryWithLibraries = void 0;
 const config_plugins_1 = require("expo/config-plugins");
 
+const withXcodeLinkBinaryWithLibraries = (config, { library, status }) => {
+  return (0, config_plugins_1.withXcodeProject)(config, (config) => {
+      const options = status === "optional" ? { weak: true } : {};
+      const target = config_plugins_1.IOSConfig.XcodeUtils.getApplicationNativeTarget({
+          project: config.modResults,
+          projectName: config.modRequest.projectName,
+      });
+      config.modResults.addFramework(library, {
+          target: target.uuid,
+          ...options,
+      });
+      return config;
+  });
+};
+
 const withIosVonageVoiceCall = (config) => {
   config = (0, config_plugins_1.withInfoPlist)(config, (config) => {
     if (!Array.isArray(config.modResults.UIBackgroundModes)) {
