@@ -16,4 +16,10 @@ RCT_EXTERN_METHOD(
   rejecter:           (RCTPromiseRejectBlock)reject
 )
 
+RCT_EXTERN_METHOD(
+  call:     (NSString *)number
+  resolver: (RCTPromiseResolveBlock)resolve
+  rejecter: (RCTPromiseRejectBlock)reject
+)
+
 @end

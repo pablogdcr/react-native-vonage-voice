@@ -17,4 +17,8 @@ export default class RNVonageVoiceCall {
   static registerVoipToken(token) {
     return RNVonageVoiceCallModule.registerVoipToken(token);
   }
+
+  static call(number) {
+    return RNVonageVoiceCallModule.call(number);
+  }
 };
