@@ -18,6 +18,14 @@ export default class RNVonageVoiceCall {
     return RNVonageVoiceCallModule.registerVoipToken(token);
   }
 
+  static answer(callId) {
+    return RNVonageVoiceCallModule.answer(callId);
+  }
+
+  static reject(callId) {
+    return RNVonageVoiceCallModule.reject(callId);
+  }
+
   static call(number) {
     return RNVonageVoiceCallModule.call(number);
   }

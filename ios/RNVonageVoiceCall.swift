@@ -42,21 +42,27 @@ class RNVonageVoiceCall: NSObject {
     }
   }
 
-  @objc(answer:caller:)
-  func answer(_ callId: String, caller: String) {
+  @objc(answer:resolver:rejecter:)
+  func answer(_ callId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     client.answer(callId) { error in
       if error == nil {
         self.callId = callId
+        resolve(nil)
+      } else {
+        print("[RNVonageVoiceCall] Error answering call: \(error)")
+        reject("ANSWER_ERROR", error.localizedDescription, error)
       }
     }
   }
 
-  @objc(reject:)
-  func reject(_ callId: String) {
+  @objc(reject:resolver:rejecter:)
+  func reject(_ callId: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
     client.reject(callId) { error in
       if let error {
         print("[RNVonageVoiceCall] Error rejecting call: \(error)")
-        // throw error
+        reject("REJECT_ERROR", error.localizedDescription, error)
+      } else {
+        resolve(nil)
       }
     }
   }

@@ -17,6 +17,18 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
+  answer:             (NSString *)callId
+  resolver:           (RCTPromiseResolveBlock)resolve
+  rejecter:           (RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  reject:             (NSString *)callId
+  resolver:           (RCTPromiseResolveBlock)resolve
+  rejecter:           (RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
   call:     (NSString *)number
   resolver: (RCTPromiseResolveBlock)resolve
   rejecter: (RCTPromiseRejectBlock)reject
