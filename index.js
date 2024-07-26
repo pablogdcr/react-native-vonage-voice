@@ -10,8 +10,8 @@ const RNVonageVoiceCallModule = NativeModules.RNVonageVoiceCall;
 // const _eventHandlers = new Map();
 
 export default class RNVonageVoiceCall {
-  static createSession(jwt) {
-    return RNVonageVoiceCallModule.createSession(jwt);
+  static createSession(jwt, region) {
+    return RNVonageVoiceCallModule.createSession(jwt, region);
   }
 
   static registerVoipToken(token) {

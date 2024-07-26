@@ -1,6 +1,12 @@
 import Foundation
 import VonageClientSDKVoice
 
+enum ConfigRegion {
+    case .US
+    case .EU
+    case .AP
+}
+
 @objc(RNVonageVoiceCall)
 class RNVonageVoiceCall: NSObject {
   let client = VGVoiceClient()
@@ -11,19 +17,34 @@ class RNVonageVoiceCall: NSObject {
       client.delegate = self
   }
 
-  @objc(createSession:resolver:rejecter:)
-  func createSession(_ jwt: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+  @objc(createSession:region:resolver:rejecter:)
+  func createSession(_ jwt: String, region: String?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+    let config: VGClientConfig;
+
+    if region == nil {
+      config = VGClientConfig(region: .US)
+    } else {
+      switch region {
+        case "US":
+          config = VGClientConfig(region: .US)
+        case "EU":
+          config = VGClientConfig(region: .EU)
+        case "AP":
+          config = VGClientConfig(region: .AP)
+      }
+    }
     client.createSession(jwt) { error, sessionId in
       if let error = error {
         print("[RNVonageVoiceCall] Error creating session: \(error)")
         reject("SESSION_ERROR", error.localizedDescription, error)
       } else {
+        client.setConfig(config)
         resolve(sessionId)
       }
     }
   }
 
-  @objc(answer:)
+  @objc(answer:caller:)
   func answer(_ callId: String, caller: String) {
     client.answer(callId!) { error in
       if error == nil {
@@ -110,11 +131,7 @@ class RNVonageVoiceCall: NSObject {
 }
 
 
-extension RNVonageVoiceCall: VGClientDelegate, VGVoiceClientDelegate {
-  func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
-    print("[RNVonageVoiceCall] Session error: \(reason)")
-  }
-
+extension RNVonageVoiceCall: VGVoiceClientDelegate {
   func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: String, from caller: String, with type: VGVoiceChannelType) {
     NSLog("Incoming call from \(caller)")
       // DispatchQueue.main.async { [weak self] in

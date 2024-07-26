@@ -5,6 +5,7 @@
 
 RCT_EXTERN_METHOD(
   createSession:  (NSString *)jwt
+  region:         (NSString *)region
   resolver:       (RCTPromiseResolveBlock)resolve
   rejecter:       (RCTPromiseRejectBlock)reject
 )
