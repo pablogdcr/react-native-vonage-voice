@@ -8,12 +8,11 @@ RCT_EXTERN_METHOD(
   resolver:       (RCTPromiseResolveBlock)resolve
   rejecter:       (RCTPromiseRejectBlock)reject
 )
+
 RCT_EXTERN_METHOD(
   registerVoipToken:  (NSString *)token
   resolver:           (RCTPromiseResolveBlock)resolve
   rejecter:           (RCTPromiseRejectBlock)reject
 )
-
-RCT_EXTERN_METHOD(registerForVoIPPushes)
 
 @end
