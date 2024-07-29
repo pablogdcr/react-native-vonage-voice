@@ -14,7 +14,7 @@ final class ProviderDelegate: NSObject {
   }
   
   static var providerConfiguration: CXProviderConfiguration = {
-    let providerConfiguration = CXProviderConfiguration()
+    let providerConfiguration = CXProviderConfiguration(localizedName: "Allo")
     providerConfiguration.maximumCallsPerCallGroup = 1
     providerConfiguration.supportedHandleTypes = [.generic, .phoneNumber]
 
@@ -39,12 +39,12 @@ final class ProviderDelegate: NSObject {
   
   func didReceiveHangup(_ callID: String) {
     let uuid = UUID(uuidString: callID)!
-    provider.reportCall(with: uuid, endedAt: Date.now, reason: .remoteEnded)
+    provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
   }
   
   func reportFailedCall(_ callID: String) {
     let uuid = UUID(uuidString: callID)!
-    provider.reportCall(with: uuid, endedAt: Date.now, reason: .failed)
+    provider.reportCall(with: uuid, endedAt: Date(), reason: .failed)
   }
   
   private func hangup(action: CXEndCallAction) {

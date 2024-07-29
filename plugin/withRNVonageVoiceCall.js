@@ -1,6 +1,4 @@
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.withXcodeLinkBinaryWithLibraries = void 0;
-const config_plugins_1 = require("expo/config-plugins");
+const config_plugins_1 = require('@expo/config-plugins');
 const generateCode = require('@expo/config-plugins/build/utils/generateCode');
 const ensureHeaderSearchPath_1 = require("./ensureHeaderSearchPath");
 

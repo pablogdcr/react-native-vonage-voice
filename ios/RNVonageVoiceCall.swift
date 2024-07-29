@@ -1,8 +1,19 @@
 import PushKit
 import Foundation
+import React
 import VonageClientSDKVoice
 
-final class RNVonageVoiceCall: NSObject {
+// @objc protocol VGVoiceClientDelegate {
+//   func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, withChannelType type: VGVoiceChannelType)
+//   func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, andReason: VGHangupReason)
+//   func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, withReason reason: VGVoiceInviteCancelReason)
+//   func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason)
+// }
+
+// typealias VGCallId = String
+
+@objc
+public final class RNVonageVoiceCall: NSObject {
   public var pushToken: Data?
 
   private let client = VGVoiceClient()
@@ -13,7 +24,7 @@ final class RNVonageVoiceCall: NSObject {
   private var storedAction: (() -> Void)?
   private var isActiveCall = false
 
-  static let shared = RNVonageVoiceCall()
+  public static let shared = RNVonageVoiceCall()
 
   override init() {
     super.init()
@@ -21,11 +32,11 @@ final class RNVonageVoiceCall: NSObject {
   }
 
   private func initializeClient() {
-    client.delegate = self
+    // client.delegate = self
   }
 
   @objc(setRegion:)
-  func setRegion(region: String?) {
+  public func setRegion(region: String?) {
     let config: VGClientConfig;
 
     if region == nil {
@@ -44,7 +55,7 @@ final class RNVonageVoiceCall: NSObject {
   }
 
   @objc(login:isPushLogin:completion:)
-  func login(jwt: String, isPushLogin: Bool = false, completion: @escaping (Error?) -> Void) {
+  public func login(jwt: String, isPushLogin: Bool = false, completion: @escaping (Error?) -> Void) {
     print("VPush: Login - isPush:", isPushLogin)
     guard !isActiveCall else { return }
     
@@ -79,12 +90,12 @@ final class RNVonageVoiceCall: NSObject {
   }
 
   @objc(isVonagePush:)
-  func isVonagePush(with userInfo: [AnyHashable : Any]) -> Bool {
+  public func isVonagePush(with userInfo: [AnyHashable : Any]) -> Bool {
     VGVoiceClient.vonagePushType(userInfo) == .unknown ? false : true
   }
 
   @objc(invalidatePushToken:)
-  func invalidatePushToken(_ completion: (() -> Void)? = nil) {
+  public func invalidatePushToken(_ completion: (() -> Void)? = nil) {
     if let deviceId = UserDefaults.standard.object(forKey: Constants.deviceId) as? String {
       print("VPush: Invalidate token")
       client.unregisterDeviceTokens(byDeviceId: deviceId) { error in
@@ -106,13 +117,13 @@ final class RNVonageVoiceCall: NSObject {
     would be called.
     */
   @objc(processPushPayload:pushKitCompletion:)
-  func processPushPayload(with payload: [AnyHashable : Any], pushKitCompletion: @escaping () -> Void) -> String? {
+  public func processPushPayload(with payload: [AnyHashable : Any], pushKitCompletion: @escaping () -> Void) -> String? {
     self.ongoingPushKitCompletion = pushKitCompletion
     return client.processCallInvitePushData(payload)
   }
     
   @objc(answer:completion:)
-  func answer(_ callID: String, completion: @escaping (Error?) -> Void) {
+  public func answer(_ callID: String, completion: @escaping (Error?) -> Void) {
     let answerAction = {
       print("VPush: Answer", callID)
       self.isActiveCall = true
@@ -128,7 +139,7 @@ final class RNVonageVoiceCall: NSObject {
   }
 
   @objc(reject:completion:) 
-  func reject(_ callID: String, completion: @escaping (Error?) -> Void) {
+  public func reject(_ callID: String, completion: @escaping (Error?) -> Void) {
     let rejectAction = {
       print("VPush: Reject", callID)
       self.isActiveCall = false
@@ -144,10 +155,10 @@ final class RNVonageVoiceCall: NSObject {
   }
 
   @objc(voipRegistration)
-  func voipRegistration() {
-    DispatchQueue.main.async { [weak self] in
+  public func voipRegistration() {
+    DispatchQueue.main.async { [self] in
       let voipRegistry: PKPushRegistry = PKPushRegistry(queue: nil)
-      voipRegistry.delegate = RCTSharedApplication().delegate as? RNVoipPushNotificationManager
+      voipRegistry.delegate = RCTSharedApplication()?.delegate as? PKPushRegistryDelegate
       voipRegistry.desiredPushTypes = [PKPushType.voIP]
     }
   }
@@ -193,30 +204,28 @@ final class RNVonageVoiceCall: NSObject {
     
 }
 
-// MARK:-  VGVoiceClientDelegate
-
-extension RNVonageVoiceCall: VGVoiceClientDelegate {
+@objc extension RNVonageVoiceCall: VGVoiceClientDelegate {
   /*
     After the Client SDK is done processing the incoming push,
     You will receive the call here
   */
-  func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
+  public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
     print("VPush: Received invite", callId)
     providerDelegate.reportCall(callId, caller: caller, completion: ongoingPushKitCompletion)
   }
   
-  func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
+  public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
     print("VPush: Received hangup")
     isActiveCall = false
     providerDelegate.didReceiveHangup(callId)
   }
   
-  func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, with reason: VGVoiceInviteCancelReason) {
+  public func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, with reason: VGVoiceInviteCancelReason) {
     print("VPush: Received invite cancel")
     providerDelegate.reportFailedCall(callId)
   }
   
-  func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
+  public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
     let reasonString: String!
     
     switch reason {
