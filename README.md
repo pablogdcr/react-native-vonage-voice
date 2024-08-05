@@ -5,7 +5,7 @@ Vonage
 ## Installation
 
 ```sh
-npm install react-native-vonage-voice
+npm install @themobilefirstcompany/react-native-vonage-voice
 ```
 
 ## Usage
