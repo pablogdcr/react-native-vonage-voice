@@ -1,5 +1,5 @@
 {
-  "name": "react-native-vonage-voice",
+  "name": "@themobilefirstcompany/react-native-vonage-voice",
   "version": "0.1.0",
   "description": "React-Native package for the Vonage Client SDK Voice",
   "source": "./src/index.tsx",
@@ -183,5 +183,8 @@
     "type": "module-legacy",
     "languages": "kotlin-swift",
     "version": "0.40.0"
+  },
+  "directories": {
+    "example": "example"
   }
 }
