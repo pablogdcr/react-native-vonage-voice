@@ -178,20 +178,20 @@ struct Constants {
      You will receive the call here
      */
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
-        EventEmitter.shared.sendEvent(withName: Event.receivedInvite.rawValue, body: ["callId": callId])
+        EventEmitter.shared.sendEvent(withName: Event.receivedInvite.rawValue, body: ["callId": callId, "caller": caller])
         print("VPush: Received invite", callId)
         //    providerDelegate.reportCall(callId, caller: caller, completion: ongoingPushKitCompletion)
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
-        EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId])
+        EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "callQuality": callQuality.rawValue, "reason": reason.rawValue])
         print("VPush: Received hangup", client, callId, callQuality, reason)
         isActiveCall = false
         //    providerDelegate.didReceiveHangup(callId)
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, with reason: VGVoiceInviteCancelReason) {
-        EventEmitter.shared.sendEvent(withName: Event.receivedCancel.rawValue, body: ["callId": callId])
+        EventEmitter.shared.sendEvent(withName: Event.receivedCancel.rawValue, body: ["callId": callId, "reason": reason.rawValue])
         print("VPush: Received invite cancel", client, callId, reason)
         //    providerDelegate.reportFailedCall(callId)
     }

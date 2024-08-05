@@ -1,4 +1,9 @@
-import { NativeModules, Platform } from 'react-native';
+import { NativeModules, Platform, NativeEventEmitter } from 'react-native';
+import type {
+  EventReceivedInvite,
+  EventReceivedHangup,
+  EventReceivedCancel,
+} from './types';
 
 const LINKING_ERROR =
   `The package 'react-native-vonage-voice' doesn't seem to be linked. Make sure: \n\n` +
@@ -49,9 +54,11 @@ type NativeModule = {
   removeListeners: (count: number) => void;
 };
 
-export const VonageEventEmitter = VonageNativeEventEmitter as NativeModule;
+const VonageEventEmitter = VonageNativeEventEmitter as NativeModule;
 
-export class RNVonageVoiceCall {
+class RNVonageVoiceCall {
+  private static eventEmitter = new NativeEventEmitter(VonageEventEmitter);
+
   static async createSession(jwt: string, region: 'US' | 'EU') {
     if (region != null) {
       VonageVoice.setRegion(region);
@@ -91,4 +98,22 @@ export class RNVonageVoiceCall {
       throw error;
     }
   }
+
+  static onReceivedInvite(callback: (event: EventReceivedInvite) => void) {
+    return this.eventEmitter.addListener('receivedInvite', callback);
+  }
+
+  static onReceivedHangup(callback: (event: EventReceivedHangup) => void) {
+    return this.eventEmitter.addListener('receivedHangup', callback);
+  }
+
+  static onReceivedCancel(callback: (event: EventReceivedCancel) => void) {
+    return this.eventEmitter.addListener('receivedCancel', callback);
+  }
+
+  static onConnectionStatusChange(callback: (event: any) => void) {
+    return this.eventEmitter.addListener('connectionStatusChange', callback);
+  }
 }
+
+export default RNVonageVoiceCall;

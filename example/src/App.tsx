@@ -1,27 +1,15 @@
 import { useEffect, useState } from 'react';
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  NativeEventEmitter,
-} from 'react-native';
-import {
-  VonageEventEmitter,
-  RNVonageVoiceCall,
-} from 'react-native-vonage-voice';
-
-const eventEmitter = new NativeEventEmitter(VonageEventEmitter);
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import RNVonageVoiceCall from 'react-native-vonage-voice';
 
 export default function App() {
   const [connectionStatus, setConnectionStatus] = useState('Disconnected');
 
   useEffect(() => {
-    const subscription = eventEmitter.addListener('receivedInvite', (event) => {
+    const subscription = RNVonageVoiceCall.onReceivedInvite((event) => {
       console.log('receivedInvite:', event);
     });
 
-    // Clean up the subscription on unmount
     return () => {
       subscription.remove();
     };
