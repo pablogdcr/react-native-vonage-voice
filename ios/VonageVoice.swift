@@ -15,7 +15,7 @@ class VonageVoice: NSObject {
     }
     
     private func initializeClient() {
-        VGVoiceClient.isUsingCallKit = true
+        VGVoiceClient.isUsingCallKit = false
     }
     
     @objc(setRegion:)
@@ -34,6 +34,7 @@ class VonageVoice: NSObject {
                 config = VGClientConfig(region: .US)
             }
         }
+        config.enableWebsocketInvites = true
         client.setConfig(config)
         client.delegate = self
     }
