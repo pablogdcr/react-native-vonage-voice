@@ -54,9 +54,14 @@ class VonageVoice: NSObject {
         }
     }
 
-    @objc(registerVoipToken:resolver:rejecter:)
+    @objc(registerVoipToken:isSandbox:resolver:rejecter:)
     func registerVoipToken(token: String, isSandbox: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         let tokenData = token.data(using: .utf8)
+
+        guard let tokenData = tokenData else {
+            reject("Invalid token", "Token is not a valid string", nil)
+            return
+        }
 
         shouldRegisterToken(with: tokenData) { shouldRegister in
             if shouldRegister {
@@ -93,7 +98,6 @@ class VonageVoice: NSObject {
         if let deviceId = UserDefaults.standard.object(forKey: Constants.deviceId) as? String {
             client.unregisterDeviceTokens(byDeviceId: deviceId) { error in
                 if error == nil {
-                    self.pushToken = nil
                     UserDefaults.standard.removeObject(forKey: Constants.pushToken)
                     UserDefaults.standard.removeObject(forKey: Constants.deviceId)
                     completion?()
@@ -159,7 +163,7 @@ struct Constants {
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
-        EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "callQuality": callQuality.rawValue, "reason": reason.rawValue])
+        EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": reason.rawValue])
         isActiveCall = false
     }
     

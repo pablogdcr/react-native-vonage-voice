@@ -1,9 +1,5 @@
 import { NativeModules, Platform, NativeEventEmitter } from 'react-native';
-import type {
-  EventReceivedInvite,
-  EventReceivedHangup,
-  EventReceivedCancel,
-} from './types';
+import type { EventWithCallId, EventWithReason } from './types';
 
 const LINKING_ERROR =
   `The package 'react-native-vonage-voice' doesn't seem to be linked. Make sure: \n\n` +
@@ -112,15 +108,15 @@ class RNVonageVoiceCall {
     }
   }
 
-  static onReceivedInvite(callback: (event: EventReceivedInvite) => void) {
+  static onReceivedInvite(callback: (event: EventWithCallId) => void) {
     return this.eventEmitter.addListener('receivedInvite', callback);
   }
 
-  static onReceivedHangup(callback: (event: EventReceivedHangup) => void) {
+  static onReceivedHangup(callback: (event: EventWithReason) => void) {
     return this.eventEmitter.addListener('receivedHangup', callback);
   }
 
-  static onReceivedCancel(callback: (event: EventReceivedCancel) => void) {
+  static onReceivedCancel(callback: (event: EventWithReason) => void) {
     return this.eventEmitter.addListener('receivedCancel', callback);
   }
 
