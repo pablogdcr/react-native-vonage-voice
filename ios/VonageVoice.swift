@@ -2,12 +2,8 @@ import VonageClientSDKVoice
 
 @objc(VonageVoice)
 class VonageVoice: NSObject {
-    
-    public var pushToken: Data?
-    
     private let client = VGVoiceClient()
     
-    private var ongoingPushLogin = false
     private var ongoingPushKitCompletion: () -> Void = { }
     private var storedAction: (() -> Void)?
     private var isActiveCall = false
@@ -19,7 +15,7 @@ class VonageVoice: NSObject {
     }
     
     private func initializeClient() {
-        VGVoiceClient.isUsingCallKit = false
+        VGVoiceClient.isUsingCallKit = true
     }
     
     @objc(setRegion:)
@@ -38,62 +34,44 @@ class VonageVoice: NSObject {
                 config = VGClientConfig(region: .US)
             }
         }
-        config.enableWebsocketInvites = true
         client.setConfig(config)
         client.delegate = self
     }
 
-    @objc(login:isPushLogin:resolver:rejecter:)
-    public func login(jwt: String, isPushLogin: Bool = false, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        print("VPush: Login - isPush:", isPushLogin)
+    @objc(login:resolver:rejecter:)
+    public func login(jwt: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         guard !isActiveCall else {
             resolve(nil)
             return
         }
         
-        ongoingPushLogin = isPushLogin
-        
         client.createSession(jwt) { error, sessionID in
             if error == nil {
-                if isPushLogin {
-                    self.handlePushLogin()
-                } else {
-                    self.handleLogin()
-                }
-                resolve("Connected")
+                resolve(sessionID)
             } else {
                 reject("LOGIN_ERROR", error?.localizedDescription, error)
             }
         }
     }
-    
-    
-    private func handlePushLogin() {
-        ongoingPushLogin = false
-        
-        storedAction?()
-    }
-    
-    private func handleLogin() {
-        if let token = pushToken {
-            registerPushIfNeeded(with: token)
-        }
-    }
-    
-    private func registerPushIfNeeded(with token: Data) {
-        shouldRegisterToken(with: token) { shouldRegister in
+
+    @objc(registerVoipToken:resolver:rejecter:)
+    func registerVoipToken(token: String, isSandbox: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        let tokenData = token.data(using: .utf8)
+
+        shouldRegisterToken(with: tokenData) { shouldRegister in
             if shouldRegister {
-                self.client.registerVoipToken(token, isSandbox: true) { error, deviceId in
+                self.client.registerVoipToken(tokenData, isSandbox: isSandbox) { error, deviceId in
                     if error == nil {
-                        print("VPush: push token registered")
-                        UserDefaults.standard.setValue(token, forKey: Constants.pushToken)
+                        UserDefaults.standard.setValue(tokenData, forKey: Constants.pushToken)
                         UserDefaults.standard.setValue(deviceId, forKey: Constants.deviceId)
+                        resolve(deviceId)
                     } else {
-                        print("VPush: registration error: \(String(describing: error))")
+                        reject("Failed to register token", error?.localizedDescription, error)
                         return
                     }
                 }
             }
+            resolve(nil)
         }
     }
     
@@ -113,7 +91,6 @@ class VonageVoice: NSObject {
     @objc(invalidatePushToken:)
     public func invalidatePushToken(_ completion: (() -> Void)? = nil) {
         if let deviceId = UserDefaults.standard.object(forKey: Constants.deviceId) as? String {
-            print("VPush: Invalidate token")
             client.unregisterDeviceTokens(byDeviceId: deviceId) { error in
                 if error == nil {
                     self.pushToken = nil
@@ -179,21 +156,15 @@ struct Constants {
      */
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
         EventEmitter.shared.sendEvent(withName: Event.receivedInvite.rawValue, body: ["callId": callId, "caller": caller])
-        print("VPush: Received invite", callId)
-        //    providerDelegate.reportCall(callId, caller: caller, completion: ongoingPushKitCompletion)
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
         EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "callQuality": callQuality.rawValue, "reason": reason.rawValue])
-        print("VPush: Received hangup", client, callId, callQuality, reason)
         isActiveCall = false
-        //    providerDelegate.didReceiveHangup(callId)
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, with reason: VGVoiceInviteCancelReason) {
         EventEmitter.shared.sendEvent(withName: Event.receivedCancel.rawValue, body: ["callId": callId, "reason": reason.rawValue])
-        print("VPush: Received invite cancel", client, callId, reason)
-        //    providerDelegate.reportFailedCall(callId)
     }
     
     public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
@@ -208,6 +179,5 @@ struct Constants {
             reasonString = "Unknown"
         }
         EventEmitter.shared.sendEvent(withName: Event.receivedSessionError.rawValue, body: ["reason": reasonString])
-        print("VPush: Session error", reasonString)
     }
 }

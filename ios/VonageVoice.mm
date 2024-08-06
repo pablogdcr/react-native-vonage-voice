@@ -5,7 +5,11 @@
 RCT_EXTERN_METHOD(setRegion:(NSString*)region)
 
 RCT_EXTERN_METHOD(login:(NSString *)jwt
-                 isPushLogin:(BOOL)isPushLogin
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(registerVoipToken:(NSString *)token
+                 isSandbox:(BOOL)isSandbox
                  resolver:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject)
 

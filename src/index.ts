@@ -13,7 +13,11 @@ const LINKING_ERROR =
 
 interface RNVonageVoiceCallModuleInterface {
   setRegion(region: 'US' | 'EU'): void;
-  login(jwt: string, isPushLogin: boolean): Promise<string | null>;
+  login(jwt: string): Promise<string | null>;
+  registerVoipToken: (
+    token: string,
+    isSandbox: boolean
+  ) => Promise<string | null>;
   answerCall(callId: string): Promise<string | null>;
   rejectCall(callId: string): Promise<string | null>;
   hangup(callId: string): Promise<string | null>;
@@ -65,7 +69,16 @@ class RNVonageVoiceCall {
     }
 
     try {
-      return await VonageVoice.login(jwt, false);
+      return await VonageVoice.login(jwt);
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  }
+
+  static async registerVoipToken(token: string, isSandbox?: boolean) {
+    try {
+      return await VonageVoice.registerVoipToken(token, isSandbox ?? false);
     } catch (error) {
       console.error(error);
       throw error;
