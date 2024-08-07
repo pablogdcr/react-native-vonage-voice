@@ -8,6 +8,7 @@ class VonageVoice: NSObject {
     private var storedAction: (() -> Void)?
     private var isActiveCall = false
     private var callID: String?
+    private var isLoggedIn = false
     
     override init() {
         super.init()
@@ -45,14 +46,24 @@ class VonageVoice: NSObject {
             resolve(nil)
             return
         }
+        guard !isLoggedIn else {
+            reject("LOGIN_ERROR", "User is already logged in", nil)
+            return
+        }
         
         client.createSession(jwt) { error, sessionID in
             if error == nil {
+                self.isLoggedIn = true
                 resolve(sessionID)
             } else {
                 reject("LOGIN_ERROR", error?.localizedDescription, error)
             }
         }
+    }
+
+    @objc(getIsLoggedIn:rejecter:)
+    public func getIsLoggedIn(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        resolve(isLoggedIn)
     }
 
     @objc(registerVoipToken:isSandbox:resolver:rejecter:)
