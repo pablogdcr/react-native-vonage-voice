@@ -103,6 +103,10 @@ class RNVonageVoiceCall {
     return await VonageVoice.refreshSession(jwt);
   }
 
+  static async deleteSession() {
+    return await VonageVoice.deleteSession();
+  }
+
   static isLoggedIn() {
     return VonageVoice.getIsLoggedIn();
   }
