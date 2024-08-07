@@ -40,7 +40,28 @@ class VonageVoice: NSObject {
         client.delegate = self
     }
 
-    @objc(login:resolver:rejecter:)
+    @objc(createSessionWithSessionID:sessionID:resolver:rejecter:)
+    public func loginWithSessionID(jwt: String, sessionID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard !isActiveCall else {
+            resolve(nil)
+            return
+        }
+        guard !isLoggedIn else {
+            reject("LOGIN_ERROR", "User is already logged in", nil)
+            return
+        }
+
+        client.createSession(jwt, sessionId: sessionID) { error, sessionID in
+            if error == nil {
+                self.isLoggedIn = true
+                resolve(sessionID)
+            } else {
+                reject("LOGIN_ERROR", error?.localizedDescription, error)
+            }
+        }
+    }
+
+    @objc(createSession:resolver:rejecter:)
     public func login(jwt: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         guard !isActiveCall else {
             resolve(nil)
@@ -50,7 +71,7 @@ class VonageVoice: NSObject {
             reject("LOGIN_ERROR", "User is already logged in", nil)
             return
         }
-        
+
         client.createSession(jwt) { error, sessionID in
             if error == nil {
                 self.isLoggedIn = true
@@ -58,6 +79,89 @@ class VonageVoice: NSObject {
             } else {
                 reject("LOGIN_ERROR", error?.localizedDescription, error)
             }
+        }
+    }
+
+    @objc(refreshSession:resolver:rejecter:)
+    public func refreshSession(jwt: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard isLoggedIn else {
+            reject("REFRESH_SESSION_ERROR", "User is not logged in", nil)
+            return
+        }
+
+        client.refreshSession(jwt) { error in
+            if error == nil {
+                resolve(["success": true])
+            } else {
+                reject("REFRESH_SESSION_ERROR", error?.localizedDescription, error)
+            }
+        }
+    }
+
+    @objc(deleteSession:rejecter:)
+    public func logout(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard isLoggedIn else {
+            reject("LOGOUT_ERROR", "User is not logged in", nil)
+            return
+        }
+        
+        client.deleteSession { error in
+            if error == nil {
+                self.isLoggedIn = false
+                resolve(["success": true])
+            } else {
+                reject("LOGOUT_ERROR", error?.localizedDescription, error)
+            }
+        }
+    }
+
+    @objc(mute:resolver:rejecter:)
+    public func mute(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        self.client.mute(callID) { error in
+            if error == nil {
+                resolve(["success": true])
+            } else {
+                reject("Failed to mute", error?.localizedDescription, error)
+            }
+        }
+    }
+
+    @objc(unmute:resolver:rejecter:)
+    public func unmute(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        self.client.unmute(callID) { error in
+            if error == nil {
+                resolve(["success": true])
+            } else {
+                reject("Failed to unmute", error?.localizedDescription, error)
+            }
+        }
+    }
+
+    @objc(enableSpeaker:rejecter:)
+    public func enableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        let audioSession = AVAudioSession.sharedInstance()
+
+        do {
+            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: .defaultToSpeaker)
+            try audioSession.setActive(true)
+            VGVoiceClient.enableAudio(audioSession)
+            resolve(["success": true])
+        } catch {
+            reject("Failed to enable speaker", error.localizedDescription, error)
+        }
+    }
+
+    @objc(disableSpeaker:rejecter:)
+    public func disableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        let audioSession = AVAudioSession.sharedInstance()
+
+        do {
+            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: .defaultToSpeaker)
+            try audioSession.setActive(true)
+            VGVoiceClient.disableAudio(audioSession)
+            resolve(["success": true])
+        } catch {
+            reject("Failed to disable speaker", error.localizedDescription, error)
         }
     }
 

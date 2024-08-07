@@ -4,7 +4,19 @@
 
 RCT_EXTERN_METHOD(setRegion:(NSString*)region)
 
-RCT_EXTERN_METHOD(login:(NSString *)jwt
+RCT_EXTERN_METHOD(createSession:(NSString *)jwt
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(createSessionWithSessionID:(NSString *)jwt
+                 sessionID:(NSString *)sessionID
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(deleteSession:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(refreshSession:(NSString *)jwt
                  resolver:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject)
 
@@ -27,6 +39,20 @@ RCT_EXTERN_METHOD(hangup:(NSString *)callId
 
 RCT_EXTERN_METHOD(getIsLoggedIn:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(mute:(NSString *)callId
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(unmute:(NSString *)callId
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(enableSpeaker:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(disableSpeaker:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
 
 + (BOOL)requiresMainQueueSetup
 {
