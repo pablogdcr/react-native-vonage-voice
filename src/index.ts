@@ -10,7 +10,7 @@ const LINKING_ERROR =
 interface RNVonageVoiceCallModuleInterface {
   setRegion(region: 'US' | 'EU'): void;
   login(jwt: string): Promise<string | null>;
-  getIsLoggedIn(): boolean;
+  getIsLoggedIn(): Promise<boolean>;
   registerVoipToken: (
     token: string,
     isSandbox: boolean
