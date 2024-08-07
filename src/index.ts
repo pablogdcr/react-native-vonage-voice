@@ -10,7 +10,7 @@ const LINKING_ERROR =
 interface RNVonageVoiceCallModuleInterface {
   setRegion(region: 'US' | 'EU'): void;
   login(jwt: string): Promise<string | null>;
-  isLoggedIn(): boolean;
+  getIsLoggedIn(): boolean;
   registerVoipToken: (
     token: string,
     isSandbox: boolean
@@ -69,7 +69,7 @@ class RNVonageVoiceCall {
   }
 
   static isLoggedIn() {
-    return VonageVoice.isLoggedIn();
+    return VonageVoice.getIsLoggedIn();
   }
 
   static async registerVoipToken(token: string, isSandbox?: boolean) {
