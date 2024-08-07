@@ -165,6 +165,20 @@ class VonageVoice: NSObject {
         }
     }
 
+    // @objc(getCallLegs:resolver:rejecter:)
+    // public func getCallLegs(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    //     self.client.getCallLegs(callID) { error, callLegs in
+    //         if error == nil {
+    //             if let callLegs = callLegs {
+    //                 print(callLegs.legs[0].status)
+    //             }
+    //             resolve(callLegs)
+    //         } else {
+    //             reject("Failed to get call legs", error?.localizedDescription, error)
+    //         }
+    //     }
+    // }
+
     @objc(getIsLoggedIn:rejecter:)
     public func getIsLoggedIn(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         resolve(isLoggedIn)

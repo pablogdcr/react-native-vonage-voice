@@ -7,6 +7,19 @@ const LINKING_ERROR =
   '- You rebuilt the app after installing the package\n' +
   '- You are not using Expo Go\n';
 
+// interface VGVoiceLeg {
+//   legId: string;
+//   conversationId: string;
+//   direction: string;
+//   status: string;
+//   startTime: string;
+//   endTime: string;
+//   type: string;
+//   from: any;
+//   to: any;
+//   mediaState: any;
+// }
+
 interface RNVonageVoiceCallModuleInterface {
   setRegion(region: 'US' | 'EU'): void;
   createSession(jwt: string): Promise<string | null>;
@@ -28,6 +41,7 @@ interface RNVonageVoiceCallModuleInterface {
   unmute(callId: string): Promise<{ success: true } | null>;
   enableSpeaker(): Promise<{ success: true } | null>;
   disableSpeaker(): Promise<{ success: true } | null>;
+  // getCallLegs(callId: string): Promise<{ legs: VGVoiceLeg[]; previousCursor: string; nextCursor: string }>;
 }
 
 const VonageVoice = NativeModules.VonageVoice
@@ -156,6 +170,14 @@ class RNVonageVoiceCall {
       throw error;
     }
   }
+
+  // static async getCallLegs(callId: string) {
+  //   try {
+  //     return await VonageVoice.getCallLegs(callId);
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // }
 
   static onReceivedInvite(callback: (event: EventWithCallId) => void) {
     return this.eventEmitter.addListener('receivedInvite', callback);

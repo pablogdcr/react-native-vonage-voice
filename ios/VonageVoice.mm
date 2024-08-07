@@ -54,6 +54,10 @@ RCT_EXTERN_METHOD(enableSpeaker:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(disableSpeaker:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+// RCT_EXTERN_METHOD(getCallLegs:(NSString *)callId
+//                  resolver:(RCTPromiseResolveBlock)resolve
+//                  rejecter:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup
 {
   return YES;
