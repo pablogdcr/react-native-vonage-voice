@@ -204,8 +204,20 @@ class RNVonageVoiceCall {
     return this.eventEmitter.addListener('receivedCancel', callback);
   }
 
-  static onConnectionStatusChange(callback: (event: any) => void) {
-    return this.eventEmitter.addListener('connectionStatusChange', callback);
+  static onConnectionStatusChanged(callback: (event: any) => void) {
+    return this.eventEmitter.addListener('connectionStatusChanged', callback);
+  }
+
+  static onCallConnecting(callback: (event: EventWithCallId) => void) {
+    return this.eventEmitter.addListener('callConnecting', callback);
+  }
+
+  static onCallAnswered(callback: (event: EventWithCallId) => void) {
+    return this.eventEmitter.addListener('callAnswered', callback);
+  }
+
+  static onCallRejected(callback: (event: EventWithReason) => void) {
+    return this.eventEmitter.addListener('callRejected', callback);
   }
 }
 

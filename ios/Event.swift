@@ -8,6 +8,7 @@
 import Foundation
 
 enum Event: String {
+    case callConnecting
     case callAnswered
     case callRejected
     case connectionStatusChanged
@@ -18,7 +19,8 @@ enum Event: String {
     
     static var supportedEvents: [String] {
         return [
-            Event.callAnswered.rawValue
+            Event.callConnecting.rawValue,
+            Event.callAnswered.rawValue,
             Event.callRejected.rawValue,
             Event.connectionStatusChanged.rawValue,
             Event.receivedCancel.rawValue,
