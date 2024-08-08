@@ -8,19 +8,23 @@
 import Foundation
 
 enum Event: String {
+    case callAnswered
+    case callRejected
     case connectionStatusChanged
-    case receivedInvite
-    case receivedHangup
     case receivedCancel
+    case receivedHangup
+    case receivedInvite
     case receivedSessionError
     
     static var supportedEvents: [String] {
         return [
+            Event.callAnswered.rawValue
+            Event.callRejected.rawValue,
             Event.connectionStatusChanged.rawValue,
-            Event.receivedInvite.rawValue,
-            Event.receivedHangup.rawValue,
             Event.receivedCancel.rawValue,
-            Event.receivedSessionError.rawValue
+            Event.receivedHangup.rawValue,
+            Event.receivedInvite.rawValue,
+            Event.receivedSessionError.rawValue,
         ]
     }
 }

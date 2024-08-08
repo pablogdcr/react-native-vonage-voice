@@ -58,6 +58,10 @@ RCT_EXTERN_METHOD(disableSpeaker:(RCTPromiseResolveBlock)resolve
 //                  resolver:(RCTPromiseResolveBlock)resolve
 //                  rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(handleIncomingPushNotification:(NSDictionary *)notification
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup
 {
   return YES;

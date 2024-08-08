@@ -42,6 +42,9 @@ interface RNVonageVoiceCallModuleInterface {
   enableSpeaker(): Promise<{ success: true } | null>;
   disableSpeaker(): Promise<{ success: true } | null>;
   // getCallLegs(callId: string): Promise<{ legs: VGVoiceLeg[]; previousCursor: string; nextCursor: string }>;
+  handleIncomingPushNotification(notification: {
+    [key: string]: string;
+  }): Promise<string | null>;
 }
 
 const VonageVoice = NativeModules.VonageVoice
@@ -182,6 +185,12 @@ class RNVonageVoiceCall {
   //     throw error;
   //   }
   // }
+
+  static async handleIncomingPushNotification(notification: {
+    [key: string]: string;
+  }) {
+    VonageVoice.handleIncomingPushNotification(notification);
+  }
 
   static onReceivedInvite(callback: (event: EventWithCallId) => void) {
     return this.eventEmitter.addListener('receivedInvite', callback);
