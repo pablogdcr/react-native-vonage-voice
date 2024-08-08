@@ -1,5 +1,9 @@
 import VonageClientSDKVoice
 
+extension NSNotification.Name {
+    static let voipPushReceived = NSNotification.Name("voip-push-received")
+}
+
 @objc(VonageVoice)
 class VonageVoice: NSObject {
     private let client = VGVoiceClient()
@@ -9,14 +13,39 @@ class VonageVoice: NSObject {
     private var isActiveCall = false
     private var callID: String?
     private var isLoggedIn = false
+
+    var callKitProvider: CXProvider
+    var callController = CXCallController()
     
     override init() {
         super.init()
+        initializeCallKit()
         initializeClient()
+    }
+
+    private func initializeCallKit() {
+        let configuration = CXProviderConfiguration(localizedName: "VoIP Service")
+        configuration.supportsVideo = false
+        configuration.maximumCallsPerCallGroup = 1
+        configuration.supportedHandleTypes = [.phoneNumber]
+        
+        self.callKitProvider = CXProvider(configuration: configuration)
+
+        NotificationCenter.default.addObserver(self, selector: #selector(handleVoidPushNotification(_:)), name: NSNotification.Name.voipPushReceived, object: nil)
+        self.callKitProvider.setDelegate(self, queue: nil)
     }
     
     private func initializeClient() {
         VGVoiceClient.isUsingCallKit = false
+    }
+
+    @objc
+    private func handleVoidPushNotification(_ notification: Notification) {
+        handleIncomingPushNotification(notification: notification.object as! Dictionary<String, Any>) { _ in
+            print("handled")
+        } reject: { _, _, error in
+            print("unhandled", error)
+        }
     }
     
     @objc(setRegion:)
@@ -186,7 +215,7 @@ class VonageVoice: NSObject {
 
     @objc(registerVoipToken:isSandbox:resolver:rejecter:)
     func registerVoipToken(token: String, isSandbox: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        let tokenData = token.data(using: .utf8)
+        let tokenData = data(fromHexString: token)
 
         guard let tokenData = tokenData else {
             reject("Invalid token", "Token is not a valid string", nil)
@@ -208,6 +237,31 @@ class VonageVoice: NSObject {
             }
             resolve(nil)
         }
+    }
+
+    private func data(fromHexString hexString: String) -> Data? {
+        var data = Data()
+        var hex = hexString
+        
+        // Remove any non-hex characters (optional, depending on your input)
+        hex = hex.replacingOccurrences(of: " ", with: "")
+        
+        // Ensure even number of characters for proper hex representation
+        guard hex.count % 2 == 0 else {
+            return nil
+        }
+        
+        var index = hex.startIndex
+        while index < hex.endIndex {
+            let byteString = hex[index..<hex.index(index, offsetBy: 2)]
+            guard let byte = UInt8(byteString, radix: 16) else {
+                return nil
+            }
+            data.append(byte)
+            index = hex.index(index, offsetBy: 2)
+        }
+        
+        return data
     }
     
     private func shouldRegisterToken(with token: Data, completion: @escaping (Bool) -> Void) {
@@ -240,7 +294,7 @@ class VonageVoice: NSObject {
     
     @objc(answerCall:resolver:rejecter:)
     public func answerCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        self.client.answer(callID) { error in
+        client.answer(callID) { error in
             if error == nil {
                 self.callID = callID
                 resolve(["success": true])
@@ -252,7 +306,7 @@ class VonageVoice: NSObject {
     
     @objc(rejectCall:resolver:rejecter:)
     public func rejectCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        self.client.reject(callID) { error in
+        client.reject(callID) { error in
             if error == nil {
                 self.callID = nil
                 resolve(["success": true])
@@ -264,12 +318,47 @@ class VonageVoice: NSObject {
     
     @objc(hangup:resolver:rejecter:)
     public func hangup(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        self.client.hangup(callID) { error in
+        client.hangup(callID) { error in
             if error == nil {
                 self.callID = nil
                 resolve("Call ended")
             } else {
                 reject("Failed to hangup", error?.localizedDescription, error)
+            }
+        }
+    }
+
+    private func isVonagePush(with userInfo: [AnyHashable : Any]) -> Bool {
+        VGVoiceClient.vonagePushType(userInfo) == .unknown ? false : true
+    }
+    
+    @objc(handleIncomingPushNotification:resolver:rejecter:)
+    public func handleIncomingPushNotification(notification: Dictionary<String, Any>, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        print("package recieved notification", notification)
+        if isVonagePush(with: notification) {
+            if let invite = client.processCallInvitePushData(notification) {
+                callKitProvider.reportNewIncomingCall(with: UUID(uuidString: invite) ?? UUID(), update: CXCallUpdate()) { error in
+                    if let error {
+                        print("error", error)
+                    }
+                    else {
+                        self.callID = invite
+                    }
+                }
+                
+            } else {
+                // Report failed call to CallKit
+            }
+        }
+    }
+    
+    private func endCallTransaction(action: CXEndCallAction) {
+        callController.request(CXTransaction(action: action)) { error in
+            if error == nil {
+                self.callID = nil
+                action.fulfill()
+            } else {
+                action.fail()
             }
         }
     }
@@ -290,6 +379,18 @@ struct Constants {
      */
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
         EventEmitter.shared.sendEvent(withName: Event.receivedInvite.rawValue, body: ["callId": callId, "caller": caller])
+        // NOTE: Uncomment if you will need to pass it to CallKit, remove if no
+        /*
+        let activeCall = UUID(uuidString: callId)
+        let update = CXCallUpdate()
+        update.localizedCallerName = caller
+        
+        callKitProvider.reportNewIncomingCall(with: activeCall!, update: update) { error in
+            if error == nil {
+                
+            }
+        }
+        */
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
@@ -313,5 +414,50 @@ struct Constants {
             reasonString = "Unknown"
         }
         EventEmitter.shared.sendEvent(withName: Event.receivedSessionError.rawValue, body: ["reason": reasonString])
+    }
+}
+
+extension VonageVoice: CXProviderDelegate {
+    public func providerDidReset(_ provider: CXProvider) {
+        print("provider did reset")
+        activeCallId = nil
+    }
+    
+    // Implement the required delegate methods here
+    public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        // Handle answer call action
+        guard let activeCallId else { return }
+        client.answer(activeCallId) { error in
+            if error == nil {
+                EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.activeCallId])
+                action.fulfill()
+            } else {
+                action.fail()
+            }
+        }
+    }
+    
+    public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        // Handle end call action
+        guard let activeCallId else {
+            endCallTransaction(action: action)
+            return
+        }
+        client.reject(activeCallId) { error in
+            if error == nil {
+                EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.activeCallId])
+                self.endCallTransaction(action: action)
+            } else {
+                
+            }
+        }
+    }
+    
+    public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        VGVoiceClient.enableAudio(audioSession)
+    }
+    
+    public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        VGVoiceClient.disableAudio(audioSession)
     }
 }
