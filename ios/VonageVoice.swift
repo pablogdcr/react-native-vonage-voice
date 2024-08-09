@@ -54,7 +54,7 @@ class VonageVoice: NSObject {
             print("unhandled", error)
         }
     }
-    
+
     @objc(setRegion:)
     public func setRegion(region: String?) {
         let config: VGClientConfig;
@@ -340,35 +340,8 @@ class VonageVoice: NSObject {
     public func handleIncomingPushNotification(notification: Dictionary<String, Any>, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if isVonagePush(with: notification) {
             if let invite = client.processCallInvitePushData(notification) {
-                // Extract the caller number
-                var callerNumber: String = "Unknown Caller"
-                let nexmo = notification["nexmo"] as? [String: Any]
-                let body = nexmo?["body"] as? [String: Any]
-                let channel = body?["channel"] as? [String: Any]
-                let from = channel?["from"] as? [String: Any]
-                let number = from?["number"] as? String
-
-                if let number = number {
-                    callerNumber = "+" + number
-                }
-
-                
-                let callUpdate = CXCallUpdate()
-                callUpdate.localizedCallerName = callerNumber
-                
-                callKitProvider.reportNewIncomingCall(
-                    with: UUID(uuidString: invite) ?? UUID(),
-                    update: callUpdate
-                ) { error in
-                    if let error = error {
-                        print("error", error)
-                    } else {
-                        self.callID = invite
-                        self.caller = number
-                    }
-                }
             } else {
-                // Report failed call to CallKit
+                callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
             }
         }
     }
@@ -400,18 +373,19 @@ struct Constants {
      */
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
         EventEmitter.shared.sendEvent(withName: Event.receivedInvite.rawValue, body: ["callId": callId, "caller": caller])
-        // NOTE: Uncomment if you will need to pass it to CallKit, remove if no
-        /*
+
         let activeCall = UUID(uuidString: callId)
         let update = CXCallUpdate()
-        update.localizedCallerName = caller
+        update.localizedCallerName = "+" + caller
         
         callKitProvider.reportNewIncomingCall(with: activeCall!, update: update) { error in
-            if error == nil {
-                
+            if let error = error {
+                print("error", error)
+            } else {
+                self.callID = callId
+                self.caller = caller
             }
         }
-        */
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
@@ -423,6 +397,7 @@ struct Constants {
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, with reason: VGVoiceInviteCancelReason) {
         EventEmitter.shared.sendEvent(withName: Event.receivedCancel.rawValue, body: ["callId": callId, "reason": reason.rawValue])
         isActiveCall = false
+        
         callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
     }
     
@@ -430,12 +405,12 @@ struct Constants {
         let reasonString: String!
         
         switch reason {
-        case .tokenExpired:
-            reasonString = "Expired Token"
-        case .pingTimeout, .transportClosed:
-            reasonString = "Network Error"
-        default:
-            reasonString = "Unknown"
+            case .tokenExpired:
+                reasonString = "Expired Token"
+            case .pingTimeout, .transportClosed:
+                reasonString = "Network Error"
+            default:
+                reasonString = "Unknown"
         }
         EventEmitter.shared.sendEvent(withName: Event.receivedSessionError.rawValue, body: ["reason": reasonString])
     }
@@ -443,14 +418,11 @@ struct Constants {
 
 extension VonageVoice: CXProviderDelegate {
     public func providerDidReset(_ provider: CXProvider) {
-        print("provider did reset")
         callID = nil
     }
-    
-    // Implement the required delegate methods here
+
+
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
-        // Handle answer call action
-        print("Answering call", provider)
         EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
         guard let callID else { return }
         client.answer(callID) { error in
@@ -458,13 +430,13 @@ extension VonageVoice: CXProviderDelegate {
                 EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.callID, "caller": self.caller])
                 action.fulfill()
             } else {
+                print("Failed to answer call", error)
                 action.fail()
             }
         }
     }
     
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
-        // Handle end call action
         guard let callID else {
             endCallTransaction(action: action)
             return
@@ -474,16 +446,17 @@ extension VonageVoice: CXProviderDelegate {
                 EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
                 self.endCallTransaction(action: action)
             } else {
-                
+                print("Failed to reject call", error)
+                action.fail()
             }
         }
     }
-    
+
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
         print("audio session activated", audioSession)
         VGVoiceClient.enableAudio(audioSession)
     }
-    
+
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
         print("audio session deactivated", audioSession)
         VGVoiceClient.disableAudio(audioSession)

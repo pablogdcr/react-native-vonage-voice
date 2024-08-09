@@ -34,6 +34,7 @@ interface RNVonageVoiceCallModuleInterface {
     token: string,
     isSandbox: boolean
   ) => Promise<string | null>;
+  unregisterDeviceTokens(completion: () => void): Promise<void>;
   answerCall(callId: string): Promise<{ success: true } | null>;
   rejectCall(callId: string): Promise<{ success: true } | null>;
   hangup(callId: string): Promise<{ success: true } | null>;
@@ -122,6 +123,18 @@ class RNVonageVoiceCall {
     }
   }
 
+  static unregisterDeviceTokens() {
+    try {
+      return new Promise((resolve) => {
+        VonageVoice.unregisterDeviceTokens(() => {
+          resolve(undefined);
+        });
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+
   static async answerCall(callId: string) {
     try {
       return await VonageVoice.answerCall(callId);
@@ -204,10 +217,6 @@ class RNVonageVoiceCall {
     return this.eventEmitter.addListener('receivedCancel', callback);
   }
 
-  static onConnectionStatusChanged(callback: (event: any) => void) {
-    return this.eventEmitter.addListener('connectionStatusChanged', callback);
-  }
-
   static onCallConnecting(callback: (event: EventWithCallId) => void) {
     return this.eventEmitter.addListener('callConnecting', callback);
   }
@@ -218,6 +227,10 @@ class RNVonageVoiceCall {
 
   static onCallRejected(callback: (event: EventWithReason) => void) {
     return this.eventEmitter.addListener('callRejected', callback);
+  }
+
+  static onConnectionStatusChanged(callback: (event: any) => void) {
+    return this.eventEmitter.addListener('connectionStatusChanged', callback);
   }
 }
 
