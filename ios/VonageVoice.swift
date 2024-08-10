@@ -32,15 +32,6 @@ class VonageVoice: NSObject {
         NotificationCenter.default.addObserver(self, selector: #selector(handleVoidPushNotification(_:)), name: NSNotification.Name.voipPushReceived, object: nil)
         initializeClient()
     }
-
-    private func initializeCallKit() {
-        let configuration = CXProviderConfiguration(localizedName: "Allo")
-        configuration.supportsVideo = false
-        configuration.maximumCallsPerCallGroup = 1
-        configuration.supportedHandleTypes = [.phoneNumber]
-        
-        self.callKitProvider = CXProvider(configuration: configuration)
-    }
     
     private func initializeClient() {
         VGVoiceClient.isUsingCallKit = true
@@ -49,9 +40,8 @@ class VonageVoice: NSObject {
     @objc
     private func handleVoidPushNotification(_ notification: Notification) {
         handleIncomingPushNotification(notification: notification.object as! Dictionary<String, Any>) { _ in
-            print("handled")
         } reject: { _, _, error in
-            print("unhandled", error)
+            print("Incoming Push unhandled", error)
         }
     }
 
@@ -198,20 +188,6 @@ class VonageVoice: NSObject {
         }
     }
 
-    // @objc(getCallLegs:resolver:rejecter:)
-    // public func getCallLegs(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    //     self.client.getCallLegs(callID) { error, callLegs in
-    //         if error == nil {
-    //             if let callLegs = callLegs {
-    //                 print(callLegs.legs[0].status)
-    //             }
-    //             resolve(callLegs)
-    //         } else {
-    //             reject("Failed to get call legs", error?.localizedDescription, error)
-    //         }
-    //     }
-    // }
-
     @objc(getIsLoggedIn:rejecter:)
     public func getIsLoggedIn(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         resolve(isLoggedIn)
@@ -340,6 +316,32 @@ class VonageVoice: NSObject {
     public func handleIncomingPushNotification(notification: Dictionary<String, Any>, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if isVonagePush(with: notification) {
             if let invite = client.processCallInvitePushData(notification) {
+                // Extract the caller number
+                var callerNumber: String = "Unknown Caller"
+                let nexmo = notification["nexmo"] as? [String: Any]
+                let body = nexmo?["body"] as? [String: Any]
+                let channel = body?["channel"] as? [String: Any]
+                let from = channel?["from"] as? [String: Any]
+                let number = from?["number"] as? String
+
+                if let number = number {
+                    callerNumber = "+" + number
+                }
+
+                let callUpdate = CXCallUpdate()
+                callUpdate.localizedCallerName = callerNumber
+
+                callKitProvider.reportNewIncomingCall(
+                    with: UUID(uuidString: invite) ?? UUID(),
+                    update: callUpdate
+                ) { error in
+                    if let error = error {
+                        print("error", error)
+                    } else {
+                        self.callID = invite
+                        self.caller = number
+                    }
+                }
             } else {
                 callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
             }
@@ -373,19 +375,6 @@ struct Constants {
      */
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
         EventEmitter.shared.sendEvent(withName: Event.receivedInvite.rawValue, body: ["callId": callId, "caller": caller])
-
-        let activeCall = UUID(uuidString: callId)
-        let update = CXCallUpdate()
-        update.localizedCallerName = "+" + caller
-        
-        callKitProvider.reportNewIncomingCall(with: activeCall!, update: update) { error in
-            if let error = error {
-                print("error", error)
-            } else {
-                self.callID = callId
-                self.caller = caller
-            }
-        }
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
