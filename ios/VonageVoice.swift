@@ -80,8 +80,10 @@ class VonageVoice: NSObject {
             if error == nil {
                 self.isLoggedIn = true
                 resolve(sessionID)
+                return
             } else {
                 reject("LOGIN_ERROR", error?.localizedDescription, error)
+                return
             }
         }
     }
@@ -101,8 +103,10 @@ class VonageVoice: NSObject {
             if error == nil {
                 self.isLoggedIn = true
                 resolve(sessionID)
+                return
             } else {
                 reject("LOGIN_ERROR", error?.localizedDescription, error)
+                return
             }
         }
     }
@@ -117,8 +121,10 @@ class VonageVoice: NSObject {
         client.refreshSession(jwt) { error in
             if error == nil {
                 resolve(["success": true])
+                return
             } else {
                 reject("REFRESH_SESSION_ERROR", error?.localizedDescription, error)
+                return
             }
         }
     }
@@ -134,19 +140,40 @@ class VonageVoice: NSObject {
             if error == nil {
                 self.isLoggedIn = false
                 resolve(["success": true])
+                return
             } else {
                 reject("LOGOUT_ERROR", error?.localizedDescription, error)
+                return
             }
         }
     }
 
+    @objc(getUser:resolver:rejecter:)
+    public func getUser(userIdOrName: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard isLoggedIn else {
+            reject("GET_USER_ERROR", "User is not logged in", nil)
+            return
+        }
+
+        client.getUser(userIdOrName) { error, user in
+            if error == nil {
+                resolve(user)
+                return
+            } else {
+                reject("GET_USER_ERROR", error?.localizedDescription, error)
+                return
+            }
+        }
+    }
     @objc(mute:resolver:rejecter:)
     public func mute(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         self.client.mute(callID) { error in
             if error == nil {
                 resolve(["success": true])
+                return
             } else {
                 reject("Failed to mute", error?.localizedDescription, error)
+                return
             }
         }
     }
@@ -156,8 +183,10 @@ class VonageVoice: NSObject {
         self.client.unmute(callID) { error in
             if error == nil {
                 resolve(["success": true])
+                return
             } else {
                 reject("Failed to unmute", error?.localizedDescription, error)
+                return
             }
         }
     }
@@ -169,8 +198,10 @@ class VonageVoice: NSObject {
             try audioSession.setActive(true)
             VGVoiceClient.enableAudio(audioSession)
             resolve(["success": true])
+            return
         } catch {
             reject("Failed to enable speaker", error.localizedDescription, error)
+            return
         }
     }
 
@@ -183,14 +214,59 @@ class VonageVoice: NSObject {
             try audioSession.setActive(true)
             VGVoiceClient.enableAudio(audioSession)
             resolve(["success": true])
+            return
         } catch {
             reject("Failed to disable speaker", error.localizedDescription, error)
+            return
         }
     }
 
     @objc(getIsLoggedIn:rejecter:)
     public func getIsLoggedIn(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         resolve(isLoggedIn)
+        return
+    }
+
+    @objc(unregisterDeviceTokens:resolver:rejecter:)
+    public func unregisterDeviceTokens(deviceId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        client.unregisterDeviceTokens(byDeviceId: deviceId) { error in
+            if error == nil {
+                UserDefaults.standard.removeObject(forKey: Constants.pushToken)
+                UserDefaults.standard.removeObject(forKey: Constants.deviceId)
+                resolve(["success": true])
+                return
+            } else {
+                reject("Failed to unregister device tokens", error?.localizedDescription, error)
+                return
+            }
+        }
+    }
+
+    private func invalidatePushToken(_ completion: (() -> Void)? = nil) {
+        if let deviceId = UserDefaults.standard.object(forKey: Constants.deviceId) as? String {
+            client.unregisterDeviceTokens(byDeviceId: deviceId) { error in
+                if error == nil {
+                    UserDefaults.standard.removeObject(forKey: Constants.pushToken)
+                    UserDefaults.standard.removeObject(forKey: Constants.deviceId)
+                }
+                completion?()
+            }
+        } else {
+            completion?()
+        }
+    }
+
+    private func shouldRegisterToken(with token: Data, completion: @escaping (Bool) -> Void) {
+        let storedToken = UserDefaults.standard.object(forKey: Constants.pushToken) as? Data
+        
+        if let storedToken = storedToken, storedToken == token {
+            completion(false)
+            return
+        }
+        
+        invalidatePushToken {
+            completion(true)
+        }
     }
 
     @objc(registerVoipToken:isSandbox:resolver:rejecter:)
@@ -209,13 +285,16 @@ class VonageVoice: NSObject {
                         UserDefaults.standard.setValue(tokenData, forKey: Constants.pushToken)
                         UserDefaults.standard.setValue(deviceId, forKey: Constants.deviceId)
                         resolve(deviceId)
+                        return
                     } else {
                         reject("Failed to register token", error?.localizedDescription, error)
                         return
                     }
                 }
+            } else {
+                resolve(UserDefaults.standard.object(forKey: Constants.deviceId))
+                return
             }
-            resolve(nil)
         }
     }
 
@@ -244,42 +323,16 @@ class VonageVoice: NSObject {
         return data
     }
     
-    private func shouldRegisterToken(with token: Data, completion: @escaping (Bool) -> Void) {
-        let storedToken = UserDefaults.standard.object(forKey: Constants.pushToken) as? Data
-        
-        if let storedToken = storedToken, storedToken == token {
-            completion(false)
-            return
-        }
-        
-        invalidatePushToken {
-            completion(true)
-        }
-    }
-    
-    @objc(invalidatePushToken:)
-    public func invalidatePushToken(_ completion: (() -> Void)? = nil) {
-        if let deviceId = UserDefaults.standard.object(forKey: Constants.deviceId) as? String {
-            client.unregisterDeviceTokens(byDeviceId: deviceId) { error in
-                if error == nil {
-                    UserDefaults.standard.removeObject(forKey: Constants.pushToken)
-                    UserDefaults.standard.removeObject(forKey: Constants.deviceId)
-                    completion?()
-                }
-            }
-        } else {
-            completion?()
-        }
-    }
-    
     @objc(answerCall:resolver:rejecter:)
     public func answerCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         client.answer(callID) { error in
             if error == nil {
                 self.callID = callID
                 resolve(["success": true])
+                return
             } else {
                 reject("Failed to answer the call", error?.localizedDescription, error)
+                return
             }
         }
     }
@@ -290,8 +343,10 @@ class VonageVoice: NSObject {
             if error == nil {
                 self.callID = nil
                 resolve(["success": true])
+                return
             } else {
                 reject("Failed to reject call", error?.localizedDescription, error)
+                return
             }
         }
     }
@@ -302,8 +357,10 @@ class VonageVoice: NSObject {
             if error == nil {
                 self.callID = nil
                 resolve("Call ended")
+                return
             } else {
                 reject("Failed to hangup", error?.localizedDescription, error)
+                return
             }
         }
     }
@@ -370,9 +427,9 @@ struct Constants {
 @objc extension VonageVoice: VGVoiceClientDelegate {
     
     /*
-     After the Client SDK is done processing the incoming push,
-     You will receive the call here
-     */
+        After the Client SDK is done processing the incoming push,
+        You will receive the call here
+    */
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
         EventEmitter.shared.sendEvent(withName: Event.receivedInvite.rawValue, body: ["callId": callId, "caller": caller])
     }
@@ -388,6 +445,10 @@ struct Constants {
         isActiveCall = false
         
         callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
+    }
+
+    public func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: String, withLegId legId: String, andStatus status: String) {
+        EventEmitter.shared.sendEvent(withName: Event.receiveLegStatusUpdate.rawValue, body: ["callId": callId, "legId": legId, "status": status])
     }
     
     public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
@@ -432,12 +493,12 @@ extension VonageVoice: CXProviderDelegate {
         }
         client.reject(callID) { error in
             if error == nil {
-                EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
                 self.endCallTransaction(action: action)
             } else {
                 print("Failed to reject call", error)
                 action.fail()
             }
+            EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
         }
     }
 

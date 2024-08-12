@@ -25,6 +25,14 @@ RCT_EXTERN_METHOD(registerVoipToken:(NSString *)token
                  resolver:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(unregisterDeviceTokens:(NSString *)deviceId
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(getUser:(NSString *)userIdOrName
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(answerCall:(NSString *)callId
                  resolver:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject)

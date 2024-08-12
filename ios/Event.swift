@@ -16,6 +16,7 @@ enum Event: String {
     case receivedHangup
     case receivedInvite
     case receivedSessionError
+    case receiveLegStatusUpdate
     
     static var supportedEvents: [String] {
         return [
@@ -27,6 +28,7 @@ enum Event: String {
             Event.receivedHangup.rawValue,
             Event.receivedInvite.rawValue,
             Event.receivedSessionError.rawValue,
+            Event.receiveLegStatusUpdate.rawValue
         ]
     }
 }

@@ -34,7 +34,8 @@ interface RNVonageVoiceCallModuleInterface {
     token: string,
     isSandbox: boolean
   ) => Promise<string | null>;
-  unregisterDeviceTokens(completion: () => void): Promise<void>;
+  getUser: (userIdOrName: string) => Promise<any>;
+  unregisterDeviceTokens(deviceId: string): Promise<void>;
   answerCall(callId: string): Promise<{ success: true } | null>;
   rejectCall(callId: string): Promise<{ success: true } | null>;
   hangup(callId: string): Promise<{ success: true } | null>;
@@ -103,92 +104,60 @@ class RNVonageVoiceCall {
     return await VonageVoice.createSession(jwt);
   }
 
-  static async refreshSession(jwt: string) {
-    return await VonageVoice.refreshSession(jwt);
+  static refreshSession(jwt: string) {
+    return VonageVoice.refreshSession(jwt);
   }
 
-  static async deleteSession() {
-    return await VonageVoice.deleteSession();
+  static deleteSession() {
+    return VonageVoice.deleteSession();
   }
 
   static isLoggedIn() {
     return VonageVoice.getIsLoggedIn();
   }
 
-  static async registerVoipToken(token: string, isSandbox?: boolean) {
+  static registerVoipToken(token: string, isSandbox?: boolean) {
     try {
-      return await VonageVoice.registerVoipToken(token, isSandbox ?? false);
+      return VonageVoice.registerVoipToken(token, isSandbox ?? false);
     } catch (error) {
       throw error;
     }
   }
 
-  static unregisterDeviceTokens() {
-    try {
-      return new Promise((resolve) => {
-        VonageVoice.unregisterDeviceTokens(() => {
-          resolve(undefined);
-        });
-      });
-    } catch (error) {
-      throw error;
-    }
+  static unregisterDeviceTokens(deviceId: string) {
+    return VonageVoice.unregisterDeviceTokens(deviceId);
   }
 
-  static async answerCall(callId: string) {
-    try {
-      return await VonageVoice.answerCall(callId);
-    } catch (error) {
-      throw error;
-    }
+  static getUser(userIdOrName: string) {
+    return VonageVoice.getUser(userIdOrName);
   }
 
-  static async rejectCall(callId: string) {
-    try {
-      return await VonageVoice.rejectCall(callId);
-    } catch (error) {
-      throw error;
-    }
+  static answerCall(callId: string) {
+    return VonageVoice.answerCall(callId);
   }
 
-  static async hangup(callId: string) {
-    try {
-      return await VonageVoice.hangup(callId);
-    } catch (error) {
-      throw error;
-    }
+  static rejectCall(callId: string) {
+    return VonageVoice.rejectCall(callId);
   }
 
-  static async mute(callId: string) {
-    try {
-      return await VonageVoice.mute(callId);
-    } catch (error) {
-      throw error;
-    }
+  static hangup(callId: string) {
+    return VonageVoice.hangup(callId);
   }
 
-  static async unmute(callId: string) {
-    try {
-      return await VonageVoice.unmute(callId);
-    } catch (error) {
-      throw error;
-    }
+  static mute(callId: string) {
+    return VonageVoice.mute(callId);
   }
 
-  static async enableSpeaker() {
-    try {
-      return await VonageVoice.enableSpeaker();
-    } catch (error) {
-      throw error;
-    }
+  static unmute(callId: string) {
+    return VonageVoice.unmute(callId);
   }
 
-  static async disableSpeaker() {
-    try {
-      return await VonageVoice.disableSpeaker();
-    } catch (error) {
-      throw error;
-    }
+  static enableSpeaker() {
+    return VonageVoice.enableSpeaker();
+  }
+
+  static disableSpeaker() {
+    return VonageVoice.disableSpeaker();
   }
 
   // static async getCallLegs(callId: string) {
@@ -199,10 +168,10 @@ class RNVonageVoiceCall {
   //   }
   // }
 
-  static async handleIncomingPushNotification(notification: {
+  static handleIncomingPushNotification(notification: {
     [key: string]: string;
   }) {
-    VonageVoice.handleIncomingPushNotification(notification);
+    return VonageVoice.handleIncomingPushNotification(notification);
   }
 
   static onReceivedInvite(callback: (event: EventWithCallId) => void) {
@@ -231,6 +200,10 @@ class RNVonageVoiceCall {
 
   static onConnectionStatusChanged(callback: (event: any) => void) {
     return this.eventEmitter.addListener('connectionStatusChanged', callback);
+  }
+
+  static onReceiveLegStatusUpdate(callback: (event: any) => void) {
+    return this.eventEmitter.addListener('receiveLegStatusUpdate', callback);
   }
 }
 
