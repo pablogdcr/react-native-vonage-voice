@@ -9,3 +9,8 @@ export interface EventWithCallId extends EventBase {
 export interface EventWithReason extends EventBase {
   reason: string;
 }
+
+export interface EventWithConnectionStatus extends EventBase {
+  status: string;
+  reason?: string;
+}
