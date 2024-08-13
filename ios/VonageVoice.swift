@@ -1,5 +1,6 @@
 import VonageClientSDKVoice
 import CallKit
+import Foundation
 
 extension NSNotification.Name {
     static let voipPushReceived = NSNotification.Name("voip-push-received")
@@ -235,7 +236,9 @@ class VonageVoice: NSObject {
     @objc(getCallStatus:rejecter:)
     public func getCallStatus(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if isCallActive() {
-            resolve(["callId": callID, "startedAt": callStartedAt, "status": "active"])
+            let dateFormatter = DateFormatter()
+
+            resolve(["callId": callID, "startedAt": dateFormatter.string(from: startedAt), "status": "active"])
             return
         } else {
             resolve(["status": "inactive"])
