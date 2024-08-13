@@ -124,7 +124,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
 
     return VonageVoice.refreshSession(jwt);
@@ -135,7 +135,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
 
     return VonageVoice.deleteSession();
@@ -146,7 +146,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.getIsLoggedIn();
   }
@@ -156,7 +156,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     try {
       return VonageVoice.registerVoipToken(token, isSandbox ?? false);
@@ -170,7 +170,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
 
     return VonageVoice.unregisterDeviceTokens(deviceId);
@@ -181,7 +181,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.getUser(userIdOrName);
   }
@@ -191,7 +191,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.getCallStatus();
   }
@@ -201,7 +201,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.answerCall(callId);
   }
@@ -211,7 +211,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.rejectCall(callId);
   }
@@ -221,7 +221,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.hangup(callId);
   }
@@ -231,7 +231,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.mute(callId);
   }
@@ -241,7 +241,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.unmute(callId);
   }
@@ -251,7 +251,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.enableSpeaker();
   }
@@ -261,7 +261,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.disableSpeaker();
   }
@@ -281,7 +281,7 @@ class RNVonageVoiceCall {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
-      return new Promise((resolve) => resolve(null));
+      return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice.handleIncomingPushNotification(notification);
   }
