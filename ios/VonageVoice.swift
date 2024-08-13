@@ -238,7 +238,7 @@ class VonageVoice: NSObject {
         if isCallActive() {
             let dateFormatter = DateFormatter()
 
-            resolve(["callId": callID, "startedAt": dateFormatter.string(from: startedAt), "status": "active"])
+            resolve(["callId": callID, "startedAt": dateFormatter.string(from: callStartedAt!), "status": "active"])
             return
         } else {
             resolve(["status": "inactive"])
