@@ -39,6 +39,11 @@ interface RNVonageVoiceCallModuleInterface {
     isSandbox: boolean
   ) => Promise<string | null>;
   getUser: (userIdOrName: string) => Promise<any>;
+  getCallStatus: () => Promise<{
+    callId: string;
+    status: 'active' | 'inactive';
+    startedAt?: string;
+  }>;
   unregisterDeviceTokens(deviceId: string): Promise<void>;
   answerCall(callId: string): Promise<{ success: true } | null>;
   rejectCall(callId: string): Promise<{ success: true } | null>;
@@ -98,6 +103,12 @@ class RNVonageVoiceCall {
     region: 'US' | 'EU',
     sessionID?: string
   ) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return;
+    }
     if (region != null) {
       VonageVoice.setRegion(region);
     }
@@ -109,18 +120,44 @@ class RNVonageVoiceCall {
   }
 
   static refreshSession(jwt: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
+
     return VonageVoice.refreshSession(jwt);
   }
 
   static deleteSession() {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
+
     return VonageVoice.deleteSession();
   }
 
   static isLoggedIn() {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     return VonageVoice.getIsLoggedIn();
   }
 
   static registerVoipToken(token: string, isSandbox?: boolean) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     try {
       return VonageVoice.registerVoipToken(token, isSandbox ?? false);
     } catch (error) {
@@ -129,38 +166,103 @@ class RNVonageVoiceCall {
   }
 
   static unregisterDeviceTokens(deviceId: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
+
     return VonageVoice.unregisterDeviceTokens(deviceId);
   }
 
   static getUser(userIdOrName: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     return VonageVoice.getUser(userIdOrName);
   }
 
+  static getCallStatus() {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
+    return VonageVoice.getCallStatus();
+  }
+
   static answerCall(callId: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     return VonageVoice.answerCall(callId);
   }
 
   static rejectCall(callId: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     return VonageVoice.rejectCall(callId);
   }
 
   static hangup(callId: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     return VonageVoice.hangup(callId);
   }
 
   static mute(callId: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     return VonageVoice.mute(callId);
   }
 
   static unmute(callId: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     return VonageVoice.unmute(callId);
   }
 
   static enableSpeaker() {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     return VonageVoice.enableSpeaker();
   }
 
   static disableSpeaker() {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     return VonageVoice.disableSpeaker();
   }
 
@@ -175,40 +277,94 @@ class RNVonageVoiceCall {
   static handleIncomingPushNotification(notification: {
     [key: string]: string;
   }) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise((resolve) => resolve(null));
+    }
     return VonageVoice.handleIncomingPushNotification(notification);
   }
 
   static onReceivedInvite(callback: (event: EventWithCallId) => void) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return { remove: () => {} };
+    }
     return this.eventEmitter.addListener('receivedInvite', callback);
   }
 
   static onReceivedHangup(callback: (event: EventWithReason) => void) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return { remove: () => {} };
+    }
     return this.eventEmitter.addListener('receivedHangup', callback);
   }
 
   static onReceivedCancel(callback: (event: EventWithReason) => void) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return { remove: () => {} };
+    }
     return this.eventEmitter.addListener('receivedCancel', callback);
   }
 
   static onCallConnecting(callback: (event: EventWithCallId) => void) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return { remove: () => {} };
+    }
     return this.eventEmitter.addListener('callConnecting', callback);
   }
 
   static onCallAnswered(callback: (event: EventWithCallId) => void) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return { remove: () => {} };
+    }
     return this.eventEmitter.addListener('callAnswered', callback);
   }
 
   static onCallRejected(callback: (event: EventWithReason) => void) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return { remove: () => {} };
+    }
     return this.eventEmitter.addListener('callRejected', callback);
   }
 
   static onConnectionStatusChanged(
     callback: (event: EventWithConnectionStatus) => void
   ) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return { remove: () => {} };
+    }
     return this.eventEmitter.addListener('connectionStatusChanged', callback);
   }
 
   static onReceiveLegStatusUpdate(callback: (event: any) => void) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return { remove: () => {} };
+    }
     return this.eventEmitter.addListener('receiveLegStatusUpdate', callback);
   }
 }

@@ -11,7 +11,7 @@ class VonageVoice: NSObject {
     
     private var ongoingPushKitCompletion: () -> Void = { }
     private var storedAction: (() -> Void)?
-    private var isActiveCall = false
+    private var callStartedAt: Date?
     private var callID: String?
     private var caller: String?
     private var isLoggedIn = false
@@ -35,6 +35,10 @@ class VonageVoice: NSObject {
     
     private func initializeClient() {
         VGVoiceClient.isUsingCallKit = true
+    }
+
+    private func isCallActive() -> Bool {
+        return callID != nil && callStartedAt != nil
     }
 
     @objc
@@ -67,7 +71,7 @@ class VonageVoice: NSObject {
 
     @objc(createSessionWithSessionID:sessionID:resolver:rejecter:)
     public func loginWithSessionID(jwt: String, sessionID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        guard !isActiveCall else {
+        guard !isCallActive() else {
             resolve(nil)
             return
         }
@@ -90,7 +94,7 @@ class VonageVoice: NSObject {
 
     @objc(createSession:resolver:rejecter:)
     public func login(jwt: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        guard !isActiveCall else {
+        guard !isCallActive() else {
             resolve(nil)
             return
         }
@@ -165,6 +169,7 @@ class VonageVoice: NSObject {
             }
         }
     }
+
     @objc(mute:resolver:rejecter:)
     public func mute(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         self.client.mute(callID) { error in
@@ -225,6 +230,17 @@ class VonageVoice: NSObject {
     public func getIsLoggedIn(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         resolve(isLoggedIn)
         return
+    }
+
+    @objc(getCallStatus:rejecter:)
+    public func getCallStatus(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        if isCallActive() {
+            resolve(["callId": callID, "startedAt": callStartedAt, "status": "active"])
+            return
+        } else {
+            resolve(["status": "inactive"])
+            return
+        }
     }
 
     @objc(unregisterDeviceTokens:resolver:rejecter:)
@@ -327,7 +343,7 @@ class VonageVoice: NSObject {
     public func answerCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         client.answer(callID) { error in
             if error == nil {
-                self.isActiveCall = true
+                self.callStartedAt = Date()
                 self.callID = callID
                 resolve(["success": true])
                 return
@@ -342,6 +358,7 @@ class VonageVoice: NSObject {
     public func rejectCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         client.reject(callID) { error in
             if error == nil {
+                self.callStartedAt = nil
                 self.callID = nil
                 resolve(["success": true])
                 return
@@ -356,6 +373,7 @@ class VonageVoice: NSObject {
     public func hangup(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         client.hangup(callID) { error in
             if error == nil {
+                self.callStartedAt = nil
                 self.callID = nil
                 resolve("Call ended")
                 return
@@ -409,6 +427,7 @@ class VonageVoice: NSObject {
     private func endCallTransaction(action: CXEndCallAction) {
         callController.request(CXTransaction(action: action)) { error in
             if error == nil {
+                self.callStartedAt = nil
                 self.callID = nil
                 action.fulfill()
             } else {
@@ -437,13 +456,15 @@ struct Constants {
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
         EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": reason.rawValue])
-        self.isActiveCall = false
+        self.callStartedAt = nil
+        self.callID = nil
         callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, with reason: VGVoiceInviteCancelReason) {
         EventEmitter.shared.sendEvent(withName: Event.receivedCancel.rawValue, body: ["callId": callId, "reason": reason.rawValue])
-        self.isActiveCall = false
+        self.callStartedAt = nil
+        self.callID = nil
         
         callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
     }
@@ -481,6 +502,7 @@ struct Constants {
 
 extension VonageVoice: CXProviderDelegate {
     public func providerDidReset(_ provider: CXProvider) {
+        callStartedAt = nil
         callID = nil
     }
 
@@ -490,7 +512,8 @@ extension VonageVoice: CXProviderDelegate {
         guard let callID else { return }
         client.answer(callID) { error in
             if error == nil {
-                self.isActiveCall = true
+                self.callStartedAt = Date()
+                self.callID = callID
                 EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.callID, "caller": self.caller])
                 action.fulfill()
             } else {
@@ -505,10 +528,11 @@ extension VonageVoice: CXProviderDelegate {
             endCallTransaction(action: action)
             return
         }
-        if isActiveCall {
+        if isCallActive() {
             client.hangup(callID) { error in
                 if error == nil {
-                    self.isActiveCall = false
+                    self.callStartedAt = nil
+                    self.callID = nil
                     self.endCallTransaction(action: action)
                 } else {
                     print("Failed to reject call", error)
@@ -519,7 +543,8 @@ extension VonageVoice: CXProviderDelegate {
         } else {
             client.reject(callID) { error in
                 if error == nil {
-                    self.isActiveCall = false
+                    self.callStartedAt = nil
+                    self.callID = nil
                     self.endCallTransaction(action: action)
                 } else {
                     print("Failed to reject call", error)
