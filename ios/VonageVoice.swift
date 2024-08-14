@@ -22,8 +22,11 @@ class VonageVoice: NSObject {
     
     override init() {
         let configuration = CXProviderConfiguration(localizedName: "Allo")
+        configuration.includesCallsInRecents = true
         configuration.supportsVideo = false
         configuration.maximumCallsPerCallGroup = 1
+        configuration.maximumCallGroups = 1
+        configuration.iconTemplateImageData = UIImage(named: "callKitAppIcon")?.pngData()
         configuration.supportedHandleTypes = [.phoneNumber]
         
         self.callKitProvider = CXProvider(configuration: configuration)
@@ -236,9 +239,7 @@ class VonageVoice: NSObject {
     @objc(getCallStatus:rejecter:)
     public func getCallStatus(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if isCallActive() {
-            let dateFormatter = DateFormatter()
-
-            resolve(["callId": callID, "startedAt": dateFormatter.string(from: callStartedAt!), "status": "active"])
+            resolve(["callId": callID, "startedAt": callStartedAt!.timeIntervalSince1970, "status": "active"])
             return
         } else {
             resolve(["status": "inactive"])
@@ -402,14 +403,12 @@ class VonageVoice: NSObject {
                 let channel = body?["channel"] as? [String: Any]
                 let from = channel?["from"] as? [String: Any]
                 let number = from?["number"] as? String
-
                 if let number = number {
                     callerNumber = "+" + number
                 }
-
                 let callUpdate = CXCallUpdate()
-                callUpdate.localizedCallerName = callerNumber
-
+                
+                callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: number!)
                 callKitProvider.reportNewIncomingCall(
                     with: UUID(uuidString: invite) ?? UUID(),
                     update: callUpdate
@@ -426,7 +425,7 @@ class VonageVoice: NSObject {
             }
         }
     }
-    
+
     private func endCallTransaction(action: CXEndCallAction) {
         callController.request(CXTransaction(action: action)) { error in
             if error == nil {

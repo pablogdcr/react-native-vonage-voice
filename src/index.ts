@@ -42,7 +42,7 @@ interface RNVonageVoiceCallModuleInterface {
   getCallStatus: () => Promise<{
     callId: string;
     status: 'active' | 'inactive';
-    startedAt?: string;
+    startedAt?: number;
   }>;
   unregisterDeviceTokens(deviceId: string): Promise<void>;
   answerCall(callId: string): Promise<{ success: true } | null>;
@@ -58,24 +58,30 @@ interface RNVonageVoiceCallModuleInterface {
   }): Promise<string | null>;
 }
 
-const VonageVoice = NativeModules.VonageVoice
-  ? (NativeModules.VonageVoice as RNVonageVoiceCallModuleInterface)
-  : new Proxy({} as RNVonageVoiceCallModuleInterface, {
-      get() {
-        throw new Error(LINKING_ERROR);
-      },
-    });
-
-const VonageNativeEventEmitter = NativeModules.EventEmitterNativeModule
-  ? NativeModules.EventEmitterNativeModule
-  : new Proxy(
-      {},
-      {
+const VonageVoice = Platform.select({
+  ios: NativeModules.VonageVoice
+    ? (NativeModules.VonageVoice as RNVonageVoiceCallModuleInterface)
+    : new Proxy({} as RNVonageVoiceCallModuleInterface, {
         get() {
           throw new Error(LINKING_ERROR);
         },
-      }
-    );
+      }),
+  android: null,
+});
+
+const VonageNativeEventEmitter = Platform.select({
+  ios: NativeModules.EventEmitterNativeModule
+    ? NativeModules.EventEmitterNativeModule
+    : new Proxy(
+        {},
+        {
+          get() {
+            throw new Error(LINKING_ERROR);
+          },
+        }
+      ),
+  android: null,
+});
 
 type NativeModule = {
   /**
@@ -110,13 +116,13 @@ class RNVonageVoiceCall {
       return;
     }
     if (region != null) {
-      VonageVoice.setRegion(region);
+      VonageVoice!.setRegion(region);
     }
 
     if (sessionID) {
-      return await VonageVoice.createSessionWithSessionID(jwt, sessionID);
+      return await VonageVoice!.createSessionWithSessionID(jwt, sessionID);
     }
-    return await VonageVoice.createSession(jwt);
+    return await VonageVoice!.createSession(jwt);
   }
 
   static refreshSession(jwt: string) {
@@ -127,7 +133,7 @@ class RNVonageVoiceCall {
       return new Promise<null>((resolve) => resolve(null));
     }
 
-    return VonageVoice.refreshSession(jwt);
+    return VonageVoice!.refreshSession(jwt);
   }
 
   static deleteSession() {
@@ -138,7 +144,7 @@ class RNVonageVoiceCall {
       return new Promise<null>((resolve) => resolve(null));
     }
 
-    return VonageVoice.deleteSession();
+    return VonageVoice!.deleteSession();
   }
 
   static isLoggedIn() {
@@ -148,7 +154,7 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.getIsLoggedIn();
+    return VonageVoice!.getIsLoggedIn();
   }
 
   static registerVoipToken(token: string, isSandbox?: boolean) {
@@ -159,7 +165,7 @@ class RNVonageVoiceCall {
       return new Promise<null>((resolve) => resolve(null));
     }
     try {
-      return VonageVoice.registerVoipToken(token, isSandbox ?? false);
+      return VonageVoice!.registerVoipToken(token, isSandbox ?? false);
     } catch (error) {
       throw error;
     }
@@ -173,7 +179,7 @@ class RNVonageVoiceCall {
       return new Promise<null>((resolve) => resolve(null));
     }
 
-    return VonageVoice.unregisterDeviceTokens(deviceId);
+    return VonageVoice!.unregisterDeviceTokens(deviceId);
   }
 
   static getUser(userIdOrName: string) {
@@ -183,7 +189,7 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.getUser(userIdOrName);
+    return VonageVoice!.getUser(userIdOrName);
   }
 
   static getCallStatus() {
@@ -193,7 +199,7 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.getCallStatus();
+    return VonageVoice!.getCallStatus();
   }
 
   static answerCall(callId: string) {
@@ -203,7 +209,7 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.answerCall(callId);
+    return VonageVoice!.answerCall(callId);
   }
 
   static rejectCall(callId: string) {
@@ -213,7 +219,7 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.rejectCall(callId);
+    return VonageVoice!.rejectCall(callId);
   }
 
   static hangup(callId: string) {
@@ -223,7 +229,7 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.hangup(callId);
+    return VonageVoice!.hangup(callId);
   }
 
   static mute(callId: string) {
@@ -233,7 +239,7 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.mute(callId);
+    return VonageVoice!.mute(callId);
   }
 
   static unmute(callId: string) {
@@ -243,7 +249,7 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.unmute(callId);
+    return VonageVoice!.unmute(callId);
   }
 
   static enableSpeaker() {
@@ -253,7 +259,7 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.enableSpeaker();
+    return VonageVoice!.enableSpeaker();
   }
 
   static disableSpeaker() {
@@ -263,12 +269,12 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.disableSpeaker();
+    return VonageVoice!.disableSpeaker();
   }
 
   // static async getCallLegs(callId: string) {
   //   try {
-  //     return await VonageVoice.getCallLegs(callId);
+  //     return await VonageVoice!.getCallLegs(callId);
   //   } catch (error) {
   //     throw error;
   //   }
@@ -283,7 +289,7 @@ class RNVonageVoiceCall {
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice.handleIncomingPushNotification(notification);
+    return VonageVoice!.handleIncomingPushNotification(notification);
   }
 
   static onReceivedInvite(callback: (event: EventWithCallId) => void) {
