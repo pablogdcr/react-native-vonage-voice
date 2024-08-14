@@ -1,6 +1,7 @@
 import VonageClientSDKVoice
 import CallKit
 import Foundation
+import PhoneNumberKit
 
 extension NSNotification.Name {
     static let voipPushReceived = NSNotification.Name("voip-push-received")
@@ -391,7 +392,20 @@ class VonageVoice: NSObject {
     private func isVonagePush(with userInfo: [AnyHashable : Any]) -> Bool {
         VGVoiceClient.vonagePushType(userInfo) == .unknown ? false : true
     }
-    
+
+    private func formatPhoneNumber(_ phoneNumber: String) -> String? {
+        let phoneNumberKit = PhoneNumberKit()
+        
+        do {
+            // Attempt to parse and format the phone number
+            let parsedNumber = try phoneNumberKit.parse(phoneNumber)
+            return phoneNumberKit.format(parsedNumber, toType: .international)
+        } catch {
+            print("Failed to format phone number: \(error)")
+            return nil
+        }
+    }
+
     @objc(handleIncomingPushNotification:resolver:rejecter:)
     public func handleIncomingPushNotification(notification: Dictionary<String, Any>, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if isVonagePush(with: notification) {
@@ -403,12 +417,10 @@ class VonageVoice: NSObject {
                 let channel = body?["channel"] as? [String: Any]
                 let from = channel?["from"] as? [String: Any]
                 let number = from?["number"] as? String
-                if let number = number {
-                    callerNumber = "+" + number
-                }
+
                 let callUpdate = CXCallUpdate()
                 
-                callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: number!)
+                callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: formatPhoneNumber(number!) ?? number!)
                 callKitProvider.reportNewIncomingCall(
                     with: UUID(uuidString: invite) ?? UUID(),
                     update: callUpdate
