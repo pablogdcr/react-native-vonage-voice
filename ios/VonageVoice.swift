@@ -24,6 +24,7 @@ class VonageVoice: NSObject {
     private var audioSession = AVAudioSession.sharedInstance()
     private var callKitProvider: CXProvider
     private var callController = CXCallController()
+    private var voipNotification: Notification?
     
     override init() {
         let configuration = CXProviderConfiguration(localizedName: "Allo")
@@ -58,15 +59,7 @@ class VonageVoice: NSObject {
 
     @objc
     private func handleVoipPushNotification(_ notification: Notification) {
-        print("RECEIVED REFRESH TOKEN NOTIFICATION")
-        if let userInfo = notification.userInfo,
-           let block = userInfo["refreshSessionBlock"] as? AnyObject,
-           let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String {
-            
-            let refreshSessionBlock = unsafeBitCast(block, to: (@convention(block) (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void).self)
-            refreshSupabaseSessionBlock = refreshSessionBlock
-            refreshVonageTokenUrlString = refreshVonageTokenUrl
-        }
+        voipNotification = notification
         
         handleIncomingPushNotification(notification: notification.object as! Dictionary<String, Any>) { _ in
         } reject: { _, _, error in
@@ -83,7 +76,6 @@ class VonageVoice: NSObject {
                 self.getVonageToken(urlString: refreshVonageTokenUrlString, token: accessToken) { result in
                     switch result {
                     case .success(let vonageToken):
-                        print("Received Vonage Token: \(vonageToken)")
                         self.isLoggedIn ? self.client.refreshSession(vonageToken, callback: { error in
                             completion(error, nil)
                         })
@@ -507,11 +499,8 @@ class VonageVoice: NSObject {
             return
         }
 
-        if isLoggedIn {
-            processLoggedInUser(notification: notification)
-        } else {
-            processLoggedOutUser(notification: notification)
-        }
+
+        processLoggedOutUser(notification: notification)
     }
 
     private func processLoggedInUser(notification: Dictionary<String, Any>) {
@@ -528,7 +517,6 @@ class VonageVoice: NSObject {
     }
 
     private func processLoggedOutUser(notification: Dictionary<String, Any>) {
-        print("Processing logged out user")
         let nexmo = notification["nexmo"] as? [String: Any]
         let body = nexmo?["body"] as? [String: Any]
         let channel = body?["channel"] as? [String: Any]
@@ -541,15 +529,23 @@ class VonageVoice: NSObject {
 
         reportIncomingCall(invite: invite, number: number)
         setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
-        
-        print("Refreshing tokens")
-        refeshTokens { error, sessionId in
-            if let error = error {
-                print(error.localizedDescription)
-            } else {
-                print("Tokens refreshed")
-                self.isLoggedIn = true
-                self.client.processCallInvitePushData(notification)
+
+        if let userInfo = voipNotification?.userInfo,
+           let block = userInfo["refreshSessionBlock"] as? AnyObject,
+           let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String {
+            
+            let refreshSessionBlock = unsafeBitCast(block, to: (@convention(block) (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void).self)
+            refreshSupabaseSessionBlock = refreshSessionBlock
+            refreshVonageTokenUrlString = refreshVonageTokenUrl
+
+            refeshTokens { error, sessionId in
+                if let error = error {
+                    print(error.localizedDescription)
+                } else {
+                    print("Tokens refreshed")
+                    self.isLoggedIn = true
+                    self.client.processCallInvitePushData(notification)
+                }
             }
         }
     }
