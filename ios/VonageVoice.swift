@@ -20,7 +20,14 @@ class VonageVoice: NSObject {
     private var callStartedAt: Date?
     private var callID: String?
     private var caller: String?
-    private var isLoggedIn = false
+    private var isLoggedIn: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: "vonage.isLoggedIn")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "vonage.isLoggedIn")
+        }
+    }
     private var audioSession = AVAudioSession.sharedInstance()
     private var callKitProvider: CXProvider
     private var callController = CXCallController()
@@ -476,7 +483,7 @@ class VonageVoice: NSObject {
     }
 
     private func isVonagePush(with userInfo: [AnyHashable : Any]) -> Bool {
-        VGVoiceClient.vonagePushType(userInfo) == .unknown ? false : true
+        return VGVoiceClient.vonagePushType(userInfo) == .unknown ? false : true
     }
 
     private func formatPhoneNumber(_ phoneNumber: String) -> String? {
@@ -499,7 +506,6 @@ class VonageVoice: NSObject {
             return
         }
 
-
         processLoggedOutUser(notification: notification)
     }
 
@@ -517,6 +523,11 @@ class VonageVoice: NSObject {
     }
 
     private func processLoggedOutUser(notification: Dictionary<String, Any>) {
+        guard isLoggedIn else {
+            callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
+            return
+        }
+
         let nexmo = notification["nexmo"] as? [String: Any]
         let body = nexmo?["body"] as? [String: Any]
         let channel = body?["channel"] as? [String: Any]
@@ -626,19 +637,19 @@ struct Constants {
 
             callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
         }
-         EventEmitter.shared.sendEvent(withName: Event.receiveLegStatusUpdate.rawValue, body: ["callId": callId, "legId": legId, "status": status])
+        EventEmitter.shared.sendEvent(withName: Event.receiveLegStatusUpdate.rawValue, body: ["callId": callId, "legId": legId, "status": status])
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectingForCall callId: String) {
-         EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "reconnecting"])
+        EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "reconnecting"])
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectionForCall callId: String) {
-         EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "reconnected"])
+        EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "reconnected"])
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaDisconnectForCall callId: String, reason: VGCallDisconnectReason) {
-         EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "disconnected", "reason": reason.rawValue])
+        EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "disconnected", "reason": reason.rawValue])
     }
 
     public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
@@ -680,33 +691,33 @@ extension VonageVoice: CXProviderDelegate {
     }
     
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
-         guard let callID else {
-             endCallTransaction(action: action)
-             return
-         }
-         if isCallActive() {
-             client.hangup(callID) { error in
-                 if error == nil {
-                     self.callStartedAt = nil
-                     self.callID = nil
-                     self.endCallTransaction(action: action)
-                 } else {
-                     action.fail()
-                 }
-                 EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
-             }
-         } else {
-             client.reject(callID) { error in
-                 if error == nil {
-                     self.callStartedAt = nil
-                     self.callID = nil
-                     self.endCallTransaction(action: action)
-                 } else {
-                     action.fail()
-                 }
-                 EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
-             }
-         }
+        guard let callID else {
+            endCallTransaction(action: action)
+            return
+        }
+        if isCallActive() {
+            client.hangup(callID) { error in
+                if error == nil {
+                    self.callStartedAt = nil
+                    self.callID = nil
+                    self.endCallTransaction(action: action)
+                } else {
+                    action.fail()
+                }
+                EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
+            }
+        } else {
+            client.reject(callID) { error in
+                if error == nil {
+                    self.callStartedAt = nil
+                    self.callID = nil
+                    self.endCallTransaction(action: action)
+                } else {
+                    action.fail()
+                }
+                EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
+            }
+        }
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
