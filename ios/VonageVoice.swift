@@ -507,11 +507,7 @@ class VonageVoice: NSObject {
             return
         }
 
-        if isLoggedIn {
-            processLoggedInUser(notification: notification)
-        } else {
-            processLoggedOutUser(notification: notification)
-        }
+        processLoggedOutUser(notification: notification)
     }
 
     private func processLoggedInUser(notification: Dictionary<String, Any>) {
