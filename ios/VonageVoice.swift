@@ -476,7 +476,7 @@ class VonageVoice: NSObject {
     }
 
     private func isVonagePush(with userInfo: [AnyHashable : Any]) -> Bool {
-        return VGVoiceClient.vonagePushType(userInfo) == .unknown ? false : true
+        VGVoiceClient.vonagePushType(userInfo) == .unknown ? false : true
     }
 
     private func formatPhoneNumber(_ phoneNumber: String) -> String? {
@@ -541,7 +541,6 @@ class VonageVoice: NSObject {
                 if let error = error {
                     print(error.localizedDescription)
                 } else {
-                    print("Tokens refreshed")
                     self.isLoggedIn = true
                     self.client.processCallInvitePushData(notification)
                 }
@@ -663,6 +662,7 @@ extension VonageVoice: CXProviderDelegate {
 
 
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        print("VONAGE VOICDE ANSWER CALL \(callID)")
         EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
         guard let callID else { return }
         
@@ -673,6 +673,7 @@ extension VonageVoice: CXProviderDelegate {
                 EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.callID, "caller": self.caller])
                 action.fulfill()
             } else {
+                print("VONAGE VOICE ANSWER FAILED \(error)")
                 action.fail()
             }
         }
