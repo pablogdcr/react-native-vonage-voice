@@ -665,7 +665,7 @@ extension VonageVoice: CXProviderDelegate {
 
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
-        guard let callID else { return }
+        guard let callID = self.callID else { return }
         
         client.answer(callID) { error in
             if error == nil {
@@ -680,7 +680,7 @@ extension VonageVoice: CXProviderDelegate {
     }
     
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
-         guard let callID else {
+         guard let callID = self.callID else {
              endCallTransaction(action: action)
              return
          }
