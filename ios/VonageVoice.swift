@@ -20,14 +20,7 @@ class VonageVoice: NSObject {
     private var callStartedAt: Date?
     private var callID: String?
     private var caller: String?
-    private var isLoggedIn: Bool {
-        get {
-            return UserDefaults.standard.bool(forKey: "vonage.isLoggedIn")
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "vonage.isLoggedIn")
-        }
-    }
+    private var isLoggedIn = false
     private var audioSession = AVAudioSession.sharedInstance()
     private var callKitProvider: CXProvider
     private var callController = CXCallController()
@@ -523,11 +516,6 @@ class VonageVoice: NSObject {
     }
 
     private func processLoggedOutUser(notification: Dictionary<String, Any>) {
-        guard isLoggedIn else {
-            callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
-            return
-        }
-
         let nexmo = notification["nexmo"] as? [String: Any]
         let body = nexmo?["body"] as? [String: Any]
         let channel = body?["channel"] as? [String: Any]
