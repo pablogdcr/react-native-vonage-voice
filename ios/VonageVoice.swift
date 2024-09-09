@@ -68,20 +68,20 @@ class VonageVoice: NSObject {
     
     
     @objc
-    private func refeshTokens(_ completion: @escaping ((any Error)?, String?) -> Void) {
+    private func refreshTokens(_ completion: @escaping ((any Error)?, String?) -> Void) {
         refreshSupabaseSessionBlock?({ result in
             if let result = result as? [String: Any],
                 let accessToken = result["accessToken"] as? String,
                 let refreshVonageTokenUrlString = self.refreshVonageTokenUrlString {
+
                 self.getVonageToken(urlString: refreshVonageTokenUrlString, token: accessToken) { result in
                     switch result {
-                    case .success(let vonageToken):
-                        self.isLoggedIn ? self.client.refreshSession(vonageToken, callback: { error in
-                            completion(error, nil)
-                        })
-                        : self.client.createSession(vonageToken, callback: completion)
-                    case .failure(let error):
-                        print("Error: \(error.localizedDescription)")
+                        case .success(let vonageToken):
+                            self.isLoggedIn ? self.client.refreshSession(vonageToken, callback: { error in
+                                self.client.createSession(vonageToken, callback: completion)
+                            }) : self.client.createSession(vonageToken, callback: completion)
+                        case .failure(let error):
+                            print("Error: \(error.localizedDescription)")
                     }
                 }
             }
@@ -538,7 +538,7 @@ class VonageVoice: NSObject {
             refreshSupabaseSessionBlock = refreshSessionBlock
             refreshVonageTokenUrlString = refreshVonageTokenUrl
 
-            refeshTokens { error, sessionId in
+            refreshTokens { error, sessionId in
                 if let error = error {
                     print(error.localizedDescription)
                 } else {
