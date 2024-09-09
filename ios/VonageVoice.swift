@@ -28,7 +28,7 @@ class VonageVoice: NSObject {
     
     override init() {
         let configuration = CXProviderConfiguration(localizedName: "Allo")
-        configuration.includesCallsInRecents = true
+        configuration.includesCallsInRecents = false
         configuration.supportsVideo = false
         configuration.maximumCallsPerCallGroup = 1
         configuration.maximumCallGroups = 1
