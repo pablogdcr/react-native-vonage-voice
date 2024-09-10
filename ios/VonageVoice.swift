@@ -28,7 +28,7 @@ class VonageVoice: NSObject {
     
     override init() {
         let configuration = CXProviderConfiguration(localizedName: "Allo")
-        configuration.includesCallsInRecents = false
+        configuration.includesCallsInRecents = true
         configuration.supportsVideo = false
         configuration.maximumCallsPerCallGroup = 1
         configuration.maximumCallGroups = 1
@@ -71,14 +71,18 @@ class VonageVoice: NSObject {
     private func refreshTokens(_ completion: @escaping ((any Error)?, String?) -> Void) {
         refreshSupabaseSessionBlock?({ result in
             if let result = result as? [String: Any],
-                let accessToken = result["accessToken"] as? String,
-                let refreshVonageTokenUrlString = self.refreshVonageTokenUrlString {
+            let accessToken = result["accessToken"] as? String,
+            let refreshVonageTokenUrlString = self.refreshVonageTokenUrlString {
 
                 self.getVonageToken(urlString: refreshVonageTokenUrlString, token: accessToken) { result in
                     switch result {
                         case .success(let vonageToken):
                             self.isLoggedIn ? self.client.refreshSession(vonageToken, callback: { error in
-                                self.client.createSession(vonageToken, callback: completion)
+                                if let error = error {
+                                    self.client.createSession(vonageToken, callback: completion)
+                                } else {
+                                    completion(nil, nil)
+                                }
                             }) : self.client.createSession(vonageToken, callback: completion)
                         case .failure(let error):
                             print("Error: \(error.localizedDescription)")
