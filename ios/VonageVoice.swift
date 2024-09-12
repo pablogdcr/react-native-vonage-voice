@@ -25,6 +25,7 @@ class VonageVoice: NSObject {
     private var callKitProvider: CXProvider
     private var callController = CXCallController()
     private var voipNotification: Notification?
+    private var isRefreshing = false
     
     override init() {
         let configuration = CXProviderConfiguration(localizedName: "Allo")
@@ -531,13 +532,14 @@ class VonageVoice: NSObject {
             return
         }
 
+        isRefreshing = true
         reportIncomingCall(invite: invite, number: number)
         setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
 
         if let userInfo = voipNotification?.userInfo,
            let block = userInfo["refreshSessionBlock"] as? AnyObject,
            let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String {
-            
+
             let refreshSessionBlock = unsafeBitCast(block, to: (@convention(block) (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void).self)
             refreshSupabaseSessionBlock = refreshSessionBlock
             refreshVonageTokenUrlString = refreshVonageTokenUrl
@@ -546,10 +548,10 @@ class VonageVoice: NSObject {
                 if let error = error {
                     print(error.localizedDescription)
                 } else {
-                    print("Tokens refreshed")
                     self.isLoggedIn = true
                     self.client.processCallInvitePushData(notification)
                 }
+                self.isRefreshing = false
             }
         }
     }
@@ -585,6 +587,16 @@ class VonageVoice: NSObject {
                 action.fulfill()
             } else {
                 action.fail()
+            }
+        }
+    }
+
+    private func waitForRefreshCompletion(completion: @escaping () -> Void) {
+        if !isRefreshing {
+            completion()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.waitForRefreshCompletion(completion: completion)
             }
         }
     }
@@ -669,48 +681,52 @@ extension VonageVoice: CXProviderDelegate {
 
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
-        guard let callID else { return }
-        
-        client.answer(callID) { error in
-            if error == nil {
-                self.callStartedAt = Date()
-                self.callID = callID
-                EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.callID, "caller": self.caller])
-                action.fulfill()
-            } else {
-                action.fail()
+        waitForRefreshCompletion { [self] in
+            guard let callID else { return }
+            
+            client.answer(callID) { error in
+                if error == nil {
+                    self.callStartedAt = Date()
+                    self.callID = callID
+                    EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.callID, "caller": self.caller])
+                    action.fulfill()
+                } else {
+                    action.fail()
+                }
             }
         }
     }
     
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
-         guard let callID else {
-             endCallTransaction(action: action)
-             return
-         }
-         if isCallActive() {
-             client.hangup(callID) { error in
-                 if error == nil {
-                     self.callStartedAt = nil
-                     self.callID = nil
-                     self.endCallTransaction(action: action)
-                 } else {
-                     action.fail()
-                 }
-                 EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
-             }
-         } else {
-             client.reject(callID) { error in
-                 if error == nil {
-                     self.callStartedAt = nil
-                     self.callID = nil
-                     self.endCallTransaction(action: action)
-                 } else {
-                     action.fail()
-                 }
-                 EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
-             }
-         }
+        waitForRefreshCompletion { [self] in
+            guard let callID else {
+                endCallTransaction(action: action)
+                return
+            }
+            if isCallActive() {
+                client.hangup(callID) { error in
+                    if error == nil {
+                        self.callStartedAt = nil
+                        self.callID = nil
+                        self.endCallTransaction(action: action)
+                    } else {
+                        action.fail()
+                    }
+                    EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
+                }
+            } else {
+                client.reject(callID) { error in
+                    if error == nil {
+                        self.callStartedAt = nil
+                        self.callID = nil
+                        self.endCallTransaction(action: action)
+                    } else {
+                        action.fail()
+                    }
+                    EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
+                }
+            }
+        }
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
