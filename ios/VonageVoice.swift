@@ -570,6 +570,7 @@ class VonageVoice: NSObject {
         
         callKitProvider.reportNewIncomingCall(with: UUID(uuidString: invite) ?? UUID(), update: callUpdate) { error in
             if let error = error {
+                self.callKitProvider.reportCall(with: UUID(uuidString: invite) ?? UUID(), endedAt: Date(), reason: .unanswered)
                 print("Error reporting call: \(error)")
             } else {
                 self.callID = invite
