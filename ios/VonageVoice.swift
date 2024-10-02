@@ -92,7 +92,8 @@ class VonageVoice: NSObject {
             }
         
         }, { code, message, error in
-            print("Reject called with error: \(code), \(message), \(String(describing: error))")
+            SlackService.log(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
+            print("Reject called with error: \(String(describing: code)), \(String(describing: message)), \(String(describing: error))")
         })
     }
     
@@ -273,6 +274,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
+                SlackService.log(message: ":speaker: Failed to mute\nid: \(callID)\nerror: \(String(describing: error))")
                 reject("Failed to mute", error?.localizedDescription, error)
                 return
             }
@@ -286,6 +288,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
+                SlackService.log(message: ":speaker: Failed to unmute\nid: \(callID)\nerror: \(String(describing: error))")
                 reject("Failed to unmute", error?.localizedDescription, error)
                 return
             }
@@ -301,6 +304,7 @@ class VonageVoice: NSObject {
             resolve(["success": true])
             return
         } catch {
+            SlackService.log(message: ":loud_sound: Failed to enable speaker\nid: \(callID)\nerror: \(String(describing: error))")
             reject("Failed to enable speaker", error.localizedDescription, error)
             return
         }
@@ -317,6 +321,7 @@ class VonageVoice: NSObject {
             resolve(["success": true])
             return
         } catch {
+            SlackService.log(message: ":loud_sound: Failed to disable speaker\nid: \(callID)\nerror: \(String(describing: error))")
             reject("Failed to disable speaker", error.localizedDescription, error)
             return
         }
@@ -444,6 +449,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
+                SlackService.log(message: ":x: Failed to answer call\nid: \(callID)\nerror: \(String(describing: error))")
                 reject("Failed to answer the call", error?.localizedDescription, error)
                 return
             }
@@ -459,6 +465,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
+                SlackService.log(message: ":x: Failed to reject call\nid: \(callID)\nerror: \(String(describing: error))")
                 reject("Failed to reject call", error?.localizedDescription, error)
                 return
             }
@@ -474,6 +481,7 @@ class VonageVoice: NSObject {
                 resolve("Call ended")
                 return
             } else {
+                SlackService.log(message: ":x: Failed to hangup call\nid: \(callID)\nerror: \(String(describing: error))")
                 reject("Failed to hangup", error?.localizedDescription, error)
                 return
             }
@@ -658,6 +666,10 @@ struct Constants {
          EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "disconnected", "reason": reason.rawValue])
     }
 
+    public func voiceClient(_ client: VGVoiceClient, didReceiveMediaErrorForCall callId: String, error: VGError) {
+        SlackService.log(message: ":warning: Media error:\ncall id:\(callId)\nerror: \(String(describing: error))")
+    }
+
     public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
         let reasonString: String!
         
@@ -669,8 +681,10 @@ struct Constants {
             default:
                 reasonString = "Unknown"
         }
+        SlackService.log(message: ":warning: Session error:\nreason: \(String(describing: reason))\nreasonString: \(String(describing: reasonString))")
         EventEmitter.shared.sendEvent(withName: Event.receivedSessionError.rawValue, body: ["reason": reasonString])
     }
+
 }
 
 extension VonageVoice: CXProviderDelegate {
@@ -736,5 +750,36 @@ extension VonageVoice: CXProviderDelegate {
 
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
         VGVoiceClient.disableAudio(audioSession)
+    }
+
+    public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
+        guard let callID = self.callID else {
+            SlackService.log(message: ":interrobang: Trying to mute/unmute a call with callID null")
+            action.fail()
+            return
+        }
+        if action.isMuted {
+            self.client.mute(callID) { error in
+                if error == nil {
+                    action.fulfill()
+                    return
+                } else {
+                    SlackService.log(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
+                    action.fail()
+                    return
+                }
+            }
+        } else {
+            self.client.unmute(callID) { error in
+                if error == nil {
+                    action.fulfill()
+                    return
+                } else {
+                    SlackService.log(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
+                    action.fail()
+                    return
+                }
+            }
+        }
     }
 }
