@@ -11,6 +11,7 @@ enum Event: String {
     case callConnecting
     case callAnswered
     case callRejected
+    case callRinging
     case connectionStatusChanged
     case receivedCancel
     case receivedHangup
@@ -23,6 +24,7 @@ enum Event: String {
             Event.callConnecting.rawValue,
             Event.callAnswered.rawValue,
             Event.callRejected.rawValue,
+            Event.callRinging.rawValue,
             Event.connectionStatusChanged.rawValue,
             Event.receivedCancel.rawValue,
             Event.receivedHangup.rawValue,
