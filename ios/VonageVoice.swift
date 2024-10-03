@@ -11,7 +11,7 @@ typealias RefreshSessionBlock = (@escaping RCTPromiseResolveBlock, @escaping RCT
 
 @objc(VonageVoice)
 class VonageVoice: NSObject {
-    private let client = VGVoiceClient(VGClientInitConfig(loggingLevel: .verbose))
+    private let client = VGVoiceClient()
     
     private var refreshSupabaseSessionBlock: RefreshSessionBlock?
     private var refreshVonageTokenUrlString: String?
