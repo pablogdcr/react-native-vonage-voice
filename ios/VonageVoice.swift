@@ -685,7 +685,7 @@ struct Constants {
 
     public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
         let reasonString: String!
-        
+
         switch reason {
             case .tokenExpired:
                 reasonString = "Expired Token"
@@ -694,10 +694,11 @@ struct Constants {
             default:
                 reasonString = "Unknown"
         }
-        SlackService.log(message: ":warning: Session error:\nreason: \(String(describing: reason))\nreasonString: \(String(describing: reasonString))", additionalInfo: debugAdditionalInfo)
+        if reason != .tokenExpired {
+            SlackService.log(message: ":warning: Session error:\nreason: \(String(describing: reason))\nreasonString: \(String(describing: reasonString))", additionalInfo: debugAdditionalInfo)
+        }
         EventEmitter.shared.sendEvent(withName: Event.receivedSessionError.rawValue, body: ["reason": reasonString])
     }
-
 }
 
 extension VonageVoice: CXProviderDelegate {
