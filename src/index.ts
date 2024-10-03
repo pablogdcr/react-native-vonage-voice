@@ -25,7 +25,7 @@ const LINKING_ERROR =
 // }
 
 interface RNVonageVoiceCallModuleInterface {
-  setDebugAdditionalInfo(info: string): void;
+  saveDebugAdditionalInfo(info: string): void;
   setRegion(region: 'US' | 'EU'): void;
   createSession(jwt: string): Promise<string | null>;
   createSessionWithSessionID(
@@ -112,7 +112,7 @@ class RNVonageVoiceCall {
       }
       return;
     }
-    VonageVoice!.setDebugAdditionalInfo(info);
+    VonageVoice!.saveDebugAdditionalInfo(info);
   }
 
   static async createSession(
