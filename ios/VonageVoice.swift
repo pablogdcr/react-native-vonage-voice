@@ -26,7 +26,14 @@ class VonageVoice: NSObject {
     private var callController = CXCallController()
     private var voipNotification: Notification?
     private var isRefreshing = false
-    private var debugAdditionalInfo: String?
+    @objc private var debugAdditionalInfo: String? {
+        get {
+            return UserDefaults.standard.string(forKey: "VonageVoiceDebugAdditionalInfo")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "VonageVoiceDebugAdditionalInfo")
+        }
+    }
 
     override init() {
         let configuration = CXProviderConfiguration(localizedName: "Allo")
