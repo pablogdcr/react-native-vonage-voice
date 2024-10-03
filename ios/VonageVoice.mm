@@ -2,6 +2,8 @@
 
 @interface RCT_EXTERN_MODULE(VonageVoice, NSObject)
 
+RCT_EXTERN_METHOD(setDebugAdditionalInfo:(NSString*)info)
+
 RCT_EXTERN_METHOD(setRegion:(NSString*)region)
 
 RCT_EXTERN_METHOD(createSession:(NSString *)jwt

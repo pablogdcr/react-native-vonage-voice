@@ -26,7 +26,8 @@ class VonageVoice: NSObject {
     private var callController = CXCallController()
     private var voipNotification: Notification?
     private var isRefreshing = false
-    
+    private var debugAdditionalInfo: String?
+
     override init() {
         let configuration = CXProviderConfiguration(localizedName: "Allo")
         configuration.includesCallsInRecents = true
@@ -58,6 +59,7 @@ class VonageVoice: NSObject {
         return callID != nil && callStartedAt != nil
     }
 
+
     @objc
     private func handleVoipPushNotification(_ notification: Notification) {
         voipNotification = notification
@@ -66,7 +68,6 @@ class VonageVoice: NSObject {
         } reject: { _, _, error in
         }
     }
-    
     
     @objc
     private func refreshTokens(_ completion: @escaping ((any Error)?, String?) -> Void) {
@@ -92,7 +93,7 @@ class VonageVoice: NSObject {
             }
         
         }, { code, message, error in
-            SlackService.log(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
+            SlackService.log(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
             print("Reject called with error: \(String(describing: code)), \(String(describing: message)), \(String(describing: error))")
         })
     }
@@ -141,6 +142,11 @@ class VonageVoice: NSObject {
         task.resume()
     }
 
+
+    @objc(setDebugAdditionalInfo:)
+    public func setDebugAdditionalInfo(info: String?) {
+        debugAdditionalInfo = info
+    }
 
     @objc(setRegion:)
     public func setRegion(region: String?) {
@@ -274,7 +280,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
-                SlackService.log(message: ":speaker: Failed to mute\nid: \(callID)\nerror: \(String(describing: error))")
+                SlackService.log(message: ":speaker: Failed to mute\nid: \(callID)\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
                 reject("Failed to mute", error?.localizedDescription, error)
                 return
             }
@@ -288,7 +294,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
-                SlackService.log(message: ":speaker: Failed to unmute\nid: \(callID)\nerror: \(String(describing: error))")
+                SlackService.log(message: ":speaker: Failed to unmute\nid: \(callID)\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
                 reject("Failed to unmute", error?.localizedDescription, error)
                 return
             }
@@ -304,7 +310,7 @@ class VonageVoice: NSObject {
             resolve(["success": true])
             return
         } catch {
-            SlackService.log(message: ":loud_sound: Failed to enable speaker\nid: \(callID)\nerror: \(String(describing: error))")
+            SlackService.log(message: ":loud_sound: Failed to enable speaker\nid: \(callID)\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
             reject("Failed to enable speaker", error.localizedDescription, error)
             return
         }
@@ -321,7 +327,7 @@ class VonageVoice: NSObject {
             resolve(["success": true])
             return
         } catch {
-            SlackService.log(message: ":loud_sound: Failed to disable speaker\nid: \(callID)\nerror: \(String(describing: error))")
+            SlackService.log(message: ":loud_sound: Failed to disable speaker\nid: \(callID)\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
             reject("Failed to disable speaker", error.localizedDescription, error)
             return
         }
@@ -449,7 +455,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
-                SlackService.log(message: ":x: Failed to answer call\nid: \(callID)\nerror: \(String(describing: error))")
+                SlackService.log(message: ":x: Failed to answer call\nid: \(callID)\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
                 reject("Failed to answer the call", error?.localizedDescription, error)
                 return
             }
@@ -465,7 +471,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
-                SlackService.log(message: ":x: Failed to reject call\nid: \(callID)\nerror: \(String(describing: error))")
+                SlackService.log(message: ":x: Failed to reject call\nid: \(callID)\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
                 reject("Failed to reject call", error?.localizedDescription, error)
                 return
             }
@@ -481,7 +487,7 @@ class VonageVoice: NSObject {
                 resolve("Call ended")
                 return
             } else {
-                SlackService.log(message: ":x: Failed to hangup call\nid: \(callID)\nerror: \(String(describing: error))")
+                SlackService.log(message: ":x: Failed to hangup call\nid: \(callID)\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
                 reject("Failed to hangup", error?.localizedDescription, error)
                 return
             }
@@ -667,7 +673,7 @@ struct Constants {
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaErrorForCall callId: String, error: VGError) {
-        SlackService.log(message: ":warning: Media error:\ncall id:\(callId)\nerror: \(String(describing: error))")
+        SlackService.log(message: ":warning: Media error:\ncall id:\(callId)\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
     }
 
     public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
@@ -681,7 +687,7 @@ struct Constants {
             default:
                 reasonString = "Unknown"
         }
-        SlackService.log(message: ":warning: Session error:\nreason: \(String(describing: reason))\nreasonString: \(String(describing: reasonString))")
+        SlackService.log(message: ":warning: Session error:\nreason: \(String(describing: reason))\nreasonString: \(String(describing: reasonString))", additionalInfo: debugAdditionalInfo)
         EventEmitter.shared.sendEvent(withName: Event.receivedSessionError.rawValue, body: ["reason": reasonString])
     }
 
@@ -754,7 +760,7 @@ extension VonageVoice: CXProviderDelegate {
 
     public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
         guard let callID = self.callID else {
-            SlackService.log(message: ":interrobang: Trying to mute/unmute a call with callID null")
+            SlackService.log(message: ":interrobang: Trying to mute/unmute a call with callID null", additionalInfo: debugAdditionalInfo)
             action.fail()
             return
         }
@@ -764,7 +770,7 @@ extension VonageVoice: CXProviderDelegate {
                     action.fulfill()
                     return
                 } else {
-                    SlackService.log(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
+                    SlackService.log(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
                     action.fail()
                     return
                 }
@@ -775,7 +781,7 @@ extension VonageVoice: CXProviderDelegate {
                     action.fulfill()
                     return
                 } else {
-                    SlackService.log(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
+                    SlackService.log(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))", additionalInfo: debugAdditionalInfo)
                     action.fail()
                     return
                 }

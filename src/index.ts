@@ -25,6 +25,7 @@ const LINKING_ERROR =
 // }
 
 interface RNVonageVoiceCallModuleInterface {
+  setDebugAdditionalInfo(info: string): void;
   setRegion(region: 'US' | 'EU'): void;
   createSession(jwt: string): Promise<string | null>;
   createSessionWithSessionID(
@@ -103,6 +104,16 @@ const VonageEventEmitter = VonageNativeEventEmitter as NativeModule;
 
 class RNVonageVoiceCall {
   private static eventEmitter = new NativeEventEmitter(VonageEventEmitter);
+
+  static setDebugAdditionalInfo(info: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return;
+    }
+    VonageVoice!.setDebugAdditionalInfo(info);
+  }
 
   static async createSession(
     jwt: string,
