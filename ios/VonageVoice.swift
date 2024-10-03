@@ -150,7 +150,7 @@ class VonageVoice: NSObject {
     }
 
 
-    @objc(setDebugAdditionalInfo:)
+    @objc(saveDebugAdditionalInfo:)
     public func saveDebugAdditionalInfo(info: String?) {
         debugAdditionalInfo = info
     }
