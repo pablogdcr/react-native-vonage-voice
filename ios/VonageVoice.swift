@@ -11,7 +11,7 @@ typealias RefreshSessionBlock = (@escaping RCTPromiseResolveBlock, @escaping RCT
 
 @objc(VonageVoice)
 class VonageVoice: NSObject {
-    private let client = VGVoiceClient(VGClientInitConfig(loggingLevel: .verbose))
+    private let client = VGVoiceClient()
     
     private var refreshSupabaseSessionBlock: RefreshSessionBlock?
     private var refreshVonageTokenUrlString: String?
@@ -35,6 +35,8 @@ class VonageVoice: NSObject {
         }
     }
 
+    private var outbound = false
+    
     override init() {
         let configuration = CXProviderConfiguration(localizedName: "Allo")
         configuration.includesCallsInRecents = true
@@ -87,7 +89,7 @@ class VonageVoice: NSObject {
                     switch result {
                         case .success(let vonageToken):
                             self.isLoggedIn ? self.client.refreshSession(vonageToken, callback: { error in
-                                if let error = error {
+                                if error != nil {
                                     self.client.createSession(vonageToken, callback: completion)
                                 } else {
                                     completion(nil, nil)
@@ -349,7 +351,7 @@ class VonageVoice: NSObject {
     @objc(getCallStatus:rejecter:)
     public func getCallStatus(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if isCallActive() {
-            resolve(["callId": callID!, "startedAt": callStartedAt!.timeIntervalSince1970, "status": "active"])
+            resolve(["callId": callID!, "outbound": outbound, "startedAt": callStartedAt!.timeIntervalSince1970, "status": "active"])
             return
         } else {
             resolve(["status": "inactive"])
@@ -459,6 +461,7 @@ class VonageVoice: NSObject {
             if error == nil {
                 self.callStartedAt = Date()
                 self.callID = callID
+                self.outbound = false
                 resolve(["success": true])
                 return
             } else {
@@ -475,6 +478,7 @@ class VonageVoice: NSObject {
             if error == nil {
                 self.callStartedAt = nil
                 self.callID = nil
+                self.outbound = false
                 resolve(["success": true])
                 return
             } else {
@@ -491,6 +495,7 @@ class VonageVoice: NSObject {
             if error == nil {
                 self.callStartedAt = nil
                 self.callID = nil
+                self.outbound = false
                 resolve("Call ended")
                 return
             } else {
@@ -525,8 +530,22 @@ class VonageVoice: NSObject {
             return
         }
 
-
         processLoggedOutUser(notification: notification)
+    }
+
+    @objc(serverCall:resolver:rejecter:)
+    public func serverCall(to: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        client.serverCall(["to": to]) { error, callID in
+            if error == nil {
+                resolve(["callId": callID])
+                return
+            } else {
+                self.outbound = true
+                self.caller = to
+                reject("Failed to server call", error?.localizedDescription, error)
+                return
+            }
+        }
     }
 
     private func processLoggedInUser(notification: Dictionary<String, Any>) {
@@ -596,6 +615,7 @@ class VonageVoice: NSObject {
             } else {
                 self.callID = invite
                 self.caller = number
+                self.outbound = false
             }
         }
     }
@@ -606,6 +626,7 @@ class VonageVoice: NSObject {
             if error == nil {
                 self.callStartedAt = nil
                 self.callID = nil
+                self.outbound = false
                 action.fulfill()
             } else {
                 action.fail()
@@ -645,6 +666,7 @@ struct Constants {
          EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": reason.rawValue])
          self.callStartedAt = nil
          self.callID = nil
+         self.outbound = false
          callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
     }
     
@@ -652,19 +674,34 @@ struct Constants {
         EventEmitter.shared.sendEvent(withName: Event.receivedCancel.rawValue, body: ["callId": callId, "reason": reason.rawValue])
         self.callStartedAt = nil
         self.callID = nil
-        
+        self.outbound = false
         callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: String, withLegId legId: String, andStatus status: VGLegStatus) {
-        if status == .completed {
+        switch (status) {
+        case .completed:
             EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": "completed"])
             self.callStartedAt = nil
             self.callID = nil
-
+            self.outbound = false
             callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
+            break
+
+        case .ringing:
+            EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller, "outbound": outbound])
+            self.callStartedAt = Date()
+            self.callID = callId
+            callKitProvider.reportOutgoingCall(with: UUID(uuidString: callId)!, startedConnectingAt: Date())
+            break
+
+        case .answered:
+            EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": callId])
+            break
+
+        default:
+            print("Unknown status: \(status)")
         }
-         EventEmitter.shared.sendEvent(withName: Event.receiveLegStatusUpdate.rawValue, body: ["callId": callId, "legId": legId, "status": status])
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectingForCall callId: String) {

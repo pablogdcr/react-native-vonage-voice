@@ -1,5 +1,6 @@
 export interface EventBase {
   callId: string;
+  outbound?: boolean;
 }
 
 export interface EventWithCallId extends EventBase {

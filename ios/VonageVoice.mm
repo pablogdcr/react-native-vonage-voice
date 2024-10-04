@@ -67,6 +67,10 @@ RCT_EXTERN_METHOD(disableSpeaker:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(getCallStatus:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(serverCall:(NSString *)to
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
 // RCT_EXTERN_METHOD(getCallLegs:(NSString *)callId
 //                  resolver:(RCTPromiseResolveBlock)resolve
 //                  rejecter:(RCTPromiseRejectBlock)reject)
