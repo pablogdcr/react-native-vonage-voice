@@ -89,7 +89,7 @@ class VonageVoice: NSObject {
                     switch result {
                         case .success(let vonageToken):
                             self.isLoggedIn ? self.client.refreshSession(vonageToken, callback: { error in
-                                if let error = error {
+                                if error != nil {
                                     self.client.createSession(vonageToken, callback: completion)
                                 } else {
                                     completion(nil, nil)
@@ -702,7 +702,6 @@ struct Constants {
         default:
             print("Unknown status: \(status)")
         }
-//         EventEmitter.shared.sendEvent(withName: Event.receiveLegStatusUpdate.rawValue, body: ["callId": callId, "legId": legId, "status": status])
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectingForCall callId: String) {
