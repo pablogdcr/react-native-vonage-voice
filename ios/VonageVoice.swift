@@ -630,16 +630,23 @@ class VonageVoice: NSObject {
 
     private func reportIncomingCall(invite: String, number: String) {
         let callUpdate = CXCallUpdate()
-        callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: formatPhoneNumber(number) ?? number)
+        callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "7222555666")
 
-        callKitProvider.reportNewIncomingCall(with: UUID(uuidString: invite) ?? UUID(), update: callUpdate) { error in
-            if let error = error {
-                self.callKitProvider.reportCall(with: UUID(uuidString: invite) ?? UUID(), endedAt: Date(), reason: .unanswered)
-                print("Error reporting call: \(error)")
-            } else {
-                self.callID = invite
-                self.caller = number
-                self.outbound = false
+        ContactService.updateAllContactImage { success, error in
+            if success {
+                print("Contact image updated successfully")
+            } else if let error = error {
+                print("Error updating contact image: \(error)")
+            }
+            self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: invite) ?? UUID(), update: callUpdate) { error in
+                if let error = error {
+                    self.callKitProvider.reportCall(with: UUID(uuidString: invite) ?? UUID(), endedAt: Date(), reason: .unanswered)
+                    print("Error reporting call: \(error)")
+                } else {
+                    self.callID = invite
+                    self.caller = number
+                    self.outbound = false
+                }
             }
         }
     }
