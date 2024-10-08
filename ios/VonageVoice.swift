@@ -187,10 +187,6 @@ class VonageVoice: NSObject {
             resolve(nil)
             return
         }
-        guard !isLoggedIn else {
-            reject("LOGIN_ERROR", "User is already logged in", nil)
-            return
-        }
 
         client.createSession(jwt, sessionId: sessionID) { error, sessionID in
             if error == nil {
@@ -607,7 +603,7 @@ class VonageVoice: NSObject {
     private func reportIncomingCall(invite: String, number: String) {
         let callUpdate = CXCallUpdate()
         callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: formatPhoneNumber(number) ?? number)
-        
+
         callKitProvider.reportNewIncomingCall(with: UUID(uuidString: invite) ?? UUID(), update: callUpdate) { error in
             if let error = error {
                 self.callKitProvider.reportCall(with: UUID(uuidString: invite) ?? UUID(), endedAt: Date(), reason: .unanswered)

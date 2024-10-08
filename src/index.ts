@@ -118,7 +118,7 @@ class RNVonageVoiceCall {
 
   static async createSession(
     jwt: string,
-    region: 'US' | 'EU',
+    region?: 'US' | 'EU',
     sessionID?: string
   ) {
     if (Platform.OS === 'android') {
