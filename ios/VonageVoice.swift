@@ -534,10 +534,11 @@ class VonageVoice: NSObject {
         client.serverCall(["to": to]) { error, callID in
             if error == nil {
                 resolve(["callId": callID])
-                return
-            } else {
                 self.outbound = true
                 self.caller = to
+                EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID, "caller": to, "outbound": true])
+                return
+            } else {
                 reject("Failed to server call", error?.localizedDescription, error)
                 return
             }
