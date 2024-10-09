@@ -11,7 +11,8 @@ typealias RefreshSessionBlock = (@escaping RCTPromiseResolveBlock, @escaping RCT
 
 @objc(VonageVoice)
 class VonageVoice: NSObject {
-    private let client = VGVoiceClient()
+    private var logger = CustomLogger()
+    private let client: VGVoiceClient
     
     private var refreshSupabaseSessionBlock: RefreshSessionBlock?
     private var refreshVonageTokenUrlString: String?
@@ -47,6 +48,7 @@ class VonageVoice: NSObject {
         configuration.supportedHandleTypes = [.phoneNumber]
         
         self.callKitProvider = CXProvider(configuration: configuration)
+        self.client = VGVoiceClient(VGClientInitConfig(loggingLevel: .error, customLoggers: [self.logger]))
         super.init()
 
         self.callKitProvider.setDelegate(self, queue: nil)
@@ -102,6 +104,7 @@ class VonageVoice: NSObject {
             }
         
         }, { code, message, error in
+            CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
             print("Reject called with error: \(String(describing: code)), \(String(describing: message)), \(String(describing: error))")
         })
     }
@@ -284,6 +287,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
+                CustomLogger.logSlack(message: ":speaker: Failed to mute\nid: \(callID)\nerror: \(String(describing: error))")
                 reject("Failed to mute", error?.localizedDescription, error)
                 return
             }
@@ -297,6 +301,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
+                CustomLogger.logSlack(message: ":speaker: Failed to unmute\nid: \(callID)\nerror: \(String(describing: error))")
                 reject("Failed to unmute", error?.localizedDescription, error)
                 return
             }
@@ -312,6 +317,7 @@ class VonageVoice: NSObject {
             resolve(["success": true])
             return
         } catch {
+            CustomLogger.logSlack(message: ":loud_sound: Failed to enable speaker\nid: \(String(describing: callID))\nerror: \(String(describing: error))")
             reject("Failed to enable speaker", error.localizedDescription, error)
             return
         }
@@ -328,6 +334,7 @@ class VonageVoice: NSObject {
             resolve(["success": true])
             return
         } catch {
+            CustomLogger.logSlack(message: ":loud_sound: Failed to disable speaker\nid: \(String(describing: callID))\nerror: \(String(describing: error))")
             reject("Failed to disable speaker", error.localizedDescription, error)
             return
         }
@@ -456,6 +463,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
+                CustomLogger.logSlack(message: ":x: Failed to answer call\nid: \(callID)\nerror: \(String(describing: error))")
                 reject("Failed to answer the call", error?.localizedDescription, error)
                 return
             }
@@ -472,6 +480,7 @@ class VonageVoice: NSObject {
                 resolve(["success": true])
                 return
             } else {
+                CustomLogger.logSlack(message: ":x: Failed to reject call\nid: \(callID)\nerror: \(String(describing: error))")
                 reject("Failed to reject call", error?.localizedDescription, error)
                 return
             }
@@ -488,6 +497,7 @@ class VonageVoice: NSObject {
                 resolve("Call ended")
                 return
             } else {
+                CustomLogger.logSlack(message: ":x: Failed to hangup call\nid: \(callID)\nerror: \(String(describing: error))")
                 reject("Failed to hangup", error?.localizedDescription, error)
                 return
             }
@@ -730,6 +740,10 @@ struct Constants {
          EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "disconnected", "reason": reason.rawValue])
     }
 
+    public func voiceClient(_ client: VGVoiceClient, didReceiveMediaErrorForCall callId: String, error: VGError) {
+        CustomLogger.logSlack(message: ":warning: Media error:\ncall id:\(callId)\nerror: \(String(describing: error))")
+    }
+
     public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
         let reasonString: String!
 
@@ -740,6 +754,9 @@ struct Constants {
                 reasonString = "Network Error"
             default:
                 reasonString = "Unknown"
+        }
+        if reason != .tokenExpired {
+            CustomLogger.logSlack(message: ":warning: Session error:\nreason: \(String(describing: reason))\nreasonString: \(String(describing: reasonString))")
         }
         EventEmitter.shared.sendEvent(withName: Event.receivedSessionError.rawValue, body: ["reason": reasonString])
     }
@@ -812,6 +829,7 @@ extension VonageVoice: CXProviderDelegate {
 
     public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
         guard let callID = self.callID else {
+            CustomLogger.logSlack(message: ":interrobang: Trying to mute/unmute a call with callID null")
             action.fail()
             return
         }
@@ -821,6 +839,7 @@ extension VonageVoice: CXProviderDelegate {
                     action.fulfill()
                     return
                 } else {
+                    CustomLogger.logSlack(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
                     action.fail()
                     return
                 }
@@ -831,6 +850,7 @@ extension VonageVoice: CXProviderDelegate {
                     action.fulfill()
                     return
                 } else {
+                    CustomLogger.logSlack(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
                     action.fail()
                     return
                 }
