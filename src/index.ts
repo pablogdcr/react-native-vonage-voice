@@ -57,7 +57,10 @@ interface RNVonageVoiceCallModuleInterface {
   handleIncomingPushNotification(notification: {
     [key: string]: string;
   }): Promise<string | null>;
-  serverCall(to: string): Promise<{ callId: string }>;
+  serverCall(
+    to: string,
+    customData?: Record<string, string>
+  ): Promise<{ callId: string }>;
 }
 
 const VonageVoice = Platform.select({
@@ -304,14 +307,14 @@ class RNVonageVoiceCall {
     return VonageVoice!.handleIncomingPushNotification(notification);
   }
 
-  static serverCall(to: string) {
+  static serverCall(to: string, customData?: Record<string, string>) {
     if (Platform.OS === 'android') {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
       }
       return new Promise<null>((resolve) => resolve(null));
     }
-    return VonageVoice!.serverCall(to);
+    return VonageVoice!.serverCall(to, customData);
   }
 
   static onReceivedInvite(callback: (event: EventWithCallId) => void) {

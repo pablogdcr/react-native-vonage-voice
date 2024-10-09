@@ -529,9 +529,14 @@ class VonageVoice: NSObject {
         processLoggedOutUser(notification: notification)
     }
 
-    @objc(serverCall:resolver:rejecter:)
-    public func serverCall(to: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        client.serverCall(["to": to]) { error, callID in
+    @objc(serverCall:customData:resolver:rejecter:)
+    public func serverCall(to: String, customData: [String: String]? = nil, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        var callData = ["to": to]
+        if let customData = customData {
+            callData.merge(customData) { (_, new) in new }
+        }
+        
+        client.serverCall(callData) { error, callID in
             if error == nil {
                 resolve(["callId": callID])
                 self.outbound = true
