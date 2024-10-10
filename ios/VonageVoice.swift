@@ -527,15 +527,17 @@ class VonageVoice: NSObject {
         if let customData = customData {
             callData.merge(customData) { (_, new) in new }
         }
+        self.outbound = true
+        self.caller = to
         
         client.serverCall(callData) { error, callID in
             if error == nil {
                 resolve(["callId": callID])
-                self.outbound = true
-                self.caller = to
                 EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID!, "caller": to, "outbound": true])
                 return
             } else {
+                self.outbound = false
+                self.caller = nil
                 reject("Failed to server call", error?.localizedDescription, error)
                 return
             }
