@@ -61,6 +61,7 @@ interface RNVonageVoiceCallModuleInterface {
     to: string,
     customData?: Record<string, string>
   ): Promise<{ callId: string }>;
+  sendDTMF(callId: string, dtmf: string): Promise<{ success: true } | null>;
 }
 
 const VonageVoice = Platform.select({
@@ -315,6 +316,16 @@ class RNVonageVoiceCall {
       return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice!.serverCall(to, customData);
+  }
+
+  static sendDTMF(callId: string, dtmf: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise<null>((resolve) => resolve(null));
+    }
+    return VonageVoice!.sendDTMF(callId, dtmf);
   }
 
   static onReceivedInvite(callback: (event: EventWithCallId) => void) {

@@ -72,6 +72,11 @@ RCT_EXTERN_METHOD(serverCall:(NSString *)to
                  resolver:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(sendDTMF:(NSString *)callId
+                 dtmf:(NSString *)dtmf
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+
 // RCT_EXTERN_METHOD(getCallLegs:(NSString *)callId
 //                  resolver:(RCTPromiseResolveBlock)resolve
 //                  rejecter:(RCTPromiseRejectBlock)reject)
