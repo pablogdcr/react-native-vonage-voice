@@ -542,8 +542,13 @@ class VonageVoice: NSObject {
         }
     }
 
-    @objc(sendDTMF:dtmf:resolver:rejecter:)
-    public func sendDTMF(callID: String, dtmf: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    @objc(sendDTMF:resolver:rejecter:)
+    public func sendDTMF(dtmf: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard let callID = callID else {
+            reject("No call ID", "No call ID", nil)
+            return
+        }
+
         client.sendDTMF(callID, withDigits: dtmf, callback: { error in
             if error == nil {
                 resolve(["success": true])
