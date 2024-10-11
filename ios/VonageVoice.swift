@@ -13,6 +13,7 @@ typealias RefreshSessionBlock = (@escaping RCTPromiseResolveBlock, @escaping RCT
 class VonageVoice: NSObject {
     private var logger = CustomLogger()
     private let client: VGVoiceClient
+    private let contactService = ContactService()
     
     private var refreshSupabaseSessionBlock: RefreshSessionBlock?
     private var refreshVonageTokenUrlString: String?
@@ -84,54 +85,73 @@ class VonageVoice: NSObject {
     private func refreshTokens(_ completion: @escaping ((any Error)?, String?) -> Void) {
         refreshSupabaseSessionBlock?({ result in
             if let result = result as? [String: Any],
-            let accessToken = result["accessToken"] as? String,
-            let refreshVonageTokenUrlString = self.refreshVonageTokenUrlString {
+               let accessToken = result["accessToken"] as? String,
+               let refreshVonageTokenUrlString = self.refreshVonageTokenUrlString {
 
                 self.getVonageToken(urlString: refreshVonageTokenUrlString, token: accessToken) { result in
                     switch result {
-                        case .success(let vonageToken):
-                            self.isLoggedIn ? self.client.refreshSession(vonageToken, callback: { error in
-                                if error != nil {
-                                    self.client.createSession(vonageToken, callback: completion)
+                    case .success(let vonageToken):
+                        if self.isLoggedIn {
+                            self.client.refreshSession(vonageToken) { error in
+                                if let error = error {
+                                    self.client.createSession(vonageToken) { error, _ in
+                                        completion(error, accessToken)
+                                    }
                                 } else {
-                                    completion(nil, nil)
+                                    completion(nil, accessToken)
                                 }
-                            }) : self.client.createSession(vonageToken, callback: completion)
-                        case .failure(let error):
-                            print("Error: \(error.localizedDescription)")
+                            }
+                        } else {
+                            self.client.createSession(vonageToken) { error, _ in
+                                completion(error, accessToken)
+                            }
+                        }
+                    case .failure(let error):
+                        print("Error: \(error.localizedDescription)")
+                        completion(error, nil)
                     }
                 }
+            } else {
+                completion(NSError(domain: "RefreshTokens", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid result or missing data"]), nil)
             }
-        
         }, { code, message, error in
             CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
             print("Reject called with error: \(String(describing: code)), \(String(describing: message)), \(String(describing: error))")
+            completion(error ?? NSError(domain: "RefreshTokens", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to refresh session"]), nil)
         })
     }
-    
+
+    private func refreshTokensSync() -> (Error?, String?) {
+        let semaphore = DispatchSemaphore(value: 0)
+        var resultError: Error?
+        var resultToken: String?
+        
+        refreshTokens { error, token in
+            resultError = error
+            resultToken = token
+            semaphore.signal()
+        }
+        
+        semaphore.wait()
+        return (resultError, resultToken)
+    }
+
     private func getVonageToken(urlString: String, token: String, completion: @escaping (Result<String, Error>) -> Void) {
-        // Ensure the URL is valid
         guard let url = URL(string: urlString) else {
             completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
             return
         }
         
-        // Create a URL request
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         
-        // Set the Authorization header with the Bearer token
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        
-        // Create a URLSession data task
         let task = URLSession.shared.dataTask(with: request) { data, response, error in
-            // Handle errors
             if let error = error {
                 completion(.failure(error))
                 return
             }
             
-            // Ensure we received data
             guard let data = data else {
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
                 return
@@ -149,7 +169,6 @@ class VonageVoice: NSObject {
             }
         }
         
-        // Start the data task
         task.resume()
     }
 
@@ -528,6 +547,7 @@ class VonageVoice: NSObject {
             return
         }
 
+        print("Handling call")
         processLoggedOutUser(notification: notification)
     }
 
@@ -572,19 +592,6 @@ class VonageVoice: NSObject {
         })
     }
 
-    private func processLoggedInUser(notification: Dictionary<String, Any>) {
-        guard let invite = client.processCallInvitePushData(notification) else {
-            callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
-            return
-        }
-
-        if let number = extractCallerNumber(from: notification) {
-            reportIncomingCall(invite: invite, number: number)
-        } else {
-            callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
-        }
-    }
-
     private func processLoggedOutUser(notification: Dictionary<String, Any>) {
         let nexmo = notification["nexmo"] as? [String: Any]
         let body = nexmo?["body"] as? [String: Any]
@@ -592,13 +599,12 @@ class VonageVoice: NSObject {
         
         guard let invite = channel?["id"] as? String,
               let number = extractCallerNumber(from: notification) else {
+            print("REJECT")
             callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
             return
         }
 
         isRefreshing = true
-        reportIncomingCall(invite: invite, number: number)
-        setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
 
         if let userInfo = voipNotification?.userInfo,
            let block = userInfo["refreshSessionBlock"] as? AnyObject,
@@ -608,15 +614,17 @@ class VonageVoice: NSObject {
             refreshSupabaseSessionBlock = refreshSessionBlock
             refreshVonageTokenUrlString = refreshVonageTokenUrl
 
-            refreshTokens { error, sessionId in
-                if let error = error {
-                    print(error.localizedDescription)
-                } else {
-                    self.isLoggedIn = true
-                    self.client.processCallInvitePushData(notification)
-                }
-                self.isRefreshing = false
+            let (error, accessToken) = refreshTokensSync()
+            reportIncomingCall(invite: invite, number: number, token: accessToken!)
+            setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
+
+            if let error = error {
+                print(error.localizedDescription)
+            } else {
+                self.isLoggedIn = true
+                self.client.processCallInvitePushData(notification)
             }
+            self.isRefreshing = false
         }
     }
 
@@ -628,11 +636,11 @@ class VonageVoice: NSObject {
         return from?["number"] as? String
     }
 
-    private func reportIncomingCall(invite: String, number: String) {
+    private func reportIncomingCall(invite: String, number: String, token: String) {
         let callUpdate = CXCallUpdate()
-        callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "7222555666")
+        callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: number)
 
-        ContactService.updateAllContactImage { success, error in
+        self.contactService.updateAllContactImage(number: number, token: token) { success, error in
             if success {
                 print("Contact image updated successfully")
             } else if let error = error {
@@ -640,12 +648,15 @@ class VonageVoice: NSObject {
             }
             self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: invite) ?? UUID(), update: callUpdate) { error in
                 if let error = error {
-                    self.callKitProvider.reportCall(with: UUID(uuidString: invite) ?? UUID(), endedAt: Date(), reason: .unanswered)
                     print("Error reporting call: \(error)")
+                    self.callKitProvider.reportCall(with: UUID(uuidString: invite) ?? UUID(), endedAt: Date(), reason: .unanswered)
                 } else {
                     self.callID = invite
                     self.caller = number
                     self.outbound = false
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.contactService.restoreLastContactImage()
                 }
             }
         }
