@@ -61,6 +61,7 @@ class VonageVoice: NSObject {
         )
 
         initializeClient()
+        self.contactService.resetCallInfo()
     }
     
     private func initializeClient() {
@@ -547,7 +548,6 @@ class VonageVoice: NSObject {
             return
         }
 
-        print("Handling call")
         processLoggedOutUser(notification: notification)
     }
 
@@ -599,7 +599,6 @@ class VonageVoice: NSObject {
         
         guard let invite = channel?["id"] as? String,
               let number = extractCallerNumber(from: notification) else {
-            print("REJECT")
             callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
             return
         }
@@ -640,7 +639,7 @@ class VonageVoice: NSObject {
         let callUpdate = CXCallUpdate()
         callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: number)
 
-        self.contactService.updateAllContactImage(number: number, token: token) { success, error in
+        self.contactService.prepareCallInfo(number: number, token: token) { success, error in
             if success {
                 print("Contact image updated successfully")
             } else if let error = error {
@@ -656,7 +655,10 @@ class VonageVoice: NSObject {
                     self.outbound = false
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.contactService.restoreLastContactImage()
+                    self.contactService.changeTemporaryIdentifierImage()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.contactService.resetCallInfo()
+                    }
                 }
             }
         }
