@@ -720,6 +720,15 @@ struct Constants {
             break
 
         case .answered:
+            let audioSession = AVAudioSession.sharedInstance()
+
+            do {
+                try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [])
+                try audioSession.setActive(true)
+                VGVoiceClient.enableAudio(audioSession)
+            } catch {
+                CustomLogger.logSlack(message: ":loud_sound: Failed to disable speaker\nid: \(String(describing: callID))\nerror: \(String(describing: error))")
+            }
             EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": callId])
             break
 
