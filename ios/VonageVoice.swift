@@ -639,7 +639,6 @@ class VonageVoice: NSObject {
 
     self.contactService.prepareCallInfo(number: number, token: token) { success, error in
       if success {
-        print("Contact image updated successfully")
       } else if let error = error {
         print("Error updating contact image: \(error)")
       }
@@ -651,12 +650,6 @@ class VonageVoice: NSObject {
           self.callID = invite
           self.caller = number
           self.outbound = false
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-          self.contactService.changeTemporaryIdentifierImage()
-          DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            self.contactService.resetCallInfo()
-          }
         }
       }
     }
@@ -789,6 +782,7 @@ struct Constants {
 
 extension VonageVoice: CXProviderDelegate {
   public func providerDidReset(_ provider: CXProvider) {
+    self.contactService.resetCallInfo()
     callStartedAt = nil
     callID = nil
   }
@@ -796,28 +790,34 @@ extension VonageVoice: CXProviderDelegate {
 
   public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
     EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
-    waitForRefreshCompletion { [self] in
-      guard let callID else { return }
-      
-      client.answer(callID) { error in
-        if error == nil {
-          self.callStartedAt = Date()
-          self.callID = callID
-          EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.callID, "caller": self.caller])
-          action.fulfill()
-        } else {
-          action.fail()
+    self.contactService.changeTemporaryIdentifierImage()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [self] in
+      self.contactService.resetCallInfo()
+      waitForRefreshCompletion { [self] in
+        guard let callID else { return }
+
+        client.answer(callID) { error in
+          if error == nil {
+            self.callStartedAt = Date()
+            self.callID = callID
+            EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.callID, "caller": self.caller])
+            action.fulfill()
+          } else {
+            action.fail()
+          }
         }
       }
     }
   }
   
   public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+    self.contactService.resetCallInfo()
     waitForRefreshCompletion { [self] in
       guard let callID else {
         endCallTransaction(action: action)
         return
       }
+
       if isCallActive() {
         client.hangup(callID) { error in
           if error == nil {
