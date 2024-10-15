@@ -15,7 +15,6 @@ class VonageVoice: NSObject {
   private let client: VGVoiceClient
   private let contactService = ContactService()
   
-  private var refreshSupabaseSessionBlock: RefreshSessionBlock?
   private var refreshVonageTokenUrlString: String?
   private var ongoingPushKitCompletion: () -> Void = { }
   private var storedAction: (() -> Void)?
@@ -82,58 +81,34 @@ class VonageVoice: NSObject {
   }
   
   @objc
-  private func refreshTokens(_ completion: @escaping ((any Error)?, String?) -> Void) {
-    refreshSupabaseSessionBlock?({ result in
-      if let result = result as? [String: Any],
-        let accessToken = result["accessToken"] as? String,
-        let refreshVonageTokenUrlString = self.refreshVonageTokenUrlString {
-
-        self.getVonageToken(urlString: refreshVonageTokenUrlString, token: accessToken) { result in
-          switch result {
-            case .success(let vonageToken):
-              if self.isLoggedIn {
-                self.client.refreshSession(vonageToken) { error in
-                  if let error = error {
-                    self.client.createSession(vonageToken) { error, _ in
-                      completion(error, accessToken)
-                    }
-                  } else {
-                    completion(nil, accessToken)
-                  }
+  private func refreshTokens(accessToken: String, _ completion: @escaping ((any Error)?) -> Void) {
+      guard let refreshVonageTokenUrlString = self.refreshVonageTokenUrlString else {
+          completion(nil)
+          return
+      }
+      self.getVonageToken(urlString: refreshVonageTokenUrlString, token: accessToken) { result in
+      switch result {
+        case .success(let vonageToken):
+          if self.isLoggedIn {
+            self.client.refreshSession(vonageToken) { error in
+              if let error = error {
+                self.client.createSession(vonageToken) { error, _ in
+                  completion(error)
                 }
               } else {
-                self.client.createSession(vonageToken) { error, _ in
-                  completion(error, accessToken)
-                }
+                completion(nil)
               }
-            case .failure(let error):
-              print("Error: \(error.localizedDescription)")
-              completion(error, nil)
+            }
+          } else {
+            self.client.createSession(vonageToken) { error, _ in
+              completion(error)
+            }
           }
-        }
-      } else {
-        completion(NSError(domain: "RefreshTokens", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid result or missing data"]), nil)
+        case .failure(let error):
+          print("Error: \(error.localizedDescription)")
+          completion(error)
       }
-    }, { code, message, error in
-      CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
-      print("Reject called with error: \(String(describing: code)), \(String(describing: message)), \(String(describing: error))")
-      completion(error ?? NSError(domain: "RefreshTokens", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to refresh session"]), nil)
-    })
-  }
-
-  private func refreshTokensSync() -> (Error?, String?) {
-    let semaphore = DispatchSemaphore(value: 0)
-    var resultError: Error?
-    var resultToken: String?
-    
-    refreshTokens { error, token in
-      resultError = error
-      resultToken = token
-      semaphore.signal()
     }
-    
-    semaphore.wait()
-    return (resultError, resultToken)
   }
 
   private func getVonageToken(urlString: String, token: String, completion: @escaping (Result<String, Error>) -> Void) {
@@ -608,20 +583,45 @@ class VonageVoice: NSObject {
         let block = userInfo["refreshSessionBlock"] as? AnyObject,
         let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String {
       let refreshSessionBlock = unsafeBitCast(block, to: (@convention(block) (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void).self)
-      refreshSupabaseSessionBlock = refreshSessionBlock
       refreshVonageTokenUrlString = refreshVonageTokenUrl
 
-      let (error, accessToken) = refreshTokensSync()
-      reportIncomingCall(invite: invite, number: number, token: accessToken!)
-      setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
+      var accessToken: String?
+      var refreshError: Error?
 
-      if let error = error {
-        print(error.localizedDescription)
+      let semaphore = DispatchSemaphore(value: 0)
+
+      refreshSessionBlock({ result in
+        if let result = result as? [String: Any],
+          let token = result["accessToken"] as? String {
+          accessToken = token
+        }
+        semaphore.signal()
+      }, { code, message, error in
+        CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
+        print("Reject called with error: \(String(describing: code)), \(String(describing: message)), \(String(describing: error))")
+        refreshError = error
+        semaphore.signal()
+      })
+
+      semaphore.wait()
+
+      if let token = accessToken {
+        self.reportIncomingCall(invite: invite, number: number, token: token)
+        self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
+        self.refreshTokens(accessToken: token) { error in
+          if let error = error {
+            print(error.localizedDescription)
+          } else {
+            self.isLoggedIn = true
+            self.client.processCallInvitePushData(notification)
+          }
+          self.isRefreshing = false
+        }
       } else {
-        self.isLoggedIn = true
-        self.client.processCallInvitePushData(notification)
+        CustomLogger.logSlack(message: ":key: Failed to refresh session")
+        self.callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
+        self.isRefreshing = false
       }
-      self.isRefreshing = false
     }
   }
 
