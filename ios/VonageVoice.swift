@@ -522,7 +522,7 @@ class VonageVoice: NSObject {
       return
     }
 
-    processLoggedOutUser(notification: notification)
+    processNotification(notification: notification)
   }
 
   @objc(serverCall:customData:resolver:rejecter:)
@@ -536,6 +536,7 @@ class VonageVoice: NSObject {
     self.caller = to    
     client.serverCall(callData) { error, callID in
       if error == nil {
+        self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callID!)!, startedConnectingAt: Date())
         resolve(["callId": callID])
         EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID!, "caller": to, "outbound": true])
         return
@@ -566,19 +567,23 @@ class VonageVoice: NSObject {
     })
   }
 
-  private func processLoggedOutUser(notification: Dictionary<String, Any>) {
+  private func extractCallerNumber(from notification: Dictionary<String, Any>) -> String? {
     let nexmo = notification["nexmo"] as? [String: Any]
     let body = nexmo?["body"] as? [String: Any]
     let channel = body?["channel"] as? [String: Any]
-    
-    guard let invite = channel?["id"] as? String,
-        let number = extractCallerNumber(from: notification) else {
-      callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
-      return
-    }
+    let from = channel?["from"] as? [String: Any]
+    return from?["number"] as? String
+  }
 
+  private func extractCallId(from notification: Dictionary<String, Any>) -> String? {
+    let nexmo = notification["nexmo"] as? [String: Any]
+    let body = nexmo?["body"] as? [String: Any]
+    let channel = body?["channel"] as? [String: Any]
+    return channel?["id"] as? String
+  }
+
+  private func refreshSessionAndReportCall(callId: String, number: String, notification: Dictionary<String, Any>) {
     isRefreshing = true
-
     if let userInfo = voipNotification?.userInfo,
         let block = userInfo["refreshSessionBlock"] as? AnyObject,
         let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String {
@@ -606,7 +611,24 @@ class VonageVoice: NSObject {
       semaphore.wait()
 
       if let token = accessToken {
-        self.reportIncomingCall(invite: invite, number: number, token: token)
+        self.contactService.prepareCallInfo(number: number, token: token) { success, error in
+          let callUpdate = CXCallUpdate()
+
+          callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: number)
+          if let error = error {
+            print("Error updating contact image: \(error)")
+          }
+          self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: callId)!, update: callUpdate) { error in
+            if let error = error {
+              print("Error reporting call: \(error)")
+              self.callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .unanswered)
+            } else {
+              self.callID = callId
+              self.caller = number
+              self.outbound = false
+            }
+          }
+        }
         self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
         self.refreshTokens(accessToken: token) { error in
           if let error = error {
@@ -618,41 +640,24 @@ class VonageVoice: NSObject {
           self.isRefreshing = false
         }
       } else {
-        CustomLogger.logSlack(message: ":key: Failed to refresh session")
+        print("Failed to refresh session \(String(describing: refreshError))")
+        CustomLogger.logSlack(message: ":key: Failed to refresh session \(String(describing: refreshError))")
         self.callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
         self.isRefreshing = false
       }
     }
   }
 
-  private func extractCallerNumber(from notification: Dictionary<String, Any>) -> String? {
-    let nexmo = notification["nexmo"] as? [String: Any]
-    let body = nexmo?["body"] as? [String: Any]
-    let channel = body?["channel"] as? [String: Any]
-    let from = channel?["from"] as? [String: Any]
-    return from?["number"] as? String
-  }
+  private func processNotification(notification: Dictionary<String, Any>) {
+    let newCallId = extractCallId(from: notification)
+    let number = extractCallerNumber(from: notification)
 
-  private func reportIncomingCall(invite: String, number: String, token: String) {
-    let callUpdate = CXCallUpdate()
-    callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: number)
-
-    self.contactService.prepareCallInfo(number: number, token: token) { success, error in
-      if success {
-      } else if let error = error {
-        print("Error updating contact image: \(error)")
-      }
-      self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: invite) ?? UUID(), update: callUpdate) { error in
-        if let error = error {
-          print("Error reporting call: \(error)")
-          self.callKitProvider.reportCall(with: UUID(uuidString: invite) ?? UUID(), endedAt: Date(), reason: .unanswered)
-        } else {
-          self.callID = invite
-          self.caller = number
-          self.outbound = false
-        }
-      }
+    guard let newCallId = newCallId, let number = number else {
+      callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
+      return
     }
+
+    refreshSessionAndReportCall(callId: newCallId, number: number, notification: notification)
   }
 
   private func endCallTransaction(action: CXEndCallAction) {
@@ -725,10 +730,12 @@ struct Constants {
         EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
         self.callStartedAt = Date()
         self.callID = callId
-        callKitProvider.reportOutgoingCall(with: UUID(uuidString: callId)!, startedConnectingAt: Date())
         break
 
       case .answered:
+        if self.outbound == true {
+          self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callId)!, connectedAt: Date())
+        }
         let audioSession = AVAudioSession.sharedInstance()
 
         do {
