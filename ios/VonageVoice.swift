@@ -705,6 +705,7 @@ struct Constants {
     self.callStartedAt = nil
     self.callID = nil
     self.outbound = false
+    self.contactService.resetCallInfo()
     callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
   }
   
