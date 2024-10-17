@@ -66,10 +66,6 @@ class VonageVoice: NSObject {
     self.contactService.resetCallInfo()
   }
 
-  deinit {
-    print("VonageVoice is being deinitialized")
-  }
-
   private func initializeClient() {
     VGVoiceClient.isUsingCallKit = true
   }
@@ -708,7 +704,6 @@ struct Constants {
   }
   
   public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
-    print("Hang up");
     EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": reason.rawValue])
     self.callStartedAt = nil
     self.callID = nil
@@ -726,7 +721,6 @@ struct Constants {
   }
 
   public func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: String, withLegId legId: String, andStatus status: VGLegStatus) {
-    print("STATUS: \(status)")
     switch (status) {
       case .completed:
         EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": "completed"])
@@ -799,28 +793,25 @@ struct Constants {
 
 extension VonageVoice: CXProviderDelegate {
   public func providerDidReset(_ provider: CXProvider) {
-    print("DID RESET");
     self.contactService.resetCallInfo()
     callStartedAt = nil
     callID = nil
   }
 
   public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
-    print("START CALL");
     // This method is called when a call is initiated from the system
     // We don't need to implement anything here as we're not initiating outgoing calls
     action.fulfill()
   }
 
   public func provider(_ provider: CXProvider, perform action: CXSetHeldCallAction) {
-    print("SET HELD CALL");
     // This method is called when a call is put on hold or taken off hold
     // We don't support call holding in this implementation
     action.fulfill()
   }
 
   public func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
-    print("TIMED OUT PERFORMING ACTION");
+    CustomLogger.logSlack(message: ":warning: Timed out performing action\n\(String(describing: action))")
     // This method is called when the provider times out while performing an action
     // We'll just fail the action in this case
     action.fail()
