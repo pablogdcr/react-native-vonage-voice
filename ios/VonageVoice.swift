@@ -24,6 +24,7 @@ class VonageVoice: NSObject {
   private var isLoggedIn = false
   private var audioSession = AVAudioSession.sharedInstance()
   private var callKitProvider: CXProvider
+  private var callKitObserver: CXCallObserver!
   private var callController = CXCallController()
   private var voipNotification: Notification?
   private var isRefreshing = false
@@ -51,6 +52,8 @@ class VonageVoice: NSObject {
     self.client = VGVoiceClient(VGClientInitConfig(loggingLevel: .error, customLoggers: [self.logger]))
     super.init()
 
+    self.callKitObserver = CXCallObserver()
+    self.callKitObserver.setDelegate(self, queue: nil)
     self.callKitProvider.setDelegate(self, queue: nil)
     NotificationCenter.default.addObserver(
       self,
@@ -62,7 +65,11 @@ class VonageVoice: NSObject {
     initializeClient()
     self.contactService.resetCallInfo()
   }
-  
+
+  deinit {
+    print("VonageVoice is being deinitialized")
+  }
+
   private func initializeClient() {
     VGVoiceClient.isUsingCallKit = true
   }
@@ -614,7 +621,7 @@ class VonageVoice: NSObject {
         self.contactService.prepareCallInfo(number: number, token: token) { success, error in
           let callUpdate = CXCallUpdate()
 
-          callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: number)
+          callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(number)")
           if let error = error {
             print("Error updating contact image: \(error)")
           }
@@ -701,6 +708,7 @@ struct Constants {
   }
   
   public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
+    print("Hang up");
     EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": reason.rawValue])
     self.callStartedAt = nil
     self.callID = nil
@@ -718,6 +726,7 @@ struct Constants {
   }
 
   public func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: String, withLegId legId: String, andStatus status: VGLegStatus) {
+    print("STATUS: \(status)")
     switch (status) {
       case .completed:
         EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": "completed"])
@@ -790,11 +799,32 @@ struct Constants {
 
 extension VonageVoice: CXProviderDelegate {
   public func providerDidReset(_ provider: CXProvider) {
+    print("DID RESET");
     self.contactService.resetCallInfo()
     callStartedAt = nil
     callID = nil
   }
 
+  public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
+    print("START CALL");
+    // This method is called when a call is initiated from the system
+    // We don't need to implement anything here as we're not initiating outgoing calls
+    action.fulfill()
+  }
+
+  public func provider(_ provider: CXProvider, perform action: CXSetHeldCallAction) {
+    print("SET HELD CALL");
+    // This method is called when a call is put on hold or taken off hold
+    // We don't support call holding in this implementation
+    action.fulfill()
+  }
+
+  public func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
+    print("TIMED OUT PERFORMING ACTION");
+    // This method is called when the provider times out while performing an action
+    // We'll just fail the action in this case
+    action.fail()
+  }
 
   public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
     EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
@@ -890,4 +920,12 @@ extension VonageVoice: CXProviderDelegate {
       }
     }
   }
+}
+
+extension VonageVoice: CXCallObserverDelegate {
+    func callObserver(_ callObserver: CXCallObserver, callChanged call: CXCall) {
+        if (call.hasEnded) {
+          self.contactService.resetCallInfo()
+        }
+    }
 }
