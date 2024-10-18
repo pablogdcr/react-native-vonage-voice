@@ -26,5 +26,3 @@ class EventEmitterNativeModule: RCTEventEmitter {
         return true
     }
 }
-
-

@@ -1,7 +1,5 @@
 import VonageClientSDKVoice
 import CallKit
-import Foundation
-import PhoneNumberKit
 
 extension NSNotification.Name {
   static let voipPushReceived = NSNotification.Name("voip-push-received")
@@ -10,36 +8,38 @@ extension NSNotification.Name {
 typealias RefreshSessionBlock = (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void
 
 @objc(VonageVoice)
-class VonageVoice: NSObject {
+public class VonageVoice: NSObject {
+  @objc public static let shared = VonageVoice()
+
   private var logger = CustomLogger()
-  private let client: VGVoiceClient
-  private let contactService = ContactService()
+  let client: VGVoiceClient
+  let contactService = ContactService()
   
   private var refreshVonageTokenUrlString: String?
   private var ongoingPushKitCompletion: () -> Void = { }
   private var storedAction: (() -> Void)?
-  private var callStartedAt: Date?
-  private var callID: String?
-  private var caller: String?
   private var isLoggedIn = false
-  private var audioSession = AVAudioSession.sharedInstance()
-  private var callKitProvider: CXProvider
+  var callKitProvider: CXProvider
   private var callKitObserver: CXCallObserver!
-  private var callController = CXCallController()
+  var callController = CXCallController()
   private var voipNotification: Notification?
   private var isRefreshing = false
+  private var isObserversAdded = false
+  var callStartedAt: Date?
+  var callID: String?
+  var caller: String?
+  var outbound = false
+  var isCallHandled = false
   @objc private var debugAdditionalInfo: String? {
     get {
-      return UserDefaults.standard.string(forKey: "VonageVoiceDebugAdditionalInfo")
+      return UserDefaults.standard.string(forKey: Constants.debugInfoKey)
     }
     set {
-      UserDefaults.standard.set(newValue, forKey: "VonageVoiceDebugAdditionalInfo")
+      UserDefaults.standard.set(newValue, forKey: Constants.debugInfoKey)
     }
   }
-
-  private var outbound = false
   
-  override init() {
+  private override init() {
     let configuration = CXProviderConfiguration(localizedName: "Allo")
     configuration.includesCallsInRecents = true
     configuration.supportsVideo = false
@@ -55,35 +55,68 @@ class VonageVoice: NSObject {
     self.callKitObserver = CXCallObserver()
     self.callKitObserver.setDelegate(self, queue: nil)
     self.callKitProvider.setDelegate(self, queue: nil)
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(handleVoipPushNotification(_:)),
-      name: NSNotification.Name.voipPushReceived,
-      object: nil
-    )
 
+    addObservers()
     initializeClient()
     self.contactService.resetCallInfo()
+  }
+
+  deinit {
+    NotificationCenter.default.removeObserver(self)
+  }
+
+  private func addObservers() {
+    if !isObserversAdded {
+      NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(handleVoipPushNotification),
+        name: NSNotification.Name.voipPushReceived,
+        object: nil
+      )
+      NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(handleAudioSessionInterruption),
+        name: AVAudioSession.interruptionNotification,
+        object: AVAudioSession.sharedInstance())
+    }
+  }
+
+  @objc private func handleAudioSessionInterruption(notification: Notification) {
+    guard let info = notification.userInfo,
+        let interruptionType = info[AVAudioSessionInterruptionTypeKey] as? UInt else {
+      return
+    }
+
+    if interruptionType == AVAudioSession.InterruptionType.began.rawValue {
+      if let callID = self.callID {
+        CustomLogger.logSlack(message: ":warning: Audio session interrupted for call: \(callID)")
+      }
+    } else if interruptionType == AVAudioSession.InterruptionType.ended.rawValue {
+      do {
+          try AVAudioSession.sharedInstance().setActive(true)
+          VGVoiceClient.enableAudio(AVAudioSession.sharedInstance())
+      } catch {
+          print("Failed to reactivate audio session after interruption.")
+      }
+    }
   }
 
   private func initializeClient() {
     VGVoiceClient.isUsingCallKit = true
   }
 
-  private func isCallActive() -> Bool {
+  func isCallActive() -> Bool {
     return callID != nil && callStartedAt != nil
   }
 
-  @objc
-  private func handleVoipPushNotification(_ notification: Notification) {
+  @objc private func handleVoipPushNotification(_ notification: Notification) {
+    print("handle VoIP push notification | voipNotification: \(voipNotification)")
     voipNotification = notification
-    
     handleIncomingPushNotification(notification: notification.object as! Dictionary<String, Any>) { _ in
     } reject: { _, _, error in
     }
   }
   
-  @objc
   private func refreshTokens(accessToken: String, _ completion: @escaping ((any Error)?) -> Void) {
       guard let refreshVonageTokenUrlString = self.refreshVonageTokenUrlString else {
           completion(nil)
@@ -150,19 +183,16 @@ class VonageVoice: NSObject {
     task.resume()
   }
 
-
-  @objc(saveDebugAdditionalInfo:)
-  public func saveDebugAdditionalInfo(info: String?) {
+  @objc public func saveDebugAdditionalInfo(info: String?) {
     debugAdditionalInfo = info
   }
 
-  @objc(setRegion:)
-  public func setRegion(region: String?) {
+  @objc public func setRegion(region: String?) {
     let config: VGClientConfig;
     // When creating client save region to UserDefaults
     // This is needed for case when voip push is received in force-killed state
     // And JS part is not running so we can call setRegion from native code
-    UserDefaults.standard.set(region ?? "US", forKey: "vonage.region")
+    UserDefaults.standard.set(region ?? "US", forKey: Constants.regionKey)
 
     if region == nil {
       config = VGClientConfig(region: .US)
@@ -180,8 +210,7 @@ class VonageVoice: NSObject {
     client.delegate = self
   }
 
-  @objc(createSessionWithSessionID:sessionID:resolver:rejecter:)
-  public func loginWithSessionID(jwt: String, sessionID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func loginWithSessionID(jwt: String, sessionID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     guard !isCallActive() else {
       resolve(nil)
       return
@@ -199,8 +228,7 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(createSession:resolver:rejecter:)
-  public func login(jwt: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func login(jwt: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     guard !isCallActive() else {
       resolve(nil)
       return
@@ -222,8 +250,7 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(refreshSession:resolver:rejecter:)
-  public func refreshSession(jwt: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func refreshSession(jwt: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     guard isLoggedIn else {
       reject("REFRESH_SESSION_ERROR", "User is not logged in", nil)
       return
@@ -240,8 +267,7 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(deleteSession:rejecter:)
-  public func logout(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func logout(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     guard isLoggedIn else {
       reject("LOGOUT_ERROR", "User is not logged in", nil)
       return
@@ -259,8 +285,7 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(getUser:resolver:rejecter:)
-  public func getUser(userIdOrName: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func getUser(userIdOrName: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     guard isLoggedIn else {
       reject("GET_USER_ERROR", "User is not logged in", nil)
       return
@@ -277,8 +302,8 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(mute:resolver:rejecter:)
-  public func mute(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func mute(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    print("Mute call: \(callID)")
     self.client.mute(callID) { error in
       if error == nil {
         resolve(["success": true])
@@ -291,8 +316,8 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(unmute:resolver:rejecter:)
-  public func unmute(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func unmute(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    print("Unmute call: \(callID)")
     self.client.unmute(callID) { error in
       if error == nil {
         resolve(["success": true])
@@ -305,10 +330,11 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(enableSpeaker:rejecter:)
-  public func enableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func enableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    let audioSession = AVAudioSession.sharedInstance()
+    print("Enable speaker")
     do {
-      try audioSession.setCategory(.playAndRecord, mode: .default, options: .defaultToSpeaker)
+      try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowBluetooth, .defaultToSpeaker])
       try audioSession.setActive(true)
       VGVoiceClient.enableAudio(audioSession)
       resolve(["success": true])
@@ -320,12 +346,11 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(disableSpeaker:rejecter:)
-  public func disableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func disableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     let audioSession = AVAudioSession.sharedInstance()
-
+    print("Disable speaker")
     do {
-      try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [])
+      try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
       try audioSession.setActive(true)
       VGVoiceClient.enableAudio(audioSession)
       resolve(["success": true])
@@ -337,14 +362,12 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(getIsLoggedIn:rejecter:)
-  public func getIsLoggedIn(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func getIsLoggedIn(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     resolve(isLoggedIn)
     return
   }
 
-  @objc(getCallStatus:rejecter:)
-  public func getCallStatus(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func getCallStatus(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     if isCallActive() {
       resolve(["callId": callID!, "outbound": outbound, "startedAt": callStartedAt!.timeIntervalSince1970, "status": "active"])
       return
@@ -354,8 +377,7 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(unregisterDeviceTokens:resolver:rejecter:)
-  public func unregisterDeviceTokens(deviceId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func unregisterDeviceTokens(deviceId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     client.unregisterDeviceTokens(byDeviceId: deviceId) { error in
       if error == nil {
         UserDefaults.standard.removeObject(forKey: Constants.pushToken)
@@ -396,8 +418,7 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(registerVoipToken:isSandbox:resolver:rejecter:)
-  func registerVoipToken(token: String, isSandbox: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func registerVoipToken(token: String, isSandbox: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     let tokenData = data(fromHexString: token)
 
     guard let tokenData = tokenData else {
@@ -450,13 +471,27 @@ class VonageVoice: NSObject {
     return data
   }
 
-  @objc(answerCall:resolver:rejecter:)
-  public func answerCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func answerCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    if isCallHandled {
+      reject("Call already handled", "Call already handled", nil)
+      return
+    }
+    EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
+
+    print("Answer call: \(callID)")
     client.answer(callID) { error in
       if error == nil {
+        self.isCallHandled = true
         self.callStartedAt = Date()
         self.callID = callID
         self.outbound = false
+
+        let transaction = CXTransaction(action: CXAnswerCallAction(call: UUID(uuidString: callID)!))
+        self.callController.request(transaction, completion: { error in
+          if let error = error {
+            print("Error answering call: \(error)")
+          }
+        })
         resolve(["success": true])
         return
       } else {
@@ -467,13 +502,26 @@ class VonageVoice: NSObject {
     }
   }
   
-  @objc(rejectCall:resolver:rejecter:)
-  public func rejectCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func rejectCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    if isCallHandled {
+      reject("Call already handled", "Call already handled", nil)
+      return
+    }
+
+    print("Reject call: \(callID)")
     client.reject(callID) { error in
       if error == nil {
+        self.isCallHandled = true
         self.callStartedAt = nil
         self.callID = nil
         self.outbound = false
+
+        let transaction = CXTransaction(action: CXEndCallAction(call: UUID(uuidString: callID)!))
+        self.callController.request(transaction, completion: { error in
+          if let error = error {
+            print("Error ending call: \(error)")
+          }
+        })
         resolve(["success": true])
         return
       } else {
@@ -484,13 +532,26 @@ class VonageVoice: NSObject {
     }
   }
   
-  @objc(hangup:resolver:rejecter:)
-  public func hangup(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func hangup(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    if isCallHandled {
+      reject("Call already handled", "Call already handled", nil)
+      return
+    }
+
+    print("Hangup call: \(callID)")
     client.hangup(callID) { error in
       if error == nil {
+        self.isCallHandled = true
         self.callStartedAt = nil
         self.callID = nil
         self.outbound = false
+
+        let transaction = CXTransaction(action: CXEndCallAction(call: UUID(uuidString: callID)!))
+        self.callController.request(transaction, completion: { error in
+          if let error = error {
+            print("Error ending call: \(error)")
+          }
+        })
         resolve("Call ended")
         return
       } else {
@@ -505,21 +566,7 @@ class VonageVoice: NSObject {
     VGVoiceClient.vonagePushType(userInfo) == .unknown ? false : true
   }
 
-  private func formatPhoneNumber(_ phoneNumber: String) -> String? {
-    let phoneNumberKit = PhoneNumberKit()
-    
-    do {
-      // Attempt to parse and format the phone number
-      let parsedNumber = try phoneNumberKit.parse(phoneNumber)
-      return phoneNumberKit.format(parsedNumber, toType: .international)
-    } catch {
-      print("Failed to format phone number: \(error)")
-      return nil
-    }
-  }
-
-  @objc(handleIncomingPushNotification:resolver:rejecter:)
-  public func handleIncomingPushNotification(notification: Dictionary<String, Any>, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func handleIncomingPushNotification(notification: Dictionary<String, Any>, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     guard isVonagePush(with: notification) else {
       callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
       return
@@ -528,8 +575,7 @@ class VonageVoice: NSObject {
     processNotification(notification: notification)
   }
 
-  @objc(serverCall:customData:resolver:rejecter:)
-  public func serverCall(to: String, customData: [String: String]? = nil, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func serverCall(to: String, customData: [String: String]? = nil, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     var callData = ["to": to]
 
     if let customData = customData {
@@ -540,6 +586,7 @@ class VonageVoice: NSObject {
     client.serverCall(callData) { error, callID in
       if error == nil {
         self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callID!)!, startedConnectingAt: Date())
+        self.callID = callID
         resolve(["callId": callID])
         EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID!, "caller": to, "outbound": true])
         return
@@ -552,8 +599,7 @@ class VonageVoice: NSObject {
     }
   }
 
-  @objc(sendDTMF:resolver:rejecter:)
-  public func sendDTMF(dtmf: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc public func sendDTMF(dtmf: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     guard let callID = callID else {
       reject("No call ID", "No call ID", nil)
       return
@@ -586,8 +632,7 @@ class VonageVoice: NSObject {
   }
 
   private func refreshSessionAndReportCall(callId: String, number: String, notification: Dictionary<String, Any>) {
-    isRefreshing = true
-    if let userInfo = voipNotification?.userInfo,
+      if let userInfo = voipNotification?.userInfo,
         let block = userInfo["refreshSessionBlock"] as? AnyObject,
         let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String {
       let refreshSessionBlock = unsafeBitCast(block, to: (@convention(block) (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void).self)
@@ -598,13 +643,16 @@ class VonageVoice: NSObject {
 
       let semaphore = DispatchSemaphore(value: 0)
 
+      isRefreshing = true
       refreshSessionBlock({ result in
+        print("REFRESH SESSION BLOCK RESULT")
         if let result = result as? [String: Any],
           let token = result["accessToken"] as? String {
           accessToken = token
         }
         semaphore.signal()
       }, { code, message, error in
+        print("REFRESH SESSION BLOCK REJECT")
         CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
         print("Reject called with error: \(String(describing: code)), \(String(describing: message)), \(String(describing: error))")
         refreshError = error
@@ -623,7 +671,7 @@ class VonageVoice: NSObject {
           }
           self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: callId)!, update: callUpdate) { error in
             if let error = error {
-              print("Error reporting call: \(error)")
+              print("Error reporting call: \(error.localizedDescription)")
               self.callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .unanswered)
             } else {
               self.callID = callId
@@ -645,6 +693,20 @@ class VonageVoice: NSObject {
       } else {
         print("Failed to refresh session \(String(describing: refreshError))")
         CustomLogger.logSlack(message: ":key: Failed to refresh session \(String(describing: refreshError))")
+        let callUpdate = CXCallUpdate()
+
+        callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(number)")
+        self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: callId)!, update: callUpdate) { error in
+          if let error = error {
+            print("Error reporting call: \(error.localizedDescription)")
+            self.callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .unanswered)
+          } else {
+            self.callID = callId
+            self.caller = number
+            self.outbound = false
+          }
+        }
+
         self.callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
         self.isRefreshing = false
       }
@@ -660,23 +722,11 @@ class VonageVoice: NSObject {
       return
     }
 
+    print("Process notification \(newCallId) \(number) \(notification)")
     refreshSessionAndReportCall(callId: newCallId, number: number, notification: notification)
   }
 
-  private func endCallTransaction(action: CXEndCallAction) {
-    callController.request(CXTransaction(action: action)) { error in
-      if error == nil {
-        self.callStartedAt = nil
-        self.callID = nil
-        self.outbound = false
-        action.fulfill()
-      } else {
-        action.fail()
-      }
-    }
-  }
-
-  private func waitForRefreshCompletion(completion: @escaping () -> Void) {
+  func waitForRefreshCompletion(completion: @escaping () -> Void) {
     if !isRefreshing {
       completion()
     } else {
@@ -685,238 +735,4 @@ class VonageVoice: NSObject {
       }
     }
   }
-}
-
-// MARK:-  Constants
-
-struct Constants {
-  static let deviceId = "VGDeviceID"
-  static let pushToken = "VGPushToken"
-}
-
-@objc extension VonageVoice: VGVoiceClientDelegate {
-  /*
-      After the Client SDK is done processing the incoming push,
-      You will receive the call here
-  */
-  public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
-    EventEmitter.shared.sendEvent(withName: Event.receivedInvite.rawValue, body: ["callId": callId, "caller": caller])
-  }
-  
-  public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
-    EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": reason.rawValue])
-    self.callStartedAt = nil
-    self.callID = nil
-    self.outbound = false
-    self.contactService.resetCallInfo()
-    callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
-  }
-  
-  public func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, with reason: VGVoiceInviteCancelReason) {
-    EventEmitter.shared.sendEvent(withName: Event.receivedCancel.rawValue, body: ["callId": callId, "reason": reason.rawValue])
-    self.callStartedAt = nil
-    self.callID = nil
-    self.outbound = false
-    callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
-  }
-
-  public func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: String, withLegId legId: String, andStatus status: VGLegStatus) {
-    switch (status) {
-      case .completed:
-        EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": "completed"])
-        self.callStartedAt = nil
-        self.callID = nil
-        self.outbound = false
-        callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
-        break
-
-      case .ringing:
-        EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
-        self.callStartedAt = Date()
-        self.callID = callId
-        break
-
-      case .answered:
-        if self.outbound == true {
-          self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callId)!, connectedAt: Date())
-        }
-        let audioSession = AVAudioSession.sharedInstance()
-
-        do {
-          try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [])
-          try audioSession.setActive(true)
-          VGVoiceClient.enableAudio(audioSession)
-        } catch {
-          CustomLogger.logSlack(message: ":loud_sound: Failed to disable speaker\nid: \(String(describing: callID))\nerror: \(String(describing: error))")
-        }
-        EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": callId])
-        break
-
-      default:
-        print("Unknown status: \(status)")
-    }
-  }
-
-  public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectingForCall callId: String) {
-    EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "reconnecting"])
-  }
-
-  public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectionForCall callId: String) {
-    EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "reconnected"])
-  }
-
-  public func voiceClient(_ client: VGVoiceClient, didReceiveMediaDisconnectForCall callId: String, reason: VGCallDisconnectReason) {
-    EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "disconnected", "reason": reason.rawValue])
-  }
-
-  public func voiceClient(_ client: VGVoiceClient, didReceiveMediaErrorForCall callId: String, error: VGError) {
-    CustomLogger.logSlack(message: ":warning: Media error:\ncall id:\(callId)\nerror: \(String(describing: error))")
-  }
-
-  public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
-    let reasonString: String!
-
-    switch reason {
-      case .tokenExpired:
-        reasonString = "Expired Token"
-      case .pingTimeout, .transportClosed:
-        reasonString = "Network Error"
-      default:
-        reasonString = "Unknown"
-    }
-    if reason != .tokenExpired {
-      CustomLogger.logSlack(message: ":warning: Session error:\nreason: \(String(describing: reason))\nreasonString: \(String(describing: reasonString))")
-    }
-    EventEmitter.shared.sendEvent(withName: Event.receivedSessionError.rawValue, body: ["reason": reasonString])
-  }
-}
-
-extension VonageVoice: CXProviderDelegate {
-  public func providerDidReset(_ provider: CXProvider) {
-    self.contactService.resetCallInfo()
-    callStartedAt = nil
-    callID = nil
-  }
-
-  public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
-    // This method is called when a call is initiated from the system
-    // We don't need to implement anything here as we're not initiating outgoing calls
-    action.fulfill()
-  }
-
-  public func provider(_ provider: CXProvider, perform action: CXSetHeldCallAction) {
-    // This method is called when a call is put on hold or taken off hold
-    // We don't support call holding in this implementation
-    action.fulfill()
-  }
-
-  public func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
-    CustomLogger.logSlack(message: ":warning: Timed out performing action\n\(String(describing: action))")
-    // This method is called when the provider times out while performing an action
-    // We'll just fail the action in this case
-    action.fail()
-  }
-
-  public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
-    EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
-    self.contactService.changeTemporaryIdentifierImage()
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [self] in
-      self.contactService.resetCallInfo()
-      waitForRefreshCompletion { [self] in
-        guard let callID else { return }
-
-        client.answer(callID) { error in
-          if error == nil {
-            self.callStartedAt = Date()
-            self.callID = callID
-            EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.callID, "caller": self.caller])
-            action.fulfill()
-          } else {
-            action.fail()
-          }
-        }
-      }
-    }
-  }
-  
-  public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
-    self.contactService.resetCallInfo()
-    waitForRefreshCompletion { [self] in
-      guard let callID else {
-        endCallTransaction(action: action)
-        return
-      }
-
-      if isCallActive() {
-        client.hangup(callID) { error in
-          if error == nil {
-            self.callStartedAt = nil
-            self.callID = nil
-            self.endCallTransaction(action: action)
-          } else {
-            action.fail()
-          }
-          EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
-        }
-      } else {
-        client.reject(callID) { error in
-          if error == nil {
-            self.callStartedAt = nil
-            self.callID = nil
-            self.endCallTransaction(action: action)
-          } else {
-            action.fail()
-          }
-          EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
-        }
-      }
-    }
-  }
-
-  public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-    VGVoiceClient.enableAudio(audioSession)
-  }
-
-  public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-    VGVoiceClient.disableAudio(audioSession)
-  }
-
-  public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
-    guard let callID = self.callID else {
-      CustomLogger.logSlack(message: ":interrobang: Trying to mute/unmute a call with callID null")
-      action.fail()
-      return
-    }
-    if action.isMuted {
-      self.client.mute(callID) { error in
-        if error == nil {
-          action.fulfill()
-          return
-        } else {
-          CustomLogger.logSlack(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
-          action.fail()
-          return
-        }
-      }
-    } else {
-      self.client.unmute(callID) { error in
-        if error == nil {
-          action.fulfill()
-          return
-        } else {
-          CustomLogger.logSlack(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
-          action.fail()
-          return
-        }
-      }
-    }
-  }
-}
-
-extension VonageVoice: CXCallObserverDelegate {
-    func callObserver(_ callObserver: CXCallObserver, callChanged call: CXCall) {
-        if (call.hasEnded) {
-          self.contactService.resetCallInfo()
-        }
-    }
 }
