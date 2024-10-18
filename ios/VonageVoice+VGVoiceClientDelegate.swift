@@ -2,7 +2,6 @@ import VonageClientSDKVoice
 
 extension VonageVoice: VGVoiceClientDelegate {
   @objc public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
-    print("Received invite for call: \(callId)")
     self.isCallHandled = false
     self.callID = callId
     self.caller = caller
@@ -11,7 +10,6 @@ extension VonageVoice: VGVoiceClientDelegate {
   }
 
     @objc public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
-    print("Received hangup for call: \(callId)")
     EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": reason.rawValue])
     self.callStartedAt = nil
     self.callID = nil
@@ -21,7 +19,6 @@ extension VonageVoice: VGVoiceClientDelegate {
   }
   
     @objc public func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: String, with reason: VGVoiceInviteCancelReason) {
-    print("Received cancel for call: \(callId)")
     EventEmitter.shared.sendEvent(withName: Event.receivedCancel.rawValue, body: ["callId": callId, "reason": reason.rawValue])
     self.callStartedAt = nil
     self.callID = nil
@@ -30,7 +27,6 @@ extension VonageVoice: VGVoiceClientDelegate {
   }
 
     @objc public func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: String, withLegId legId: String, andStatus status: VGLegStatus) {
-    print("Received leg status update for call: \(callId)")
     switch (status) {
       case .completed:
         EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callId, "reason": "completed"])
@@ -68,27 +64,22 @@ extension VonageVoice: VGVoiceClientDelegate {
   }
 
     @objc public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectingForCall callId: String) {
-    print("Received media reconnecting for call: \(callId)")
     EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "reconnecting"])
   }
 
     @objc public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectionForCall callId: String) {
-    print("Received media reconnection for call: \(callId)")
     EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "reconnected"])
   }
 
     @objc public func voiceClient(_ client: VGVoiceClient, didReceiveMediaDisconnectForCall callId: String, reason: VGCallDisconnectReason) {
-    print("Received media disconnect for call: \(callId)")
     EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "disconnected", "reason": reason.rawValue])
   }
 
     @objc public func voiceClient(_ client: VGVoiceClient, didReceiveMediaErrorForCall callId: String, error: VGError) {
-    print("Received media error for call: \(callId)")
     CustomLogger.logSlack(message: ":warning: Media error:\ncall id:\(callId)\nerror: \(String(describing: error))")
   }
 
     @objc  public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
-      print("Received session error for call: \(self.callID)")
     let reasonString: String!
 
     switch reason {

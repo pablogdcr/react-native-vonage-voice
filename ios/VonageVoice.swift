@@ -111,7 +111,6 @@ public class VonageVoice: NSObject {
   }
 
   @objc private func handleVoipPushNotification(_ notification: Notification) {
-    print("handle VoIP push notification | voipNotification: \(voipNotification)")
     voipNotification = notification
     handleIncomingPushNotification(notification: notification.object as! Dictionary<String, Any>) { _ in
     } reject: { _, _, error in
@@ -304,7 +303,6 @@ public class VonageVoice: NSObject {
   }
 
   @objc public func mute(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    print("Mute call: \(callID)")
     self.client.mute(callID) { error in
       if error == nil {
         resolve(["success": true])
@@ -318,7 +316,6 @@ public class VonageVoice: NSObject {
   }
 
   @objc public func unmute(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    print("Unmute call: \(callID)")
     self.client.unmute(callID) { error in
       if error == nil {
         resolve(["success": true])
@@ -333,7 +330,6 @@ public class VonageVoice: NSObject {
 
   @objc public func enableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     let audioSession = AVAudioSession.sharedInstance()
-    print("Enable speaker")
     do {
       try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
       try audioSession.overrideOutputAudioPort(.speaker)
@@ -351,7 +347,6 @@ public class VonageVoice: NSObject {
 
   @objc public func disableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     let audioSession = AVAudioSession.sharedInstance()
-    print("Disable speaker")
     do {
       try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
       try audioSession.overrideOutputAudioPort(.none)
@@ -483,7 +478,6 @@ public class VonageVoice: NSObject {
     }
     EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
 
-    print("Answer call: \(callID)")
     client.answer(callID) { error in
       if error == nil {
         self.isCallHandled = true
@@ -513,7 +507,6 @@ public class VonageVoice: NSObject {
       return
     }
 
-    print("Reject call: \(callID)")
     client.reject(callID) { error in
       if error == nil {
         self.isCallHandled = true
@@ -543,7 +536,6 @@ public class VonageVoice: NSObject {
       return
     }
 
-    print("Hangup call: \(callID)")
     client.hangup(callID) { error in
       if error == nil {
         self.isCallHandled = true
@@ -651,16 +643,13 @@ public class VonageVoice: NSObject {
 
       isRefreshing = true
       refreshSessionBlock({ result in
-        print("REFRESH SESSION BLOCK RESULT")
         if let result = result as? [String: Any],
           let token = result["accessToken"] as? String {
           accessToken = token
         }
         semaphore.signal()
       }, { code, message, error in
-        print("REFRESH SESSION BLOCK REJECT")
         CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
-        print("Reject called with error: \(String(describing: code)), \(String(describing: message)), \(String(describing: error))")
         refreshError = error
         semaphore.signal()
       })
@@ -728,7 +717,6 @@ public class VonageVoice: NSObject {
       return
     }
 
-    print("Process notification \(newCallId) \(number) \(notification)")
     refreshSessionAndReportCall(callId: newCallId, number: number, notification: notification)
   }
 

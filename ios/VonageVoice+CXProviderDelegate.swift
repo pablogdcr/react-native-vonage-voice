@@ -10,21 +10,18 @@ extension VonageVoice: CXProviderDelegate {
   }
 
   public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
-    print("provider: start call")
     // This method is called when a call is initiated from the system
     // We don't need to implement anything here as we're not initiating outgoing calls
     action.fulfill()
   }
 
   public func provider(_ provider: CXProvider, perform action: CXSetHeldCallAction) {
-    print("provider: set held call")
     // This method is called when a call is put on hold or taken off hold
     // We don't support call holding in this implementation
     action.fulfill()
   }
 
   public func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
-    print("provider: timed out performing action")
     CustomLogger.logSlack(message: ":warning: Timed out performing action\n\(String(describing: action))")
     // This method is called when the provider times out while performing an action
     // We'll just fail the action in this case
@@ -39,7 +36,6 @@ extension VonageVoice: CXProviderDelegate {
       return
     }
     EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
-    print("provider: answer call")
     self.contactService.changeTemporaryIdentifierImage()
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [self] in
       self.contactService.resetCallInfo()
@@ -64,7 +60,6 @@ extension VonageVoice: CXProviderDelegate {
   }
   
   public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
-    print("provider: end call")
     self.contactService.resetCallInfo()
     guard !isCallHandled else {
       action.fulfill()
@@ -78,7 +73,6 @@ extension VonageVoice: CXProviderDelegate {
       }
 
       if self.isCallActive() {
-        print("provider: HANGUP")
         self.client.hangup(callID) { error in
           if error == nil {
             self.callStartedAt = nil
@@ -92,7 +86,6 @@ extension VonageVoice: CXProviderDelegate {
           }
         }
       } else if (callID != nil) {
-        print("provider: REJECT")
         self.client.reject(callID) { error in
           if error == nil {
             self.callStartedAt = nil
@@ -110,17 +103,14 @@ extension VonageVoice: CXProviderDelegate {
   }
 
   public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-    print("provider: did activate audio session")
     VGVoiceClient.enableAudio(audioSession)
   }
 
   public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-    print("provider: did deactivate audio session")
     VGVoiceClient.disableAudio(audioSession)
   }
 
   public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
-    print("provider: set muted call")
     guard let callID = self.callID else {
       CustomLogger.logSlack(message: ":interrobang: Trying to mute/unmute a call with callID null")
       action.fail()
