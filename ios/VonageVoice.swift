@@ -1,5 +1,6 @@
 import VonageClientSDKVoice
 import CallKit
+import AVFoundation
 
 extension NSNotification.Name {
   static let voipPushReceived = NSNotification.Name("voip-push-received")
@@ -334,8 +335,10 @@ public class VonageVoice: NSObject {
     let audioSession = AVAudioSession.sharedInstance()
     print("Enable speaker")
     do {
-      try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowBluetooth, .defaultToSpeaker])
+      try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
+      try audioSession.overrideOutputAudioPort(.speaker)
       try audioSession.setActive(true)
+
       VGVoiceClient.enableAudio(audioSession)
       resolve(["success": true])
       return
@@ -350,8 +353,10 @@ public class VonageVoice: NSObject {
     let audioSession = AVAudioSession.sharedInstance()
     print("Disable speaker")
     do {
-      try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
+      try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
+      try audioSession.overrideOutputAudioPort(.none)
       try audioSession.setActive(true)
+    
       VGVoiceClient.enableAudio(audioSession)
       resolve(["success": true])
       return
@@ -587,6 +592,7 @@ public class VonageVoice: NSObject {
       if error == nil {
         self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callID!)!, startedConnectingAt: Date())
         self.callID = callID
+        self.callStartedAt = Date()
         resolve(["callId": callID])
         EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID!, "caller": to, "outbound": true])
         return
