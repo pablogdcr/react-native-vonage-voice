@@ -94,7 +94,7 @@ public class VonageVoice: NSObject {
         try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
         VGVoiceClient.enableAudio(AVAudioSession.sharedInstance())
       } catch {
-        CustomLogger.logSlack(message: ":x: Failed to reactivate audio session after interruption: \(error.localizedDescription)")
+        CustomLogger.logSlack(message: ":x: Failed to reactivate audio session after interruption: \(error.localizedDescription)\ninfo:\(debugAdditionalInfo)")
       }
     }
   }
@@ -658,7 +658,7 @@ public class VonageVoice: NSObject {
       let semaphore = DispatchSemaphore(value: 0)
 
       let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
-        CustomLogger.logSlack(message: ":hourglass_flowing_sand: Refresh session background task expired")
+        CustomLogger.logSlack(message: ":hourglass_flowing_sand: Refresh session background task expired\ninfo:\(debugAdditionalInfo)")
       }
 
       refreshSessionBlock({ result in
@@ -673,7 +673,7 @@ public class VonageVoice: NSObject {
           self.refreshTokens(accessToken: token) { error in
             if let error = error {
               print(error.localizedDescription)
-              CustomLogger.logSlack(message: ":key: Failed to refresh Vonage session\nerror: \(error.localizedDescription)")
+              CustomLogger.logSlack(message: ":key: Failed to refresh Vonage session\nerror: \(error.localizedDescription)\ninfo:\(debugAdditionalInfo)")
             } else {
               self.isLoggedIn = true
               self.client.processCallInvitePushData(notification)
@@ -681,7 +681,7 @@ public class VonageVoice: NSObject {
           }
         } else {
           print("Failed to refresh session")
-          CustomLogger.logSlack(message: ":key: Failed to refresh session")
+          CustomLogger.logSlack(message: ":key: Failed to refresh session\ninfo:\(debugAdditionalInfo)")
         }
         self.isRefreshing = false
         semaphore.signal()
@@ -689,6 +689,7 @@ public class VonageVoice: NSObject {
       }, { code, message, error in
         CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
         semaphore.signal()
+        self.isRefreshing = false
         UIApplication.shared.endBackgroundTask(backgroundTaskID)
       })
 
@@ -696,7 +697,8 @@ public class VonageVoice: NSObject {
 
       if result == .timedOut {
         print("Refresh session timed out after \(maxWaitTime) seconds")
-        CustomLogger.logSlack(message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:")
+        CustomLogger.logSlack(message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:\ninfo:\(debugAdditionalInfo)")
+        self.isRefreshing = false
       }
 
       self.reportNewIncomingCall(callId: callId, number: number)
