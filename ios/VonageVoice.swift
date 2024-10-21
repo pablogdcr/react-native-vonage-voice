@@ -633,6 +633,7 @@ public class VonageVoice: NSObject {
     self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: callId)!, update: callUpdate) { error in
       if let error = error {
         print("Error reporting call: \(error.localizedDescription)")
+        CustomLogger.logSlack(message: ":x: Failed to report new incoming call\ncallId: \(callId)\nnumber: \(number)\nerror: \(error.localizedDescription)")
         self.callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .unanswered)
       } else {
         self.callID = callId
