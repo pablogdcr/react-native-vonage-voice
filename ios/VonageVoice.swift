@@ -127,7 +127,7 @@ public class VonageVoice: NSObject {
         case .success(let vonageToken):
           if self.isLoggedIn {
             self.client.refreshSession(vonageToken) { error in
-              if let error = error {
+              if error != nil {
                 self.client.createSession(vonageToken) { error, _ in
                   completion(error)
                 }
@@ -629,82 +629,74 @@ public class VonageVoice: NSObject {
     return channel?["id"] as? String
   }
 
+  private func reportNewIncomingCall(callId: String, number: String) {
+    let callUpdate = CXCallUpdate()
+
+    callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(number)")
+    self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: callId)!, update: callUpdate) { error in
+      if let error = error {
+        print("Error reporting call: \(error.localizedDescription)")
+        self.callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .unanswered)
+      } else {
+        self.callID = callId
+        self.caller = number
+        self.outbound = false
+      }
+    }
+  }
+
   private func refreshSessionAndReportCall(callId: String, number: String, notification: Dictionary<String, Any>) {
-      if let userInfo = voipNotification?.userInfo,
+    if let userInfo = voipNotification?.userInfo,
         let block = userInfo["refreshSessionBlock"] as? AnyObject,
         let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String {
       let refreshSessionBlock = unsafeBitCast(block, to: (@convention(block) (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void).self)
       refreshVonageTokenUrlString = refreshVonageTokenUrl
 
-      var accessToken: String?
-      var refreshError: Error?
+      isRefreshing = true
+
+      let startTime = Date()
+      let maxWaitTime: TimeInterval = 1.0
 
       let semaphore = DispatchSemaphore(value: 0)
 
-      isRefreshing = true
       refreshSessionBlock({ result in
         if let result = result as? [String: Any],
           let token = result["accessToken"] as? String {
-          accessToken = token
-        }
-        semaphore.signal()
-      }, { code, message, error in
-        CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
-        refreshError = error
-        semaphore.signal()
-      })
-
-      semaphore.wait()
-
-      if let token = accessToken {
-        self.contactService.prepareCallInfo(number: number, token: token) { success, error in
-          let callUpdate = CXCallUpdate()
-
-          callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(number)")
-          if let error = error {
-            print("Error updating contact image: \(error)")
-          }
-          self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: callId)!, update: callUpdate) { error in
+          self.contactService.prepareCallInfo(number: number, token: token) { success, error in
             if let error = error {
-              print("Error reporting call: \(error.localizedDescription)")
-              self.callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .unanswered)
-            } else {
-              self.callID = callId
-              self.caller = number
-              self.outbound = false
+              print("Error updating contact image: \(error)")
             }
           }
-        }
-        self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
-        self.refreshTokens(accessToken: token) { error in
-          if let error = error {
-            print(error.localizedDescription)
-          } else {
-            self.isLoggedIn = true
-            self.client.processCallInvitePushData(notification)
+          self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
+          self.refreshTokens(accessToken: token) { error in
+            if let error = error {
+              print(error.localizedDescription)
+            } else {
+              self.isLoggedIn = true
+              self.client.processCallInvitePushData(notification)
+            }
           }
-          self.isRefreshing = false
+        } else {
+          print("Failed to refresh session")
+          CustomLogger.logSlack(message: ":key: Failed to refresh session")
         }
-      } else {
-        print("Failed to refresh session \(String(describing: refreshError))")
-        CustomLogger.logSlack(message: ":key: Failed to refresh session \(String(describing: refreshError))")
-        let callUpdate = CXCallUpdate()
-
-        callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(number)")
-        self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: callId)!, update: callUpdate) { error in
-          if let error = error {
-            print("Error reporting call: \(error.localizedDescription)")
-            self.callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .unanswered)
-          } else {
-            self.callID = callId
-            self.caller = number
-            self.outbound = false
-          }
-        }
-
-        self.callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
         self.isRefreshing = false
+       semaphore.signal()
+      }, { code, message, error in
+        CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
+       semaphore.signal()
+      })
+
+      let result = semaphore.wait(timeout: .now() + maxWaitTime)
+
+      if result == .timedOut {
+        print("Refresh session timed out after \(maxWaitTime) seconds")
+        CustomLogger.logSlack(message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:")
       }
+
+      self.reportNewIncomingCall(callId: callId, number: number)
+    } else {
+      callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .failed)
     }
   }
 
@@ -716,7 +708,6 @@ public class VonageVoice: NSObject {
       callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
       return
     }
-
     refreshSessionAndReportCall(callId: newCallId, number: number, notification: notification)
   }
 
