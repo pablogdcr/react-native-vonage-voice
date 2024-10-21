@@ -15,6 +15,7 @@ public class VonageVoice: NSObject {
   private var logger = CustomLogger()
   let client: VGVoiceClient
   let contactService = ContactService()
+  let audioSession = AVAudioSession.sharedInstance()
   
   private var refreshVonageTokenUrlString: String?
   private var ongoingPushKitCompletion: () -> Void = { }
@@ -32,6 +33,7 @@ public class VonageVoice: NSObject {
   var caller: String?
   var outbound = false
   var isCallHandled = false
+
   @objc private var debugAdditionalInfo: String? {
     get {
       return UserDefaults.standard.string(forKey: Constants.debugInfoKey)
@@ -92,7 +94,6 @@ public class VonageVoice: NSObject {
     if interruptionType == AVAudioSession.InterruptionType.ended.rawValue {
       do {
         try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
-        VGVoiceClient.enableAudio(AVAudioSession.sharedInstance())
       } catch {
         CustomLogger.logSlack(message: ":x: Failed to reactivate audio session after interruption: \(error.localizedDescription)\ninfo:\(debugAdditionalInfo)")
       }
@@ -326,13 +327,11 @@ public class VonageVoice: NSObject {
   }
 
   @objc public func enableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    let audioSession = AVAudioSession.sharedInstance()
     do {
       try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
       try audioSession.overrideOutputAudioPort(.speaker)
       try audioSession.setActive(true)
 
-      VGVoiceClient.enableAudio(audioSession)
       resolve(["success": true])
       return
     } catch {
@@ -343,13 +342,11 @@ public class VonageVoice: NSObject {
   }
 
   @objc public func disableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    let audioSession = AVAudioSession.sharedInstance()
     do {
       try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
       try audioSession.overrideOutputAudioPort(.none)
       try audioSession.setActive(true)
     
-      VGVoiceClient.enableAudio(audioSession)
       resolve(["success": true])
       return
     } catch {
@@ -487,6 +484,7 @@ public class VonageVoice: NSObject {
           if let error = error {
             print("Error answering call: \(error)")
           }
+          self.isCallHandled = false
         })
         resolve(["success": true])
         return
@@ -511,11 +509,17 @@ public class VonageVoice: NSObject {
         self.callID = nil
         self.outbound = false
 
+        do {
+          try VGVoiceClient.disableAudio(self.audioSession)
+        } catch {
+          // Fail silently
+        }
         let transaction = CXTransaction(action: CXEndCallAction(call: UUID(uuidString: callID)!))
         self.callController.request(transaction, completion: { error in
           if let error = error {
             print("Error ending call: \(error)")
           }
+          self.isCallHandled = false
         })
         resolve(["success": true])
         return
@@ -540,11 +544,17 @@ public class VonageVoice: NSObject {
         self.callID = nil
         self.outbound = false
 
+        do {
+          try VGVoiceClient.disableAudio(self.audioSession)
+        } catch {
+          // Fail silently
+        }
         let transaction = CXTransaction(action: CXEndCallAction(call: UUID(uuidString: callID)!))
         self.callController.request(transaction, completion: { error in
           if let error = error {
             print("Error ending call: \(error)")
           }
+          self.isCallHandled = false
         })
         resolve("Call ended")
         return
@@ -576,7 +586,7 @@ public class VonageVoice: NSObject {
       callData.merge(customData) { (_, new) in new }
     }
     self.outbound = true
-    self.caller = to    
+    self.caller = to
     client.serverCall(callData) { error, callID in
       if error == nil {
         self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callID!)!, startedConnectingAt: Date())
@@ -658,7 +668,7 @@ public class VonageVoice: NSObject {
       let semaphore = DispatchSemaphore(value: 0)
 
       let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
-        CustomLogger.logSlack(message: ":hourglass_flowing_sand: Refresh session background task expired\ninfo:\(debugAdditionalInfo)")
+          CustomLogger.logSlack(message: ":hourglass_flowing_sand: Refresh session background task expired\ninfo:\(self.debugAdditionalInfo)")
       }
 
       refreshSessionBlock({ result in
@@ -673,7 +683,7 @@ public class VonageVoice: NSObject {
           self.refreshTokens(accessToken: token) { error in
             if let error = error {
               print(error.localizedDescription)
-              CustomLogger.logSlack(message: ":key: Failed to refresh Vonage session\nerror: \(error.localizedDescription)\ninfo:\(debugAdditionalInfo)")
+                CustomLogger.logSlack(message: ":key: Failed to refresh Vonage session\nerror: \(error.localizedDescription)\ninfo:\(self.debugAdditionalInfo)")
             } else {
               self.isLoggedIn = true
               self.client.processCallInvitePushData(notification)
@@ -681,7 +691,7 @@ public class VonageVoice: NSObject {
           }
         } else {
           print("Failed to refresh session")
-          CustomLogger.logSlack(message: ":key: Failed to refresh session\ninfo:\(debugAdditionalInfo)")
+            CustomLogger.logSlack(message: ":key: Failed to refresh session\ninfo:\(self.debugAdditionalInfo)")
         }
         self.isRefreshing = false
         semaphore.signal()

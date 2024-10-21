@@ -49,8 +49,8 @@ extension VonageVoice: VGVoiceClientDelegate {
 
         do {
           try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
+          try audioSession.overrideOutputAudioPort(.none)
           try audioSession.setActive(true)
-
           VGVoiceClient.enableAudio(audioSession)
         } catch {
           // Fail silently
