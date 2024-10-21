@@ -653,7 +653,7 @@ public class VonageVoice: NSObject {
       isRefreshing = true
 
       let startTime = Date()
-      let maxWaitTime: TimeInterval = 1.0
+      let maxWaitTime: TimeInterval = 1.5
 
       let semaphore = DispatchSemaphore(value: 0)
 
@@ -673,6 +673,7 @@ public class VonageVoice: NSObject {
           self.refreshTokens(accessToken: token) { error in
             if let error = error {
               print(error.localizedDescription)
+              CustomLogger.logSlack(message: ":key: Failed to refresh Vonage session\nerror: \(error.localizedDescription)")
             } else {
               self.isLoggedIn = true
               self.client.processCallInvitePushData(notification)
