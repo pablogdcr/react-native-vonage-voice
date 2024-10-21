@@ -26,6 +26,7 @@ public class VonageVoice: NSObject {
   private var voipNotification: Notification?
   private var isRefreshing = false
   private var isObserversAdded = false
+  private var refreshSessionBlock: RefreshSessionBlock?
   var callStartedAt: Date?
   var callID: String?
   var caller: String?
@@ -39,7 +40,7 @@ public class VonageVoice: NSObject {
       UserDefaults.standard.set(newValue, forKey: Constants.debugInfoKey)
     }
   }
-  
+
   private override init() {
     let configuration = CXProviderConfiguration(localizedName: "Allo")
     configuration.includesCallsInRecents = true
@@ -88,16 +89,12 @@ public class VonageVoice: NSObject {
       return
     }
 
-    if interruptionType == AVAudioSession.InterruptionType.began.rawValue {
-      if let callID = self.callID {
-        CustomLogger.logSlack(message: ":warning: Audio session interrupted for call: \(callID)")
-      }
-    } else if interruptionType == AVAudioSession.InterruptionType.ended.rawValue {
+    if interruptionType == AVAudioSession.InterruptionType.ended.rawValue {
       do {
-          try AVAudioSession.sharedInstance().setActive(true)
-          VGVoiceClient.enableAudio(AVAudioSession.sharedInstance())
+        try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+        VGVoiceClient.enableAudio(AVAudioSession.sharedInstance())
       } catch {
-          print("Failed to reactivate audio session after interruption.")
+        CustomLogger.logSlack(message: ":x: Failed to reactivate audio session after interruption: \(error.localizedDescription)")
       }
     }
   }
@@ -659,6 +656,10 @@ public class VonageVoice: NSObject {
 
       let semaphore = DispatchSemaphore(value: 0)
 
+      let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
+        CustomLogger.logSlack(message: ":hourglass_flowing_sand: Refresh session background task expired")
+      }
+
       refreshSessionBlock({ result in
         if let result = result as? [String: Any],
           let token = result["accessToken"] as? String {
@@ -681,10 +682,12 @@ public class VonageVoice: NSObject {
           CustomLogger.logSlack(message: ":key: Failed to refresh session")
         }
         self.isRefreshing = false
-       semaphore.signal()
+        semaphore.signal()
+        UIApplication.shared.endBackgroundTask(backgroundTaskID)
       }, { code, message, error in
         CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
-       semaphore.signal()
+        semaphore.signal()
+        UIApplication.shared.endBackgroundTask(backgroundTaskID)
       })
 
       let result = semaphore.wait(timeout: .now() + maxWaitTime)
