@@ -678,6 +678,8 @@ public class VonageVoice: NSObject {
             if let error = error {
               print("Error updating contact image: \(error)")
             }
+            semaphore.signal()
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
           }
           self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
           self.refreshTokens(accessToken: token) { error in
@@ -687,15 +689,13 @@ public class VonageVoice: NSObject {
             } else {
               self.isLoggedIn = true
               self.client.processCallInvitePushData(notification)
+              self.isRefreshing = false
             }
           }
         } else {
           print("Failed to refresh session")
             CustomLogger.logSlack(message: ":key: Failed to refresh session\ninfo:\(self.debugAdditionalInfo)")
         }
-        self.isRefreshing = false
-        semaphore.signal()
-        UIApplication.shared.endBackgroundTask(backgroundTaskID)
       }, { code, message, error in
         CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nerror: \(String(describing: error))")
         semaphore.signal()
