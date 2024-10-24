@@ -85,7 +85,7 @@ extension VonageVoice: CXProviderDelegate {
             action.fail()
           }
         }
-      } else if (callID != nil) {
+      } else {
         self.client.reject(callID) { error in
           if error == nil {
             self.callStartedAt = nil

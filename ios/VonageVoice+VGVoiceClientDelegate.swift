@@ -39,14 +39,6 @@ extension VonageVoice: VGVoiceClientDelegate {
       case .ringing:
         EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
         self.callID = callId
-        break
-
-      case .answered:
-        if self.outbound == true {
-          self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callId)!, connectedAt: Date())
-        }
-        let audioSession = AVAudioSession.sharedInstance()
-
         do {
           try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
           try audioSession.overrideOutputAudioPort(.none)
@@ -55,6 +47,13 @@ extension VonageVoice: VGVoiceClientDelegate {
         } catch {
           // Fail silently
         }
+        break
+
+      case .answered:
+        if self.outbound == true {
+          self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callId)!, connectedAt: Date())
+        }
+
         EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
         break
 

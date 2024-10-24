@@ -9,11 +9,10 @@ extension VonageVoice: CXCallObserverDelegate {
       self.isCallHandled = false
     }
     if (call.hasConnected) {
-      let audioSession = AVAudioSession.sharedInstance()
-
       do {
-        try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
-        try audioSession.setActive(true, options: [])
+        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
+        try audioSession.overrideOutputAudioPort(.none)
+        try audioSession.setActive(true)
 
         VGVoiceClient.enableAudio(audioSession)
       } catch {
