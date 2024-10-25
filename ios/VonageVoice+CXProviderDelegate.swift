@@ -29,12 +29,6 @@ extension VonageVoice: CXProviderDelegate {
   }
 
   public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
-    guard !isCallHandled else {
-      self.contactService.resetCallInfo()
-      action.fulfill()
-      self.isCallHandled = false
-      return
-    }
     EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
     self.contactService.changeTemporaryIdentifierImage()
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [self] in
@@ -61,11 +55,6 @@ extension VonageVoice: CXProviderDelegate {
   
   public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
     self.contactService.resetCallInfo()
-    guard !isCallHandled else {
-      action.fulfill()
-      self.isCallHandled = false
-      return
-    }
     self.waitForRefreshCompletion {
       guard let callID = self.callID else {
         action.fail()

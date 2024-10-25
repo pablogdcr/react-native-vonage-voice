@@ -2,7 +2,6 @@ import VonageClientSDKVoice
 
 extension VonageVoice: VGVoiceClientDelegate {
   @objc public func voiceClient(_ client: VGVoiceClient, didReceiveInviteForCall callId: VGCallId, from caller: String, with type: VGVoiceChannelType) {
-    self.isCallHandled = false
     self.callID = callId
     self.caller = caller
     self.outbound = false

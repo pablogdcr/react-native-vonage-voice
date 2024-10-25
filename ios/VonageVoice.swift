@@ -32,7 +32,6 @@ public class VonageVoice: NSObject {
   var callID: String?
   var caller: String?
   var outbound = false
-  var isCallHandled = false
 
   @objc private var debugAdditionalInfo: String? {
     get {
@@ -328,9 +327,7 @@ public class VonageVoice: NSObject {
 
   @objc public func enableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     do {
-      try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
       try audioSession.overrideOutputAudioPort(.speaker)
-      try audioSession.setActive(true)
 
       resolve(["success": true])
       return
@@ -343,9 +340,7 @@ public class VonageVoice: NSObject {
 
   @objc public func disableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     do {
-      try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
       try audioSession.overrideOutputAudioPort(.none)
-      try audioSession.setActive(true)
     
       resolve(["success": true])
       return
@@ -466,95 +461,51 @@ public class VonageVoice: NSObject {
   }
 
   @objc public func answerCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    if isCallHandled {
-      reject("Call already handled", "Call already handled", nil)
-      return
-    }
     EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
 
     client.answer(callID) { error in
       if error == nil {
-        self.isCallHandled = true
         self.callStartedAt = Date()
         self.callID = callID
         self.outbound = false
 
-        let transaction = CXTransaction(action: CXAnswerCallAction(call: UUID(uuidString: callID)!))
-        self.callController.request(transaction, completion: { error in
-          if let error = error {
-            print("Error answering call: \(error)")
-          }
-          self.isCallHandled = false
-        })
         resolve(["success": true])
-        return
       } else {
         CustomLogger.logSlack(message: ":x: Failed to answer call\nid: \(callID)\nerror: \(String(describing: error))")
         reject("Failed to answer the call", error?.localizedDescription, error)
-        return
       }
     }
   }
   
   @objc public func rejectCall(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    if isCallHandled {
-      reject("Call already handled", "Call already handled", nil)
-      return
-    }
-
     client.reject(callID) { error in
       if error == nil {
-        self.isCallHandled = true
         self.callStartedAt = nil
         self.callID = nil
         self.outbound = false
 
-        VGVoiceClient.disableAudio(self.audioSession)
-        let transaction = CXTransaction(action: CXEndCallAction(call: UUID(uuidString: callID)!))
-        self.callController.request(transaction, completion: { error in
-          if let error = error {
-            print("Error ending call: \(error)")
-          }
-          self.isCallHandled = false
-        })
         resolve(["success": true])
-        return
       } else {
         CustomLogger.logSlack(message: ":x: Failed to reject call\nid: \(callID)\nerror: \(String(describing: error))")
         reject("Failed to reject call", error?.localizedDescription, error)
-        return
       }
+      VGVoiceClient.disableAudio(self.audioSession)
     }
   }
   
   @objc public func hangup(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    if isCallHandled {
-      reject("Call already handled", "Call already handled", nil)
-      return
-    }
-
     client.hangup(callID) { error in
       if error == nil {
-        self.isCallHandled = true
         self.callStartedAt = nil
         self.callID = nil
         self.outbound = false
 
-        VGVoiceClient.disableAudio(self.audioSession)
-        let transaction = CXTransaction(action: CXEndCallAction(call: UUID(uuidString: callID)!))
-        self.callController.request(transaction, completion: { error in
-          if let error = error {
-            print("Error ending call: \(error)")
-          }
-          self.isCallHandled = false
-        })
         resolve("Call ended")
-        return
       } else {
         CustomLogger.logSlack(message: ":x: Failed to hangup call\nid: \(callID)\nerror: \(String(describing: error))")
         reject("Failed to hangup", error?.localizedDescription, error)
-        return
       }
+      VGVoiceClient.disableAudio(self.audioSession)
     }
   }
 
@@ -568,7 +519,25 @@ public class VonageVoice: NSObject {
       return
     }
 
-    processNotification(notification: notification)
+    if UIApplication.shared.applicationState != .active {
+      processNotification(notification: notification)
+    } else {
+      let number = extractCallerNumber(from: notification)
+      let callId = extractCallId(from: notification)
+
+      self.callID = callId!
+      self.caller = number!
+      self.outbound = false
+      EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": self.callID, "caller": self.caller!, "outbound": self.outbound])
+      do {
+        try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
+        try audioSession.setActive(true)
+        try audioSession.overrideOutputAudioPort(.none)
+        VGVoiceClient.enableAudio(audioSession)
+      } catch {
+        // Fail silently
+      }
+    }
   }
 
   @objc public func serverCall(to: String, customData: [String: String]? = nil, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
@@ -586,12 +555,10 @@ public class VonageVoice: NSObject {
         self.callStartedAt = Date()
         resolve(["callId": callID])
         EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID!, "caller": to, "outbound": true])
-        return
       } else {
         self.outbound = false
         self.caller = nil
         reject("Failed to server call", error?.localizedDescription, error)
-        return
       }
     }
   }

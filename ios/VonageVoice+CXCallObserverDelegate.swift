@@ -6,13 +6,18 @@ extension VonageVoice: CXCallObserverDelegate {
   @objc public func callObserver(_ callObserver: CXCallObserver, callChanged call: CXCall) {
     if (call.hasEnded) {
       self.contactService.resetCallInfo()
-      self.isCallHandled = false
+      VGVoiceClient.disableAudio(self.audioSession)
+      do {
+        try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+      } catch {
+        // Fail silently
+      }
     }
     if (call.hasConnected) {
       do {
         try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
-        try audioSession.overrideOutputAudioPort(.none)
         try audioSession.setActive(true)
+        try audioSession.overrideOutputAudioPort(.none)
 
         VGVoiceClient.enableAudio(audioSession)
       } catch {
