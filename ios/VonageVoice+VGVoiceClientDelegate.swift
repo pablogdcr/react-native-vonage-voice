@@ -14,6 +14,9 @@ extension VonageVoice: VGVoiceClientDelegate {
     self.callID = nil
     self.outbound = false
     self.contactService.resetCallInfo()
+    VGVoiceClient.disableAudio(audioSession)
+    try? AVAudioSession.sharedInstance().setActive(false)
+
     callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
   }
   
@@ -32,27 +35,22 @@ extension VonageVoice: VGVoiceClientDelegate {
         self.callStartedAt = nil
         self.callID = nil
         self.outbound = false
+        self.contactService.resetCallInfo()
+        VGVoiceClient.disableAudio(audioSession)
+        try? AVAudioSession.sharedInstance().setActive(false)
+
         callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
         break
 
       case .ringing:
-        EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
         self.callID = callId
-        do {
-          try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
-          try audioSession.overrideOutputAudioPort(.none)
-          try audioSession.setActive(true)
-          VGVoiceClient.enableAudio(audioSession)
-        } catch {
-          // Fail silently
-        }
+        EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
         break
 
       case .answered:
         if self.outbound == true {
           self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callId)!, connectedAt: Date())
         }
-
         EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
         break
 

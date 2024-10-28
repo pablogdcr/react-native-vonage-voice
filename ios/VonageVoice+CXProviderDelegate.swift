@@ -92,11 +92,19 @@ extension VonageVoice: CXProviderDelegate {
   }
 
   public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-    VGVoiceClient.enableAudio(audioSession)
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+      self.configureAudioSession()
+      VGVoiceClient.enableAudio(audioSession)
+    }
   }
 
   public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-    VGVoiceClient.disableAudio(audioSession)
+   VGVoiceClient.disableAudio(audioSession)
+    do {
+      try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+    } catch {
+      CustomLogger.logSlack(message: ":x: Failed to deactivate audio session\nerror: \(String(describing: error))")
+    }
   }
 
   public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {

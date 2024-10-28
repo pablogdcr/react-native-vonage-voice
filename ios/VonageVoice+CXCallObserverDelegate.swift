@@ -13,16 +13,5 @@ extension VonageVoice: CXCallObserverDelegate {
         // Fail silently
       }
     }
-    if (call.hasConnected) {
-      do {
-        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
-        try audioSession.setActive(true)
-        try audioSession.overrideOutputAudioPort(.none)
-
-        VGVoiceClient.enableAudio(audioSession)
-      } catch {
-        // Fail silently
-      }
-    }
   }
 }

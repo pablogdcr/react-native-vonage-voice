@@ -84,6 +84,15 @@ public class VonageVoice: NSObject {
     }
   }
 
+  func configureAudioSession() {
+      do {
+          try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
+          try audioSession.overrideOutputAudioPort(.none)
+      } catch {
+          CustomLogger.logSlack(message: ":warning: Failed to configure audio session\nerror: \(String(describing: error))")
+      }
+  }
+
   @objc private func handleAudioSessionInterruption(notification: Notification) {
     guard let info = notification.userInfo,
         let interruptionType = info[AVAudioSessionInterruptionTypeKey] as? UInt else {
@@ -93,6 +102,7 @@ public class VonageVoice: NSObject {
     if interruptionType == AVAudioSession.InterruptionType.ended.rawValue {
       do {
         try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+        VGVoiceClient.enableAudio(audioSession)
       } catch {
           CustomLogger.logSlack(message: ":x: Failed to reactivate audio session after interruption: \(error.localizedDescription)\ninfo:\(String(describing: self.debugAdditionalInfo))")
       }
@@ -469,6 +479,8 @@ public class VonageVoice: NSObject {
         self.callID = callID
         self.outbound = false
 
+        self.configureAudioSession()
+        VGVoiceClient.enableAudio(self.audioSession)
         resolve(["success": true])
       } else {
         CustomLogger.logSlack(message: ":x: Failed to answer call\nid: \(callID)\nerror: \(String(describing: error))")
@@ -522,21 +534,16 @@ public class VonageVoice: NSObject {
     if UIApplication.shared.applicationState != .active {
       processNotification(notification: notification)
     } else {
-      let number = extractCallerNumber(from: notification)
-      let callId = extractCallId(from: notification)
-
-      self.callID = callId!
-      self.caller = number!
-      self.outbound = false
-      EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": self.callID, "caller": self.caller!, "outbound": self.outbound])
-      do {
-        try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
-        try audioSession.setActive(true)
-        try audioSession.overrideOutputAudioPort(.none)
-        VGVoiceClient.enableAudio(audioSession)
-      } catch {
-        // Fail silently
+      guard let number = extractCallerNumber(from: notification),
+            let callId = extractCallId(from: notification) else {
+        return
       }
+
+      self.callID = callId
+      self.caller = number
+      self.outbound = false
+
+      EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": number, "outbound": self.outbound])
     }
   }
 
@@ -554,6 +561,9 @@ public class VonageVoice: NSObject {
         self.callID = callID
         self.callStartedAt = Date()
         resolve(["callId": callID])
+        self.configureAudioSession()
+        VGVoiceClient.enableAudio(self.audioSession)
+
         EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID!, "caller": to, "outbound": true])
       } else {
         self.outbound = false
@@ -596,14 +606,15 @@ public class VonageVoice: NSObject {
   }
 
   private func reportNewIncomingCall(callId: String, number: String) {
+    guard let uuid = UUID(uuidString: callId) else { return }
     let callUpdate = CXCallUpdate()
 
     callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(number)")
-    self.callKitProvider.reportNewIncomingCall(with: UUID(uuidString: callId)!, update: callUpdate) { error in
+    self.callKitProvider.reportNewIncomingCall(with: uuid, update: callUpdate) { error in
       if let error = error {
         print("Error reporting call: \(error.localizedDescription)")
         CustomLogger.logSlack(message: ":x: Failed to report new incoming call\ncallId: \(callId)\nnumber: \(number)\nerror: \(error.localizedDescription)")
-        self.callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .unanswered)
+        self.callKitProvider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
       } else {
         self.callID = callId
         self.caller = number
