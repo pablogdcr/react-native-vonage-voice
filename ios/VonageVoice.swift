@@ -612,7 +612,6 @@ public class VonageVoice: NSObject {
     callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(number)")
     self.callKitProvider.reportNewIncomingCall(with: uuid, update: callUpdate) { error in
       if let error = error {
-        print("Error reporting call: \(error.localizedDescription)")
         CustomLogger.logSlack(message: ":x: Failed to report new incoming call\ncallId: \(callId)\nnumber: \(number)\nerror: \(error.localizedDescription)")
         self.callKitProvider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
       } else {
@@ -633,7 +632,7 @@ public class VonageVoice: NSObject {
       isRefreshing = true
 
       let startTime = Date()
-      let maxWaitTime: TimeInterval = 1.5
+      let maxWaitTime: TimeInterval = 3.0
 
       let semaphore = DispatchSemaphore(value: 0)
 
@@ -654,7 +653,6 @@ public class VonageVoice: NSObject {
           self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
           self.refreshTokens(accessToken: token) { error in
             if let error = error {
-              print(error.localizedDescription)
               CustomLogger.logSlack(message: ":key: Failed to refresh Vonage session\nerror: \(error.localizedDescription)\ninfo:\(String(describing: self.debugAdditionalInfo))")
             } else {
               self.isLoggedIn = true
@@ -663,7 +661,6 @@ public class VonageVoice: NSObject {
             }
           }
         } else {
-          print("Failed to refresh session")
           CustomLogger.logSlack(message: ":key: Failed to refresh session\ninfo:\(String(describing: self.debugAdditionalInfo))")
         }
       }, { code, message, error in
@@ -676,8 +673,7 @@ public class VonageVoice: NSObject {
       let result = semaphore.wait(timeout: .now() + maxWaitTime)
 
       if result == .timedOut {
-        print("Refresh session timed out after \(maxWaitTime) seconds")
-          CustomLogger.logSlack(message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:\ninfo:\(String(describing: debugAdditionalInfo))")
+        CustomLogger.logSlack(message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:\ninfo:\(String(describing: debugAdditionalInfo))")
         self.isRefreshing = false
       }
 
@@ -692,6 +688,7 @@ public class VonageVoice: NSObject {
     let number = extractCallerNumber(from: notification)
 
     guard let newCallId = newCallId, let number = number else {
+      CustomLogger.logSlack(message: ":x: Failed to process notification\ninfo:\(String(describing: debugAdditionalInfo))")
       callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
       return
     }
