@@ -49,6 +49,7 @@ extension VonageVoice: VGVoiceClientDelegate {
 
       case .answered:
         if self.outbound == true {
+          self.callStartedAt = Date()
           self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callId)!, connectedAt: Date())
         }
         EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])

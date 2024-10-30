@@ -559,7 +559,6 @@ public class VonageVoice: NSObject {
       if error == nil {
         self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callID!)!, startedConnectingAt: Date())
         self.callID = callID
-        self.callStartedAt = Date()
         resolve(["callId": callID])
         self.configureAudioSession()
         VGVoiceClient.enableAudio(self.audioSession)
@@ -632,7 +631,7 @@ public class VonageVoice: NSObject {
       isRefreshing = true
 
       let startTime = Date()
-      let maxWaitTime: TimeInterval = 3.0
+      let maxWaitTime: TimeInterval = 2.5
 
       let semaphore = DispatchSemaphore(value: 0)
 
