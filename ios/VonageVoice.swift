@@ -532,6 +532,10 @@ public class VonageVoice: NSObject {
     }
 
     if UIApplication.shared.applicationState != .active {
+      if self.callID != nil {
+        callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .unanswered)
+        return
+      }
       processNotification(notification: notification)
     } else {
       guard let number = extractCallerNumber(from: notification),
@@ -539,6 +543,10 @@ public class VonageVoice: NSObject {
         return
       }
 
+      if self.callID != nil {
+        rejectCall(callID: callId, resolve: { _ in }, reject: { _,_,_ in })
+        return;
+      }
       self.callID = callId
       self.caller = number
       self.outbound = false
