@@ -14,8 +14,7 @@ extension VonageVoice: VGVoiceClientDelegate {
     self.callID = nil
     self.outbound = false
     self.contactService.resetCallInfo()
-    VGVoiceClient.disableAudio(audioSession)
-    try? AVAudioSession.sharedInstance().setActive(false)
+    self.deactivateAndResetAudioSession()
 
     callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
   }
@@ -36,8 +35,7 @@ extension VonageVoice: VGVoiceClientDelegate {
         self.callID = nil
         self.outbound = false
         self.contactService.resetCallInfo()
-        VGVoiceClient.disableAudio(audioSession)
-        try? AVAudioSession.sharedInstance().setActive(false)
+        self.deactivateAndResetAudioSession()
 
         callKitProvider.reportCall(with: UUID(uuidString: callId)!, endedAt: Date(), reason: .remoteEnded)
         break

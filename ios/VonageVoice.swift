@@ -81,32 +81,131 @@ public class VonageVoice: NSObject {
         selector: #selector(handleAudioSessionInterruption),
         name: AVAudioSession.interruptionNotification,
         object: AVAudioSession.sharedInstance())
+      NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(handleRouteChange),
+        name: AVAudioSession.routeChangeNotification,
+        object: AVAudioSession.sharedInstance())
     }
   }
 
   func configureAudioSession() {
       do {
-          try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
-          try audioSession.overrideOutputAudioPort(.none)
+        try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
+        try audioSession.overrideOutputAudioPort(.none)
+        try audioSession.setActive(true)
       } catch {
-          CustomLogger.logSlack(message: ":warning: Failed to configure audio session\nerror: \(String(describing: error))")
+        CustomLogger.logSlack(message: ":warning: Failed to configure audio session\nerror: \(String(describing: error))")
       }
+  }
+
+  func deactivateAndResetAudioSession() {
+    VGVoiceClient.disableAudio(audioSession)
+    do {
+      try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+    } catch {
+      CustomLogger.logSlack(message: ":warning: Failed to deactivate audio session\nerror: \(error.localizedDescription)")
+    }
+  }
+
+  func enableVoiceClientAudio() {
+    VGVoiceClient.enableAudio(audioSession)
   }
 
   @objc private func handleAudioSessionInterruption(notification: Notification) {
     guard let info = notification.userInfo,
-        let interruptionType = info[AVAudioSessionInterruptionTypeKey] as? UInt else {
+          let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+          let interruptionType = AVAudioSession.InterruptionType(rawValue: typeValue) else {
       return
     }
 
-    if interruptionType == AVAudioSession.InterruptionType.ended.rawValue {
+    switch interruptionType {
+    case .began:
+      // Interruption began, disable audio
+      VGVoiceClient.disableAudio(audioSession)
+    case .ended:
+      // Interruption ended, reactivate audio session
       do {
-        try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+        try audioSession.setActive(true)
         VGVoiceClient.enableAudio(audioSession)
       } catch {
-          CustomLogger.logSlack(message: ":x: Failed to reactivate audio session after interruption: \(error.localizedDescription)\ninfo:\(String(describing: self.debugAdditionalInfo))")
+        CustomLogger.logSlack(message: ":warning: Failed to reactivate audio session after interruption\nerror: \(error.localizedDescription)")
+      }
+    @unknown default:
+      break
+    }
+  }
+
+  @objc func handleRouteChange(notification: Notification) {
+    guard let userInfo = notification.userInfo,
+          let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+          let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+      return
+    }
+
+    switch reason {
+    case .newDeviceAvailable:
+      handleNewDeviceAvailable()
+    case .oldDeviceUnavailable:
+      // An old device was removed (e.g., headphones or Bluetooth device disconnected)
+      if let previousRoute = userInfo[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription {
+        handleOldDeviceUnavailable(previousRoute: previousRoute)
+      }
+    case .wakeFromSleep:
+      // The device woke up from sleep
+      handleWakeFromSleep()
+    case .noSuitableRouteForCategory:
+      // No suitable route is available for the audio session's category
+      handleNoSuitableRoute()
+    default:
+      break
+    }
+  }
+
+  func handleNewDeviceAvailable() {
+    // Check the current audio route
+    let currentRoute = audioSession.currentRoute
+    for output in currentRoute.outputs {
+      if output.portType == .headphones || output.portType == .bluetoothA2DP || output.portType == .bluetoothHFP || output.portType == .bluetoothLE {
+        // Headphones or Bluetooth device connected
+        // Adjust audio session settings if necessary
+        do {
+          try audioSession.overrideOutputAudioPort(.none)
+        } catch {
+          CustomLogger.logSlack(message: ":warning: Failed to override output audio port\nerror: \(error.localizedDescription)")
+        }
+        break
       }
     }
+  }
+
+  func handleOldDeviceUnavailable(previousRoute: AVAudioSessionRouteDescription) {
+    // Check if the previous route had headphones or Bluetooth connected
+    for output in previousRoute.outputs {
+      if output.portType == .headphones || output.portType == .bluetoothA2DP || output.portType == .bluetoothHFP || output.portType == .bluetoothLE {
+        // Headphones or Bluetooth device disconnected
+        // Decide whether to route audio to speaker or default receiver
+        do {
+          // For VoIP calls, you might prefer to route audio to the receiver (earpiece)
+          // If you want to route to speaker instead, use .speaker
+          try audioSession.overrideOutputAudioPort(.none)
+        } catch {
+          CustomLogger.logSlack(message: ":warning: Failed to override output audio port\nerror: \(error.localizedDescription)")
+        }
+        break
+      }
+    }
+  }
+
+  func handleWakeFromSleep() {
+    // Reconfigure audio session if needed
+    configureAudioSession()
+  }
+
+  func handleNoSuitableRoute() {
+    // Handle the case where no suitable audio route is available
+    // You might want to notify the user or try to reconfigure the audio session
+    CustomLogger.logSlack(message: ":warning: No suitable audio route available")
   }
 
   private func initializeClient() {
@@ -368,7 +467,7 @@ public class VonageVoice: NSObject {
 
   @objc public func getCallStatus(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     if isCallActive() {
-      resolve(["callId": callID!, "outbound": outbound, "startedAt": callStartedAt!.timeIntervalSince1970, "status": "active"])
+      resolve(["callId": callID, "outbound": outbound, "startedAt": callStartedAt!.timeIntervalSince1970, "status": "active"])
       return
     } else {
       resolve(["status": "inactive"])
@@ -511,13 +610,12 @@ public class VonageVoice: NSObject {
         self.callStartedAt = nil
         self.callID = nil
         self.outbound = false
-
+        self.deactivateAndResetAudioSession()
         resolve("Call ended")
       } else {
         CustomLogger.logSlack(message: ":x: Failed to hangup call\nid: \(callID)\nerror: \(String(describing: error))")
         reject("Failed to hangup", error?.localizedDescription, error)
       }
-      VGVoiceClient.disableAudio(self.audioSession)
     }
   }
 
@@ -563,15 +661,17 @@ public class VonageVoice: NSObject {
     }
     self.outbound = true
     self.caller = to
-    client.serverCall(callData) { error, callID in
-      if error == nil {
-        self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callID!)!, startedConnectingAt: Date())
-        self.callID = callID
-        resolve(["callId": callID])
-        self.configureAudioSession()
-        VGVoiceClient.enableAudio(self.audioSession)
 
-        EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID!, "caller": to, "outbound": true])
+    client.serverCall(callData) { error, callID in
+      if error == nil, let callID = callID, let uuid = UUID(uuidString: callID) {
+        self.callKitProvider.reportOutgoingCall(with: uuid, startedConnectingAt: Date())
+        self.callID = callID
+        self.configureAudioSession()
+        self.enableVoiceClientAudio()
+
+        resolve(["callId": callID])
+
+        EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID, "caller": to, "outbound": true])
       } else {
         self.outbound = false
         self.caller = nil

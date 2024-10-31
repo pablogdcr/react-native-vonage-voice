@@ -30,19 +30,24 @@ extension VonageVoice: CXProviderDelegate {
 
   public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
     EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
-    self.contactService.changeTemporaryIdentifierImage()
+    self.configureAudioSession()
+    self.enableVoiceClientAudio()
+
+    guard let callID = self.callID else {
+      action.fail()
+      return
+    }
+
+    self.contactService.changeTemporaryContactImage()
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [self] in
       self.contactService.resetCallInfo()
 
       self.waitForRefreshCompletion {
-        guard let callID = self.callID else { return }
-
         self.client.answer(callID) { error in
           if error == nil {
             self.callStartedAt = Date()
-            self.callID = callID
             self.outbound = false
-            EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.callID, "caller": self.caller])
+
             action.fulfill()
           } else {
             CustomLogger.logSlack(message: ":x: Failed to answer call\nid: \(callID)\nerror: \(String(describing: error))")
@@ -63,11 +68,11 @@ extension VonageVoice: CXProviderDelegate {
 
       if self.isCallActive() {
         self.client.hangup(callID) { error in
+          EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
           if error == nil {
             self.callStartedAt = nil
             self.callID = nil
             self.outbound = false
-            EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
             action.fulfill()
           } else {
             CustomLogger.logSlack(message: ":x: Failed to hangup call\nid: \(callID)\nerror: \(String(describing: error))")
@@ -76,6 +81,7 @@ extension VonageVoice: CXProviderDelegate {
         }
       } else {
         self.client.reject(callID) { error in
+          EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
           if error == nil {
             self.callStartedAt = nil
             self.callID = nil
@@ -85,26 +91,18 @@ extension VonageVoice: CXProviderDelegate {
             CustomLogger.logSlack(message: ":x: Failed to reject call\nid: \(callID)\nerror: \(String(describing: error))")
             action.fail()
           }
-          EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
         }
       }
     }
   }
 
   public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-      self.configureAudioSession()
-      VGVoiceClient.enableAudio(audioSession)
-    }
+    VGVoiceClient.enableAudio(audioSession)
   }
 
   public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-   VGVoiceClient.disableAudio(audioSession)
-    do {
-      try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
-    } catch {
-      CustomLogger.logSlack(message: ":x: Failed to deactivate audio session\nerror: \(String(describing: error))")
-    }
+    VGVoiceClient.disableAudio(audioSession)
+    self.deactivateAndResetAudioSession()
   }
 
   public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
