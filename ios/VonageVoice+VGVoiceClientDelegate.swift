@@ -41,8 +41,12 @@ extension VonageVoice: VGVoiceClientDelegate {
         break
 
       case .ringing:
-        self.callID = callId
-        EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
+        if self.callID != nil {
+          self.callID = callId
+          EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
+        } else {
+          rejectCall(callID: callId, resolve: { _ in }, reject: { _,_,_ in })
+        }
         break
 
       case .answered:
