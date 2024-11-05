@@ -30,7 +30,7 @@ extension VonageVoice: CXProviderDelegate {
 
   public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
     EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
-    self.configureAudioSession()
+    self.configureAudioSession(source: "cxAnswerCallAction")
     self.enableVoiceClientAudio()
 
     guard let callID = self.callID else {

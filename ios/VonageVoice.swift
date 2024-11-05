@@ -199,7 +199,7 @@ public class VonageVoice: NSObject {
 
   func handleWakeFromSleep() {
     // Reconfigure audio session if needed
-    configureAudioSession("wakeFromSleep")
+    configureAudioSession(source: "wakeFromSleep")
   }
 
   func handleNoSuitableRoute() {
@@ -578,7 +578,7 @@ public class VonageVoice: NSObject {
         self.callID = callID
         self.outbound = false
 
-        self.configureAudioSession("answerCall")
+        self.configureAudioSession(source: "answerCall")
         VGVoiceClient.enableAudio(self.audioSession)
         resolve(["success": true])
       } else {
@@ -666,7 +666,7 @@ public class VonageVoice: NSObject {
       if error == nil, let callID = callID, let uuid = UUID(uuidString: callID) {
         self.callKitProvider.reportOutgoingCall(with: uuid, startedConnectingAt: Date())
         self.callID = callID
-        self.configureAudioSession("serverCall")
+        self.configureAudioSession(source: "serverCall")
         self.enableVoiceClientAudio()
 
         resolve(["callId": callID])
