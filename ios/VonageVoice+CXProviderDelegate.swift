@@ -30,8 +30,6 @@ extension VonageVoice: CXProviderDelegate {
 
   public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
     EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
-    self.configureAudioSession(source: "cxAnswerCallAction")
-    self.enableVoiceClientAudio()
 
     guard let callID = self.callID else {
       action.fail()
@@ -39,7 +37,9 @@ extension VonageVoice: CXProviderDelegate {
     }
 
     self.contactService.changeTemporaryContactImage()
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [self] in
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [self] in
+      self.enableVoiceClientAudio()
+
       self.contactService.resetCallInfo()
 
       self.waitForRefreshCompletion {
@@ -57,7 +57,7 @@ extension VonageVoice: CXProviderDelegate {
       }
     }
   }
-  
+
   public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
     self.contactService.resetCallInfo()
     self.waitForRefreshCompletion {
@@ -102,7 +102,6 @@ extension VonageVoice: CXProviderDelegate {
 
   public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
     VGVoiceClient.disableAudio(audioSession)
-    self.deactivateAndResetAudioSession()
   }
 
   public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {

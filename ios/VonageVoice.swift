@@ -50,7 +50,7 @@ public class VonageVoice: NSObject {
     configuration.maximumCallGroups = 1
     configuration.iconTemplateImageData = UIImage(named: "callKitAppIcon")?.pngData()
     configuration.supportedHandleTypes = [.phoneNumber]
-      
+
     self.callKitProvider = CXProvider(configuration: configuration)
     self.client = VGVoiceClient(VGClientInitConfig(loggingLevel: .error, customLoggers: [self.logger]))
     super.init()
@@ -578,6 +578,7 @@ public class VonageVoice: NSObject {
         self.callID = callID
         self.outbound = false
 
+        self.callKitProvider.reportCall(with: UUID(uuidString: callID)!, endedAt: Date(), reason: .answeredElsewhere)
         self.configureAudioSession(source: "answerCall")
         VGVoiceClient.enableAudio(self.audioSession)
         resolve(["success": true])
@@ -595,6 +596,7 @@ public class VonageVoice: NSObject {
         self.callID = nil
         self.outbound = false
 
+        self.callKitProvider.reportCall(with: UUID(uuidString: callID)!, endedAt: Date(), reason: .declinedElsewhere)
         resolve(["success": true])
       } else {
         CustomLogger.logSlack(message: ":x: Failed to reject call\nid: \(callID)\nError: \(String(describing: error))")
