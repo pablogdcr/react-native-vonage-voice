@@ -755,7 +755,6 @@ public class VonageVoice: NSObject {
               print("Error updating contact image: \(error)")
             }
             semaphore.signal()
-            UIApplication.shared.endBackgroundTask(backgroundTaskID)
           }
           self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
           self.refreshTokens(accessToken: token) { error in
@@ -765,6 +764,7 @@ public class VonageVoice: NSObject {
               self.isLoggedIn = true
               self.client.processCallInvitePushData(notification)
               self.isRefreshing = false
+              UIApplication.shared.endBackgroundTask(backgroundTaskID)
             }
           }
         } else {
