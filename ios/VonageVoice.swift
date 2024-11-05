@@ -605,7 +605,7 @@ public class VonageVoice: NSObject {
       VGVoiceClient.disableAudio(self.audioSession)
     }
   }
-  
+
   @objc public func hangup(callID: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     client.hangup(callID) { error in
       if error == nil {
