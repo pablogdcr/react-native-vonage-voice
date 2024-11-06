@@ -15,21 +15,24 @@ public class VonageVoice: NSObject {
   private var logger = CustomLogger()
   let client: VGVoiceClient
   let contactService = ContactService()
-  let audioSession = AVAudioSession.sharedInstance()
   
   private var refreshVonageTokenUrlString: String?
-  private var ongoingPushKitCompletion: () -> Void = { }
-  private var storedAction: (() -> Void)?
   private var isLoggedIn = false
   var callKitProvider: CXProvider
   private var callKitObserver: CXCallObserver!
   var callController = CXCallController()
   private var voipNotification: Notification?
   private var isRefreshing = false
-  private var isObserversAdded = false
   private var refreshSessionBlock: RefreshSessionBlock?
   var callStartedAt: Date?
-  var callID: String?
+  var callID: String? {
+    get {
+      return UserDefaults.standard.string(forKey: Constants.callIDKey)
+    }
+    set {
+      UserDefaults.standard.set(newValue, forKey: Constants.callIDKey)
+    }
+  }
   var caller: String?
   var outbound = false
 
@@ -69,47 +72,32 @@ public class VonageVoice: NSObject {
   }
 
   private func addObservers() {
-    if !isObserversAdded {
-      NotificationCenter.default.addObserver(
-        self,
-        selector: #selector(handleVoipPushNotification),
-        name: NSNotification.Name.voipPushReceived,
-        object: nil
-      )
-      NotificationCenter.default.addObserver(
-        self,
-        selector: #selector(handleAudioSessionInterruption),
-        name: AVAudioSession.interruptionNotification,
-        object: AVAudioSession.sharedInstance())
-      NotificationCenter.default.addObserver(
-        self,
-        selector: #selector(handleRouteChange),
-        name: AVAudioSession.routeChangeNotification,
-        object: AVAudioSession.sharedInstance())
-    }
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleVoipPushNotification),
+      name: NSNotification.Name.voipPushReceived,
+      object: nil
+    )
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleAudioSessionInterruption),
+      name: AVAudioSession.interruptionNotification,
+      object: AVAudioSession.sharedInstance())
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleRouteChange),
+      name: AVAudioSession.routeChangeNotification,
+      object: AVAudioSession.sharedInstance())
   }
 
   func configureAudioSession(source: String) {
       do {
-        try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothA2DP, .allowBluetooth, .defaultToSpeaker])
-        try audioSession.overrideOutputAudioPort(.none)
-        try audioSession.setActive(true)
+        let audioSession = AVAudioSession.sharedInstance()
+
+        try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: .allowBluetooth)
       } catch {
         CustomLogger.logSlack(message: ":warning: Failed to configure audio session\nError: \(String(describing: error))\nSource: \(source)")
       }
-  }
-
-  func deactivateAndResetAudioSession() {
-    VGVoiceClient.disableAudio(audioSession)
-    do {
-      try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
-    } catch {
-      CustomLogger.logSlack(message: ":warning: Failed to deactivate audio session\nError: \(error.localizedDescription)")
-    }
-  }
-
-  func enableVoiceClientAudio() {
-    VGVoiceClient.enableAudio(audioSession)
   }
 
   @objc private func handleAudioSessionInterruption(notification: Notification) {
@@ -118,7 +106,8 @@ public class VonageVoice: NSObject {
           let interruptionType = AVAudioSession.InterruptionType(rawValue: typeValue) else {
       return
     }
-
+    let audioSession = AVAudioSession.sharedInstance()
+      
     switch interruptionType {
     case .began:
       // Interruption began, disable audio
@@ -163,8 +152,9 @@ public class VonageVoice: NSObject {
   }
 
   func handleNewDeviceAvailable() {
-    // Check the current audio route
+    let audioSession = AVAudioSession.sharedInstance()
     let currentRoute = audioSession.currentRoute
+
     for output in currentRoute.outputs {
       if output.portType == .headphones || output.portType == .bluetoothA2DP || output.portType == .bluetoothHFP || output.portType == .bluetoothLE {
         // Headphones or Bluetooth device connected
@@ -180,7 +170,8 @@ public class VonageVoice: NSObject {
   }
 
   func handleOldDeviceUnavailable(previousRoute: AVAudioSessionRouteDescription) {
-    // Check if the previous route had headphones or Bluetooth connected
+    let audioSession = AVAudioSession.sharedInstance()
+
     for output in previousRoute.outputs {
       if output.portType == .headphones || output.portType == .bluetoothA2DP || output.portType == .bluetoothHFP || output.portType == .bluetoothLE {
         // Headphones or Bluetooth device disconnected
@@ -436,6 +427,8 @@ public class VonageVoice: NSObject {
 
   @objc public func enableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     do {
+      let audioSession = AVAudioSession.sharedInstance()
+
       try audioSession.overrideOutputAudioPort(.speaker)
 
       resolve(["success": true])
@@ -449,6 +442,8 @@ public class VonageVoice: NSObject {
 
   @objc public func disableSpeaker(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     do {
+      let audioSession = AVAudioSession.sharedInstance()
+
       try audioSession.overrideOutputAudioPort(.none)
     
       resolve(["success": true])
@@ -467,7 +462,7 @@ public class VonageVoice: NSObject {
 
   @objc public func getCallStatus(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     if isCallActive() {
-      resolve(["callId": callID, "outbound": outbound, "startedAt": callStartedAt!.timeIntervalSince1970, "status": "active"])
+      resolve(["callId": callID!, "outbound": outbound, "startedAt": callStartedAt!.timeIntervalSince1970, "status": "active"])
       return
     } else {
       resolve(["status": "inactive"])
@@ -578,9 +573,11 @@ public class VonageVoice: NSObject {
         self.callID = callID
         self.outbound = false
 
+        self.configureAudioSession(source: "cxAnswerCallAction")
+        let audioSession = AVAudioSession.sharedInstance()
+
+        VGVoiceClient.enableAudio(audioSession)
         self.callKitProvider.reportCall(with: UUID(uuidString: callID)!, endedAt: Date(), reason: .answeredElsewhere)
-        self.configureAudioSession(source: "answerCall")
-        VGVoiceClient.enableAudio(self.audioSession)
         resolve(["success": true])
       } else {
         CustomLogger.logSlack(message: ":x: Failed to answer call\nid: \(callID)\nError: \(String(describing: error))")
@@ -602,7 +599,6 @@ public class VonageVoice: NSObject {
         CustomLogger.logSlack(message: ":x: Failed to reject call\nid: \(callID)\nError: \(String(describing: error))")
         reject("Failed to reject call", error?.localizedDescription, error)
       }
-      VGVoiceClient.disableAudio(self.audioSession)
     }
   }
 
@@ -612,7 +608,10 @@ public class VonageVoice: NSObject {
         self.callStartedAt = nil
         self.callID = nil
         self.outbound = false
-        self.deactivateAndResetAudioSession()
+        let audioSession = AVAudioSession.sharedInstance()
+
+        VGVoiceClient.disableAudio(audioSession)
+
         resolve("Call ended")
       } else {
         CustomLogger.logSlack(message: ":x: Failed to hangup call\nid: \(callID)\nError: \(String(describing: error))")
@@ -666,10 +665,7 @@ public class VonageVoice: NSObject {
 
     client.serverCall(callData) { error, callID in
       if error == nil, let callID = callID, let uuid = UUID(uuidString: callID) {
-        self.callKitProvider.reportOutgoingCall(with: uuid, startedConnectingAt: Date())
         self.callID = callID
-        self.configureAudioSession(source: "serverCall")
-        self.enableVoiceClientAudio()
 
         resolve(["callId": callID])
 
@@ -740,7 +736,6 @@ public class VonageVoice: NSObject {
 
       isRefreshing = true
 
-      let startTime = Date()
       let maxWaitTime: TimeInterval = 2.5
 
       let semaphore = DispatchSemaphore(value: 0)

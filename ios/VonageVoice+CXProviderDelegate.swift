@@ -10,9 +10,9 @@ extension VonageVoice: CXProviderDelegate {
   }
 
   public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
-    // This method is called when a call is initiated from the system
-    // We don't need to implement anything here as we're not initiating outgoing calls
+    self.configureAudioSession(source: "cxStartCallAction")
     action.fulfill()
+    self.callKitProvider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
   }
 
   public func provider(_ provider: CXProvider, perform action: CXSetHeldCallAction) {
@@ -36,10 +36,9 @@ extension VonageVoice: CXProviderDelegate {
       return
     }
 
+    self.configureAudioSession(source: "cxAnswerCallAction")
     self.contactService.changeTemporaryContactImage()
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [self] in
-      self.enableVoiceClientAudio()
-
       self.contactService.resetCallInfo()
 
       self.waitForRefreshCompletion {
