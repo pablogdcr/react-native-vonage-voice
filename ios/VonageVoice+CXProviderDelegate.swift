@@ -10,7 +10,6 @@ extension VonageVoice: CXProviderDelegate {
   }
 
   public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
-    self.configureAudioSession(source: "cxStartCallAction")
     action.fulfill()
     self.callKitProvider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
   }

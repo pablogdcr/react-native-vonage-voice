@@ -664,11 +664,13 @@ public class VonageVoice: NSObject {
     self.caller = to
 
     client.serverCall(callData) { error, callID in
-      if error == nil, let callID = callID, let uuid = UUID(uuidString: callID) {
+      if error == nil, let callID = callID {
+        let audioSession = AVAudioSession.sharedInstance()
+
         self.callID = callID
-
+        self.configureAudioSession(source: "serverCall")
+        VGVoiceClient.enableAudio(audioSession)
         resolve(["callId": callID])
-
         EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID, "caller": to, "outbound": true])
       } else {
         self.outbound = false
