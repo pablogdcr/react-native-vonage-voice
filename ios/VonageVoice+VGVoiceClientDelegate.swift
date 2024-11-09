@@ -43,6 +43,10 @@ extension VonageVoice: VGVoiceClientDelegate {
         self.callID = callId
         EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
         if self.outbound == true {
+          let audioSession = AVAudioSession.sharedInstance()
+
+          self.configureAudioSession(source: "serverCall")
+          VGVoiceClient.enableAudio(audioSession)
           self.callController.requestTransaction(with: [CXStartCallAction(call: UUID(uuidString: callId)!, handle: CXHandle(type: .generic, value: ""))], completion: { _ in })
         }
         break
