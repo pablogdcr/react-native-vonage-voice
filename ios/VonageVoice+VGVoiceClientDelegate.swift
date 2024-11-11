@@ -41,7 +41,6 @@ extension VonageVoice: VGVoiceClientDelegate {
 
       case .ringing:
         self.callID = callId
-        EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
         if self.outbound == true {
           let audioSession = AVAudioSession.sharedInstance()
 
@@ -49,6 +48,7 @@ extension VonageVoice: VGVoiceClientDelegate {
           VGVoiceClient.enableAudio(audioSession)
           self.callController.requestTransaction(with: [CXStartCallAction(call: UUID(uuidString: callId)!, handle: CXHandle(type: .generic, value: ""))], completion: { _ in })
         }
+        EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
         break
 
       case .answered:

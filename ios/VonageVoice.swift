@@ -669,7 +669,6 @@ public class VonageVoice: NSObject {
 
         self.callID = callID
         resolve(["callId": callID])
-        EventEmitter.shared.sendEvent(withName: Event.callRinging.rawValue, body: ["callId": callID, "caller": to, "outbound": true])
       } else {
         self.outbound = false
         self.caller = nil
