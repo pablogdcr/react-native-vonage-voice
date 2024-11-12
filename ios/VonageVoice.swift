@@ -649,10 +649,10 @@ public class VonageVoice: NSObject {
     }
 
     if UIApplication.shared.applicationState != .active {
-      if self.callID != nil {
-        callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .unanswered)
-        return
-      }
+      // if self.callID != nil {
+      //   callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .unanswered)
+      //   return
+      // }
       logger.logSlack(message: "Processing incoming push notification", admin: true)
       processNotification(notification: notification)
     } else {
@@ -661,10 +661,6 @@ public class VonageVoice: NSObject {
         return
       }
 
-      if self.callID != nil {
-        rejectCall(callID: callId, resolve: { _ in }, reject: { _,_,_ in })
-        return;
-      }
       self.callID = callId
       self.caller = number
       self.outbound = false
