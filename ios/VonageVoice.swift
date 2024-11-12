@@ -81,128 +81,6 @@ public class VonageVoice: NSObject {
       name: NSNotification.Name.voipPushReceived,
       object: nil
     )
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(handleAudioSessionInterruption),
-      name: AVAudioSession.interruptionNotification,
-      object: AVAudioSession.sharedInstance())
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(handleRouteChange),
-      name: AVAudioSession.routeChangeNotification,
-      object: AVAudioSession.sharedInstance())
-  }
-
-  func configureAudioSession(source: String) {
-      do {
-        logger.logSlack(message: "Configuring audio session", admin: true)
-        let audioSession = AVAudioSession.sharedInstance()
-
-        try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: .allowBluetooth)
-      } catch {
-        logger.logSlack(message: ":warning: Failed to configure audio session\nError: \(String(describing: error))\nSource: \(source)")
-      }
-  }
-
-  @objc private func handleAudioSessionInterruption(notification: Notification) {
-    guard let info = notification.userInfo,
-          let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
-          let interruptionType = AVAudioSession.InterruptionType(rawValue: typeValue) else {
-      return
-    }
-    let audioSession = AVAudioSession.sharedInstance()
-
-    logger.logSlack(message: "Audio session interruption: \(interruptionType)", admin: true)
-    switch interruptionType {
-    case .began:
-      logger.logSlack(message: "Disabling audio (interruption began)", admin: true)
-      // Interruption began, disable audio
-      VGVoiceClient.disableAudio(audioSession)
-    case .ended:
-      // Interruption ended, reactivate audio session
-      do {
-        try audioSession.setActive(true)
-        logger.logSlack(message: "Enabling audio (interruption ended)", admin: true)
-        VGVoiceClient.enableAudio(audioSession)
-      } catch {
-        logger.logSlack(message: ":warning: Failed to reactivate audio session after interruption\nError: \(error.localizedDescription)")
-      }
-    @unknown default:
-      break
-    }
-  }
-
-  @objc func handleRouteChange(notification: Notification) {
-    guard let userInfo = notification.userInfo,
-          let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
-          let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
-      return
-    }
-
-    logger.logSlack(message: "Audio route change: \(reason)", admin: true)
-
-    switch reason {
-    case .newDeviceAvailable:
-      handleNewDeviceAvailable()
-    case .oldDeviceUnavailable:
-      // An old device was removed (e.g., headphones or Bluetooth device disconnected)
-      if let previousRoute = userInfo[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription {
-        handleOldDeviceUnavailable(previousRoute: previousRoute)
-      }
-    case .wakeFromSleep:
-      // The device woke up from sleep
-      handleWakeFromSleep()
-    case .noSuitableRouteForCategory:
-      // No suitable route is available for the audio session's category
-      handleNoSuitableRoute()
-    default:
-      break
-    }
-  }
-
-  func handleNewDeviceAvailable() {
-    let audioSession = AVAudioSession.sharedInstance()
-    let currentRoute = audioSession.currentRoute
-
-    logger.logSlack(message: "New device available: \(currentRoute.outputs)", admin: true)
-    for output in currentRoute.outputs {
-      if output.portType == .headphones || output.portType == .bluetoothA2DP || output.portType == .bluetoothHFP || output.portType == .bluetoothLE {
-        // Headphones or Bluetooth device connected
-        // Adjust audio session settings if necessary
-        do {
-          try audioSession.overrideOutputAudioPort(.none)
-        } catch {
-          logger.logSlack(message: ":warning: Failed to override output audio port\nError: \(error.localizedDescription)")
-        }
-        break
-      }
-    }
-  }
-
-  func handleOldDeviceUnavailable(previousRoute: AVAudioSessionRouteDescription) {
-    let audioSession = AVAudioSession.sharedInstance()
-
-    logger.logSlack(message: "Old device unavailable: \(previousRoute.outputs)", admin: true)
-    for output in previousRoute.outputs {
-      if output.portType == .headphones || output.portType == .bluetoothA2DP || output.portType == .bluetoothHFP || output.portType == .bluetoothLE {
-        // Headphones or Bluetooth device disconnected
-        // Decide whether to route audio to speaker or default receiver
-        do {
-          // For VoIP calls, you might prefer to route audio to the receiver (earpiece)
-          // If you want to route to speaker instead, use .speaker
-          try audioSession.overrideOutputAudioPort(.none)
-        } catch {
-          logger.logSlack(message: ":warning: Failed to override output audio port\nError: \(error.localizedDescription)")
-        }
-        break
-      }
-    }
-  }
-
-  func handleWakeFromSleep() {
-    logger.logSlack(message: "Wake from sleep", admin: true)
-    // Reconfigure audio session if needed
-    configureAudioSession(source: "wakeFromSleep")
   }
 
   func handleNoSuitableRoute() {
@@ -559,7 +437,7 @@ public class VonageVoice: NSObject {
     var data = Data()
     var hex = hexString
     
-    // Remove any non-hex characters (optional, depending on your input)
+    // Remove any non-hex characters
     hex = hex.replacingOccurrences(of: " ", with: "")
     
     // Ensure even number of characters for proper hex representation
@@ -589,11 +467,6 @@ public class VonageVoice: NSObject {
         self.callID = callID
         self.outbound = false
 
-        self.configureAudioSession(source: "cxAnswerCallAction")
-        let audioSession = AVAudioSession.sharedInstance()
-
-        self.logger.logSlack(message: "Enabling audio (answer call)", admin: true)
-        VGVoiceClient.enableAudio(audioSession)
         self.callKitProvider.reportCall(with: UUID(uuidString: callID)!, endedAt: Date(), reason: .answeredElsewhere)
         resolve(["success": true])
       } else {
@@ -625,10 +498,6 @@ public class VonageVoice: NSObject {
         self.callStartedAt = nil
         self.callID = nil
         self.outbound = false
-        let audioSession = AVAudioSession.sharedInstance()
-
-        self.logger.logSlack(message: "Disabling audio (hangup)", admin: true)
-        VGVoiceClient.disableAudio(audioSession)
 
         resolve("Call ended")
       } else {
@@ -649,10 +518,6 @@ public class VonageVoice: NSObject {
     }
 
     if UIApplication.shared.applicationState != .active {
-      // if self.callID != nil {
-      //   callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .unanswered)
-      //   return
-      // }
       logger.logSlack(message: "Processing incoming push notification", admin: true)
       processNotification(notification: notification)
     } else {
