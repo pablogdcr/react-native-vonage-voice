@@ -44,6 +44,7 @@ extension VonageVoice: VGVoiceClientDelegate {
         if self.outbound == true {
           let audioSession = AVAudioSession.sharedInstance()
 
+          logger.logSlack(message: "Enabling audio (ringing)", admin: true)
           self.configureAudioSession(source: "serverCall")
           VGVoiceClient.enableAudio(audioSession)
           self.callController.requestTransaction(with: [CXStartCallAction(call: UUID(uuidString: callId)!, handle: CXHandle(type: .generic, value: ""))], completion: { _ in })
@@ -65,24 +66,28 @@ extension VonageVoice: VGVoiceClientDelegate {
   }
 
   @objc public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectingForCall callId: String) {
+    logger.logSlack(message: "Media reconnecting", admin: true)
     EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "reconnecting"])
   }
 
   @objc public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectionForCall callId: String) {
+    logger.logSlack(message: "Media reconnected", admin: true)
     EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "reconnected"])
   }
 
   @objc public func voiceClient(_ client: VGVoiceClient, didReceiveMediaDisconnectForCall callId: String, reason: VGCallDisconnectReason) {
+    logger.logSlack(message: "Media disconnected", admin: true)
     EventEmitter.shared.sendEvent(withName: Event.connectionStatusChanged.rawValue, body: ["callId": callId, "status": "disconnected", "reason": reason.rawValue])
   }
 
   @objc public func voiceClient(_ client: VGVoiceClient, didReceiveMediaErrorForCall callId: String, error: VGError) {
-    CustomLogger.logSlack(message: ":warning: Media error:\ncall id:\(callId)\nerror: \(String(describing: error))")
+    logger.logSlack(message: ":warning: Media error:\ncall id:\(callId)\nerror: \(String(describing: error))")
   }
 
   @objc  public func client(_ client: VGBaseClient, didReceiveSessionErrorWith reason: VGSessionErrorReason) {
     let reasonString: String!
 
+    logger.logSlack(message: ":warning: Session error:\nreason: \(String(describing: reason))", admin: true)
     switch reason {
       case .tokenExpired:
         reasonString = "Expired Token"
@@ -92,7 +97,7 @@ extension VonageVoice: VGVoiceClientDelegate {
         reasonString = "Unknown"
     }
     if reason != .tokenExpired {
-      CustomLogger.logSlack(message: ":warning: Session error:\nreason: \(String(describing: reason))\nreasonString: \(String(describing: reasonString))")
+      logger.logSlack(message: ":warning: Session error:\nreason: \(String(describing: reason))\nreasonString: \(String(describing: reasonString))")
     }
     EventEmitter.shared.sendEvent(withName: Event.receivedSessionError.rawValue, body: ["reason": reasonString])
   }

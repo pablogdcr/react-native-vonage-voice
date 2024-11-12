@@ -21,7 +21,7 @@ extension VonageVoice: CXProviderDelegate {
   }
 
   public func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
-    CustomLogger.logSlack(message: ":warning: Timed out performing action\n\(String(describing: action))")
+    logger.logSlack(message: ":warning: Timed out performing action\n\(String(describing: action))")
     // This method is called when the provider times out while performing an action
     // We'll just fail the action in this case
     action.fail()
@@ -48,7 +48,7 @@ extension VonageVoice: CXProviderDelegate {
 
             action.fulfill()
           } else {
-            CustomLogger.logSlack(message: ":x: Failed to answer call\nid: \(callID)\nerror: \(String(describing: error))")
+            self.logger.logSlack(message: ":x: Failed to answer call\nid: \(callID)\nerror: \(String(describing: error))")
             action.fail()
           }
         }
@@ -73,7 +73,7 @@ extension VonageVoice: CXProviderDelegate {
             self.outbound = false
             action.fulfill()
           } else {
-            CustomLogger.logSlack(message: ":x: Failed to hangup call\nid: \(callID)\nerror: \(String(describing: error))")
+            self.logger.logSlack(message: ":x: Failed to hangup call\nid: \(callID)\nerror: \(String(describing: error))")
             action.fail()
           }
         }
@@ -86,7 +86,7 @@ extension VonageVoice: CXProviderDelegate {
             self.outbound = false
             action.fulfill()
           } else {
-            CustomLogger.logSlack(message: ":x: Failed to reject call\nid: \(callID)\nerror: \(String(describing: error))")
+            self.logger.logSlack(message: ":x: Failed to reject call\nid: \(callID)\nerror: \(String(describing: error))")
             action.fail()
           }
         }
@@ -95,16 +95,18 @@ extension VonageVoice: CXProviderDelegate {
   }
 
   public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+    logger.logSlack(message: "Enabling audio (didActivate)", admin: true)
     VGVoiceClient.enableAudio(audioSession)
   }
 
   public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+    logger.logSlack(message: "Disabling audio (didDeactivate)", admin: true)
     VGVoiceClient.disableAudio(audioSession)
   }
 
   public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
     guard let callID = self.callID else {
-      CustomLogger.logSlack(message: ":interrobang: Trying to mute/unmute a call with callID null")
+      logger.logSlack(message: ":interrobang: Trying to mute/unmute a call with callID null")
       action.fail()
       return
     }
@@ -114,7 +116,7 @@ extension VonageVoice: CXProviderDelegate {
           action.fulfill()
           return
         } else {
-          CustomLogger.logSlack(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
+          self.logger.logSlack(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
           action.fail()
           return
         }
@@ -125,7 +127,7 @@ extension VonageVoice: CXProviderDelegate {
           action.fulfill()
           return
         } else {
-          CustomLogger.logSlack(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
+          self.logger.logSlack(message: ":speaker: Failed to mute\nid: \(String(describing: self.callID))\nerror: \(String(describing: error))")
           action.fail()
           return
         }

@@ -12,7 +12,7 @@ typealias RefreshSessionBlock = (@escaping RCTPromiseResolveBlock, @escaping RCT
 public class VonageVoice: NSObject {
   @objc public static let shared = VonageVoice()
 
-  private var logger = CustomLogger()
+  var logger: CustomLogger
   let client: VGVoiceClient
   let contactService = ContactService()
   
@@ -36,7 +36,7 @@ public class VonageVoice: NSObject {
   var caller: String?
   var outbound = false
 
-  @objc private var debugAdditionalInfo: String? {
+  @objc var debugAdditionalInfo: String? {
     get {
       return UserDefaults.standard.string(forKey: Constants.debugInfoKey)
     }
@@ -54,8 +54,11 @@ public class VonageVoice: NSObject {
     configuration.iconTemplateImageData = UIImage(named: "callKitAppIcon")?.pngData()
     configuration.supportedHandleTypes = [.phoneNumber]
 
+    let info = UserDefaults.standard.string(forKey: Constants.debugInfoKey)
+
+    self.logger = CustomLogger(debugAdditionalInfo: info)
     self.callKitProvider = CXProvider(configuration: configuration)
-    self.client = VGVoiceClient(VGClientInitConfig(loggingLevel: .error, customLoggers: [self.logger]))
+    self.client = VGVoiceClient(VGClientInitConfig(loggingLevel: self.logger.isAdmin() ? .warn : .error, customLoggers: [self.logger]))
     super.init()
 
     self.callKitObserver = CXCallObserver()
@@ -92,11 +95,12 @@ public class VonageVoice: NSObject {
 
   func configureAudioSession(source: String) {
       do {
+        logger.logSlack(message: "Configuring audio session", admin: true)
         let audioSession = AVAudioSession.sharedInstance()
 
         try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: .allowBluetooth)
       } catch {
-        CustomLogger.logSlack(message: ":warning: Failed to configure audio session\nError: \(String(describing: error))\nSource: \(source)")
+        logger.logSlack(message: ":warning: Failed to configure audio session\nError: \(String(describing: error))\nSource: \(source)")
       }
   }
 
@@ -107,18 +111,21 @@ public class VonageVoice: NSObject {
       return
     }
     let audioSession = AVAudioSession.sharedInstance()
-      
+
+    logger.logSlack(message: "Audio session interruption: \(interruptionType)", admin: true)
     switch interruptionType {
     case .began:
+      logger.logSlack(message: "Disabling audio (interruption began)", admin: true)
       // Interruption began, disable audio
       VGVoiceClient.disableAudio(audioSession)
     case .ended:
       // Interruption ended, reactivate audio session
       do {
         try audioSession.setActive(true)
+        logger.logSlack(message: "Enabling audio (interruption ended)", admin: true)
         VGVoiceClient.enableAudio(audioSession)
       } catch {
-        CustomLogger.logSlack(message: ":warning: Failed to reactivate audio session after interruption\nError: \(error.localizedDescription)")
+        logger.logSlack(message: ":warning: Failed to reactivate audio session after interruption\nError: \(error.localizedDescription)")
       }
     @unknown default:
       break
@@ -131,6 +138,8 @@ public class VonageVoice: NSObject {
           let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
       return
     }
+
+    logger.logSlack(message: "Audio route change: \(reason)", admin: true)
 
     switch reason {
     case .newDeviceAvailable:
@@ -155,6 +164,7 @@ public class VonageVoice: NSObject {
     let audioSession = AVAudioSession.sharedInstance()
     let currentRoute = audioSession.currentRoute
 
+    logger.logSlack(message: "New device available: \(currentRoute.outputs)", admin: true)
     for output in currentRoute.outputs {
       if output.portType == .headphones || output.portType == .bluetoothA2DP || output.portType == .bluetoothHFP || output.portType == .bluetoothLE {
         // Headphones or Bluetooth device connected
@@ -162,7 +172,7 @@ public class VonageVoice: NSObject {
         do {
           try audioSession.overrideOutputAudioPort(.none)
         } catch {
-          CustomLogger.logSlack(message: ":warning: Failed to override output audio port\nError: \(error.localizedDescription)")
+          logger.logSlack(message: ":warning: Failed to override output audio port\nError: \(error.localizedDescription)")
         }
         break
       }
@@ -172,6 +182,7 @@ public class VonageVoice: NSObject {
   func handleOldDeviceUnavailable(previousRoute: AVAudioSessionRouteDescription) {
     let audioSession = AVAudioSession.sharedInstance()
 
+    logger.logSlack(message: "Old device unavailable: \(previousRoute.outputs)", admin: true)
     for output in previousRoute.outputs {
       if output.portType == .headphones || output.portType == .bluetoothA2DP || output.portType == .bluetoothHFP || output.portType == .bluetoothLE {
         // Headphones or Bluetooth device disconnected
@@ -181,7 +192,7 @@ public class VonageVoice: NSObject {
           // If you want to route to speaker instead, use .speaker
           try audioSession.overrideOutputAudioPort(.none)
         } catch {
-          CustomLogger.logSlack(message: ":warning: Failed to override output audio port\nError: \(error.localizedDescription)")
+          logger.logSlack(message: ":warning: Failed to override output audio port\nError: \(error.localizedDescription)")
         }
         break
       }
@@ -189,6 +200,7 @@ public class VonageVoice: NSObject {
   }
 
   func handleWakeFromSleep() {
+    logger.logSlack(message: "Wake from sleep", admin: true)
     // Reconfigure audio session if needed
     configureAudioSession(source: "wakeFromSleep")
   }
@@ -196,7 +208,7 @@ public class VonageVoice: NSObject {
   func handleNoSuitableRoute() {
     // Handle the case where no suitable audio route is available
     // You might want to notify the user or try to reconfigure the audio session
-    CustomLogger.logSlack(message: ":warning: No suitable audio route available")
+    logger.logSlack(message: ":warning: No suitable audio route available")
   }
 
   private func initializeClient() {
@@ -208,6 +220,7 @@ public class VonageVoice: NSObject {
   }
 
   @objc private func handleVoipPushNotification(_ notification: Notification) {
+    logger.logSlack(message: "Voip push notification received", admin: true)
     voipNotification = notification
     handleIncomingPushNotification(notification: notification.object as! Dictionary<String, Any>) { _ in
     } reject: { _, _, error in
@@ -215,11 +228,14 @@ public class VonageVoice: NSObject {
   }
   
   private func refreshTokens(accessToken: String, _ completion: @escaping ((any Error)?) -> Void) {
+    logger.logSlack(message: "Refreshing tokens", admin: true)
       guard let refreshVonageTokenUrlString = self.refreshVonageTokenUrlString else {
-          completion(nil)
-          return
+        logger.logSlack(message: ":warning: Refresh Vonage token URL is not set", admin: true)
+        completion(nil)
+        return
       }
       self.getVonageToken(urlString: refreshVonageTokenUrlString, token: accessToken) { result in
+          self.logger.logSlack(message: "Got Vonage token: \(result)", admin: true)
       switch result {
         case .success(let vonageToken):
           if self.isLoggedIn {
@@ -405,7 +421,7 @@ public class VonageVoice: NSObject {
         resolve(["success": true])
         return
       } else {
-        CustomLogger.logSlack(message: ":speaker: Failed to mute\nid: \(callID)\nError: \(String(describing: error))")
+        self.logger.logSlack(message: ":speaker: Failed to mute\nid: \(callID)\nError: \(String(describing: error))")
         reject("Failed to mute", error?.localizedDescription, error)
         return
       }
@@ -418,7 +434,7 @@ public class VonageVoice: NSObject {
         resolve(["success": true])
         return
       } else {
-        CustomLogger.logSlack(message: ":speaker: Failed to unmute\nid: \(callID)\nError: \(String(describing: error))")
+        self.logger.logSlack(message: ":speaker: Failed to unmute\nid: \(callID)\nError: \(String(describing: error))")
         reject("Failed to unmute", error?.localizedDescription, error)
         return
       }
@@ -434,7 +450,7 @@ public class VonageVoice: NSObject {
       resolve(["success": true])
       return
     } catch {
-      CustomLogger.logSlack(message: ":loud_sound: Failed to enable speaker\nid: \(String(describing: callID))\nError: \(String(describing: error))")
+      logger.logSlack(message: ":loud_sound: Failed to enable speaker\nid: \(String(describing: callID))\nError: \(String(describing: error))")
       reject("Failed to enable speaker", error.localizedDescription, error)
       return
     }
@@ -449,7 +465,7 @@ public class VonageVoice: NSObject {
       resolve(["success": true])
       return
     } catch {
-      CustomLogger.logSlack(message: ":loud_sound: Failed to disable speaker\nid: \(String(describing: callID))\nError: \(String(describing: error))")
+      logger.logSlack(message: ":loud_sound: Failed to disable speaker\nid: \(String(describing: callID))\nError: \(String(describing: error))")
       reject("Failed to disable speaker", error.localizedDescription, error)
       return
     }
@@ -576,11 +592,12 @@ public class VonageVoice: NSObject {
         self.configureAudioSession(source: "cxAnswerCallAction")
         let audioSession = AVAudioSession.sharedInstance()
 
+        self.logger.logSlack(message: "Enabling audio (answer call)", admin: true)
         VGVoiceClient.enableAudio(audioSession)
         self.callKitProvider.reportCall(with: UUID(uuidString: callID)!, endedAt: Date(), reason: .answeredElsewhere)
         resolve(["success": true])
       } else {
-        CustomLogger.logSlack(message: ":x: Failed to answer call\nid: \(callID)\nError: \(String(describing: error))")
+        self.logger.logSlack(message: ":x: Failed to answer call\nid: \(callID)\nError: \(String(describing: error))")
         reject("Failed to answer the call", error?.localizedDescription, error)
       }
     }
@@ -596,7 +613,7 @@ public class VonageVoice: NSObject {
         self.callKitProvider.reportCall(with: UUID(uuidString: callID)!, endedAt: Date(), reason: .declinedElsewhere)
         resolve(["success": true])
       } else {
-        CustomLogger.logSlack(message: ":x: Failed to reject call\nid: \(callID)\nError: \(String(describing: error))")
+        self.logger.logSlack(message: ":x: Failed to reject call\nid: \(callID)\nError: \(String(describing: error))")
         reject("Failed to reject call", error?.localizedDescription, error)
       }
     }
@@ -610,11 +627,12 @@ public class VonageVoice: NSObject {
         self.outbound = false
         let audioSession = AVAudioSession.sharedInstance()
 
+        self.logger.logSlack(message: "Disabling audio (hangup)", admin: true)
         VGVoiceClient.disableAudio(audioSession)
 
         resolve("Call ended")
       } else {
-        CustomLogger.logSlack(message: ":x: Failed to hangup call\nid: \(callID)\nError: \(String(describing: error))")
+        self.logger.logSlack(message: ":x: Failed to hangup call\nid: \(callID)\nError: \(String(describing: error))")
         reject("Failed to hangup", error?.localizedDescription, error)
       }
     }
@@ -635,6 +653,7 @@ public class VonageVoice: NSObject {
         callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .unanswered)
         return
       }
+      logger.logSlack(message: "Processing incoming push notification", admin: true)
       processNotification(notification: notification)
     } else {
       guard let number = extractCallerNumber(from: notification),
@@ -665,8 +684,6 @@ public class VonageVoice: NSObject {
 
     client.serverCall(callData) { error, callID in
       if error == nil, let callID = callID {
-        let audioSession = AVAudioSession.sharedInstance()
-
         self.callID = callID
         resolve(["callId": callID])
       } else {
@@ -716,7 +733,7 @@ public class VonageVoice: NSObject {
     callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(number)")
     self.callKitProvider.reportNewIncomingCall(with: uuid, update: callUpdate) { error in
       if let error = error {
-        CustomLogger.logSlack(message: ":x: Failed to report new incoming call\ncallId: \(callId)\nnumber: \(number)\nError: \(error.localizedDescription)")
+        self.logger.logSlack(message: ":x: Failed to report new incoming call\ncallId: \(callId)\nnumber: \(number)\nError: \(error.localizedDescription)")
         self.callKitProvider.reportCall(with: uuid, endedAt: Date(), reason: .unanswered)
       } else {
         self.callID = callId
@@ -740,12 +757,13 @@ public class VonageVoice: NSObject {
       let semaphore = DispatchSemaphore(value: 0)
 
       let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
-          CustomLogger.logSlack(message: ":hourglass_flowing_sand: Refresh session background task expired\ninfo:\(String(describing: self.debugAdditionalInfo))")
+        self.logger.logSlack(message: ":hourglass_flowing_sand: Refresh session background task expired")
       }
 
       refreshSessionBlock({ result in
         if let result = result as? [String: Any],
           let token = result["accessToken"] as? String {
+          self.logger.logSlack(message: "Preparing call info", admin: true)
           self.contactService.prepareCallInfo(number: number, token: token) { success, error in
             if let error = error {
               print("Error updating contact image: \(error)")
@@ -755,7 +773,7 @@ public class VonageVoice: NSObject {
           self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
           self.refreshTokens(accessToken: token) { error in
             if let error = error {
-              CustomLogger.logSlack(message: ":key: Failed to refresh Vonage session\nError: \(error.localizedDescription)\ninfo:\(String(describing: self.debugAdditionalInfo))")
+              self.logger.logSlack(message: ":key: Failed to refresh Vonage session\nError: \(error.localizedDescription)")
             } else {
               self.isLoggedIn = true
               self.client.processCallInvitePushData(notification)
@@ -764,10 +782,10 @@ public class VonageVoice: NSObject {
             }
           }
         } else {
-          CustomLogger.logSlack(message: ":key: Failed to refresh session\ninfo:\(String(describing: self.debugAdditionalInfo))")
+          self.logger.logSlack(message: ":key: Failed to refresh session")
         }
       }, { code, message, error in
-        CustomLogger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nError: \(String(describing: error))")
+        self.logger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nError: \(String(describing: error))")
         semaphore.signal()
         self.isRefreshing = false
         UIApplication.shared.endBackgroundTask(backgroundTaskID)
@@ -776,7 +794,7 @@ public class VonageVoice: NSObject {
       let result = semaphore.wait(timeout: .now() + maxWaitTime)
 
       if result == .timedOut {
-        CustomLogger.logSlack(message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:\ninfo:\(String(describing: debugAdditionalInfo))")
+        logger.logSlack(message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:")
         self.isRefreshing = false
       }
 
@@ -791,7 +809,7 @@ public class VonageVoice: NSObject {
     let number = extractCallerNumber(from: notification)
 
     guard let newCallId = newCallId, let number = number else {
-      CustomLogger.logSlack(message: ":x: Failed to process notification\ninfo:\(String(describing: debugAdditionalInfo))")
+      logger.logSlack(message: ":x: Failed to process notification")
       callKitProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
       return
     }
