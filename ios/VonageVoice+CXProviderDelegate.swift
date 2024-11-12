@@ -35,7 +35,6 @@ extension VonageVoice: CXProviderDelegate {
       return
     }
 
-    self.configureAudioSession(source: "cxAnswerCallAction")
     self.contactService.changeTemporaryContactImage()
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [self] in
       self.contactService.resetCallInfo()
@@ -45,6 +44,7 @@ extension VonageVoice: CXProviderDelegate {
           if error == nil {
             self.callStartedAt = Date()
             self.outbound = false
+            EventEmitter.shared.sendEvent(withName: Event.callConnecting.rawValue, body: ["callId": self.callID, "caller": self.caller])
 
             action.fulfill()
           } else {
