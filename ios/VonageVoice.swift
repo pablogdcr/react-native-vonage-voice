@@ -81,12 +81,16 @@ public class VonageVoice: NSObject {
       name: NSNotification.Name.voipPushReceived,
       object: nil
     )
-  }
-
-  func handleNoSuitableRoute() {
-    // Handle the case where no suitable audio route is available
-    // You might want to notify the user or try to reconfigure the audio session
-    logger.logSlack(message: ":warning: No suitable audio route available")
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleAudioSessionInterruption),
+      name: AVAudioSession.interruptionNotification,
+      object: AVAudioSession.sharedInstance())
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleRouteChange),
+      name: AVAudioSession.routeChangeNotification,
+      object: AVAudioSession.sharedInstance())
   }
 
   private func initializeClient() {
@@ -95,6 +99,26 @@ public class VonageVoice: NSObject {
 
   func isCallActive() -> Bool {
     return callID != nil && callStartedAt != nil
+  }
+
+  @objc private func handleAudioSessionInterruption(notification: Notification) {
+    guard let info = notification.userInfo,
+          let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+          let interruptionType = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+      return
+    }
+
+    logger.logSlack(message: "Audio session interruption: \(interruptionType)", admin: true)
+  }
+
+  @objc func handleRouteChange(notification: Notification) {
+    guard let userInfo = notification.userInfo,
+          let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+          let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+      return
+    }
+
+    logger.logSlack(message: "Audio route change: \(reason)", admin: true)
   }
 
   @objc private func handleVoipPushNotification(_ notification: Notification) {
