@@ -491,6 +491,8 @@ public class VonageVoice: NSObject {
         self.callID = callID
         self.outbound = false
 
+        VGVoiceClient.enableAudio(AVAudioSession.sharedInstance())
+        EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": self.callID, "caller": self.caller])
         self.callKitProvider.reportCall(with: UUID(uuidString: callID)!, endedAt: Date(), reason: .answeredElsewhere)
         resolve(["success": true])
       } else {
@@ -523,6 +525,7 @@ public class VonageVoice: NSObject {
         self.callID = nil
         self.outbound = false
 
+        VGVoiceClient.disableAudio(AVAudioSession.sharedInstance())
         resolve("Call ended")
       } else {
         self.logger.logSlack(message: ":x: Failed to hangup call\nid: \(callID)\nError: \(String(describing: error))")
@@ -653,7 +656,6 @@ public class VonageVoice: NSObject {
             if let error = error {
               print("Error updating contact image: \(error)")
             }
-            semaphore.signal()
           }
           self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
           self.refreshTokens(accessToken: token) { error in
@@ -665,6 +667,7 @@ public class VonageVoice: NSObject {
               self.isRefreshing = false
               UIApplication.shared.endBackgroundTask(backgroundTaskID)
             }
+            semaphore.signal()
           }
         } else {
           self.logger.logSlack(message: ":key: Failed to refresh session")
