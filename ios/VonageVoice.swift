@@ -61,6 +61,7 @@ public class VonageVoice: NSObject {
     self.client = VGVoiceClient(VGClientInitConfig(loggingLevel: self.logger.isAdmin() ? .warn : .error, customLoggers: [self.logger]))
     super.init()
 
+    self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
     self.callKitObserver = CXCallObserver()
     self.callKitObserver.setDelegate(self, queue: nil)
     self.callKitProvider.setDelegate(self, queue: nil)
@@ -658,7 +659,6 @@ public class VonageVoice: NSObject {
             }
             semaphore.signal()
           }
-          self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
           self.refreshTokens(accessToken: token) { error in
             if let error = error {
               self.logger.logSlack(message: ":key: Failed to refresh Vonage session\nError: \(error.localizedDescription)")

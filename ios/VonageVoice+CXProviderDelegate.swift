@@ -11,20 +11,6 @@ extension VonageVoice: CXProviderDelegate {
 
   public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
     action.fulfill()
-    self.callKitProvider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
-  }
-
-  public func provider(_ provider: CXProvider, perform action: CXSetHeldCallAction) {
-    // This method is called when a call is put on hold or taken off hold
-    // We don't support call holding in this implementation
-    action.fulfill()
-  }
-
-  public func provider(_ provider: CXProvider, timedOutPerforming action: CXAction) {
-    logger.logSlack(message: ":warning: Timed out performing action\n\(String(describing: action))")
-    // This method is called when the provider times out while performing an action
-    // We'll just fail the action in this case
-    action.fail()
   }
 
   public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
@@ -48,6 +34,11 @@ extension VonageVoice: CXProviderDelegate {
 
             action.fulfill()
           } else {
+            provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .failed)
+            self.callStartedAt = nil
+            self.callID = nil
+            self.outbound = false
+            EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": callID, "reason": "completed"])
             self.logger.logSlack(message: ":x: Failed to answer call\nid: \(callID)\nerror: \(String(describing: error))")
             action.fail()
           }
@@ -66,7 +57,7 @@ extension VonageVoice: CXProviderDelegate {
 
       if self.isCallActive() {
         self.client.hangup(callID) { error in
-          EventEmitter.shared.sendEvent(withName: Event.callRejected.rawValue, body: ["callId": self.callID, "caller": self.caller])
+          EventEmitter.shared.sendEvent(withName: Event.receivedHangup.rawValue, body: ["callId": self.callID, "reason": "completed"])
           if error == nil {
             self.callStartedAt = nil
             self.callID = nil
@@ -95,13 +86,13 @@ extension VonageVoice: CXProviderDelegate {
   }
 
   public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-    logger.logSlack(message: "Enabling audio (didActivate)", admin: true)
     VGVoiceClient.enableAudio(audioSession)
+    logger.logSlack(message: "Enabling audio (didActivate)", admin: true)
   }
 
   public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-    logger.logSlack(message: "Disabling audio (didDeactivate)", admin: true)
     VGVoiceClient.disableAudio(audioSession)
+    logger.logSlack(message: "Disabling audio (didDeactivate)", admin: true)
   }
 
   public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
@@ -133,5 +124,38 @@ extension VonageVoice: CXProviderDelegate {
         }
       }
     }
+  }
+
+  public func provider(_ provider: CXProvider, perform action: CXSetHeldCallAction){
+    guard let callID = self.callID else {
+      logger.logSlack(message: ":interrobang: Trying to mute/unmute a call with callID null from CXSetHeldCallAction")
+      action.fail()
+      return
+    }
+
+    if (action.isOnHold) {
+      self.logger.logSlack(message: ":open_mouth: Unmute and disable earmuff")
+      self.client.mute(callID) { error in
+        if error == nil {
+          self.client.enableEarmuff(callID) { error in
+            if error == nil {
+              action.fulfill()
+            }
+          }
+        }
+      }
+    } else {
+      self.logger.logSlack(message: ":heart_eyes: Unmute and disable earmuff")
+      self.client.unmute(callID) { error in
+        if error == nil {
+          self.client.disableEarmuff(callID) { error in
+            if error == nil {
+              action.fulfill()
+            }
+          }
+        }
+      }
+    }
+    action.fulfill()
   }
 }

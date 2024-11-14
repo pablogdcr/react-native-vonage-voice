@@ -51,6 +51,15 @@ extension VonageVoice: VGVoiceClientDelegate {
         if self.outbound == true {
           self.callStartedAt = Date()
           self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callId)!, connectedAt: Date())
+          let update = CXCallUpdate()
+
+          update.localizedCallerName = "me"
+          update.supportsDTMF = true
+          update.supportsHolding = true
+          update.supportsGrouping = false
+          update.hasVideo = false
+
+            self.callKitProvider.reportCall(with: UUID(uuidString: callId)!, updated: update)
         }
         EventEmitter.shared.sendEvent(withName: Event.callAnswered.rawValue, body: ["callId": callId, "caller": caller!, "outbound": outbound])
         break
