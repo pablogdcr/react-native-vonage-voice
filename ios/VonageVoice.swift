@@ -191,7 +191,7 @@ public class VonageVoice: NSObject {
           completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Token not found in response"])))
         }
       } catch {
-        completion(.failure(error))
+        completion(.failure(error)) 
       }
     }
     
@@ -656,6 +656,7 @@ public class VonageVoice: NSObject {
             if let error = error {
               print("Error updating contact image: \(error)")
             }
+            semaphore.signal()
           }
           self.setRegion(region: UserDefaults.standard.string(forKey: "vonage.region"))
           self.refreshTokens(accessToken: token) { error in
@@ -667,7 +668,6 @@ public class VonageVoice: NSObject {
               self.isRefreshing = false
               UIApplication.shared.endBackgroundTask(backgroundTaskID)
             }
-            semaphore.signal()
           }
         } else {
           self.logger.logSlack(message: ":key: Failed to refresh session")
