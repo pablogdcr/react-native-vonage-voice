@@ -53,7 +53,6 @@ extension VonageVoice: VGVoiceClientDelegate {
           self.callKitProvider.reportOutgoingCall(with: UUID(uuidString: callId)!, connectedAt: Date())
           let update = CXCallUpdate()
 
-          update.localizedCallerName = "me"
           update.supportsDTMF = true
           update.supportsHolding = true
           update.supportsGrouping = false
