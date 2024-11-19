@@ -237,7 +237,7 @@ extension VonageCallController: CallController {
         guard updateSessionCompletion == nil else {
             completion?(NSError(domain: "VonageVoice", code: -1, userInfo: [NSLocalizedDescriptionKey: "Session update already in progress"]))
             return
-        }        
+        }
         // Store the completion handler to be called when the session is created
         updateSessionCompletion = completion
 

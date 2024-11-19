@@ -86,7 +86,7 @@ extension VonageCallController: VGVoiceClientDelegate {
     // MARK: VGVoiceClientDelegate LegStatus
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: VGCallId, withLegId legId: String, andStatus status: VGLegStatus) {
-        if (status == .answered ) {
+        if (status == .answered) {
             let uuid = UUID(uuidString: callId)!
             vonageCallUpdates.send((uuid, CallStatus.answered))
         }

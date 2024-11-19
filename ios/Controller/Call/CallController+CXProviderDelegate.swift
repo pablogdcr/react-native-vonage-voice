@@ -35,13 +35,13 @@ extension VonageCallController: CXProviderDelegate {
     }
 
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
-        self.contactService.resetCallInfo()
         guard let call = self.vonageActiveCalls.value[action.callUUID]  else {
             action.fail()
             return
         }
                 
         if case .inbound(_,_,.ringing,_) = call {
+            self.contactService.resetCallInfo()
             self.client.reject(action.callUUID.toVGCallID()){ err in
                 action.fulfill()
             }
