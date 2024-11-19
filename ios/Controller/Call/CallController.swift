@@ -61,8 +61,6 @@ public class VonageCallController: NSObject {
     var callProvider: CXProvider!
     lazy var cxController = CXCallController()
 
-    var updateSessionCompletion: (((any Error)?) -> Void)?
-
     var isRefreshing = false
 
     private var refreshSessionBlock: RefreshSessionBlock?
@@ -234,15 +232,44 @@ extension VonageCallController: CallController {
     }
 
     func updateSessionToken(_ token: String?, completion: ((Error?) -> Void)? = nil) {
-        guard updateSessionCompletion == nil else {
-            completion?(NSError(domain: "VonageVoice", code: -1, userInfo: [NSLocalizedDescriptionKey: "Session update already in progress"]))
+        // If token is nil, just delete the session
+        guard let token = token, token != "" else {
+            client.deleteSession { error in
+                completion?(error)
+                if error == nil {
+                    self.vonageToken.value = nil
+                    self.vonageSession.send(nil)
+                }
+            }
             return
         }
-        // Store the completion handler to be called when the session is created
-        updateSessionCompletion = completion
 
-        // Update the token value which will trigger the bindCallController stream
-        vonageToken.value = token
+        // Create session using Future
+        Future<String?, Error> { promise in
+            self.client.createSession(token) { error, session in
+                if let error = error {
+                    promise(.failure(error))
+                } else {
+                    promise(.success(session))
+                }
+            }
+        }
+        .sink(
+            receiveCompletion: { result in
+                switch result {
+                case .failure(let error):
+                    self.logger.logSlack(message: ":eyes: Failed to create session: \(error)")
+                    completion?(error)
+                case .finished:
+                    completion?(nil)
+                }
+            },
+            receiveValue: { session in
+                self.vonageSession.send(session)
+                self.vonageToken.value = token
+            }
+        )
+        .store(in: &cancellables)
     }
 
     // Normally we just forward all CXActions to Callkit
@@ -345,55 +372,12 @@ extension VonageCallController {
         // Handle session deletion when token becomes nil
         vonageToken.dropFirst().filter { $0 == nil }.sink { _ in
             self.client.deleteSession { error in
-                if let completion = self.updateSessionCompletion {
-                    completion(error)
-                    self.updateSessionCompletion = nil
+                // Just log the error if needed
+                if let error = error {
+                    self.logger.logSlack(message: ":eyes: Failed to delete session: \(error)")
                 }
             }
         }.store(in: &cancellables)
-
-        // Handle session creation with stored completion handler
-        if #available(iOS 14.0, *) {
-            vonageToken.compactMap { $0 }.filter { $0 != "" }.first().flatMap { token in
-                Future<String?,Error> { p in
-                    self.client.createSession(token) { err, session in
-                        // Call the completion handler with the result
-                        if let completion = self.updateSessionCompletion {
-                            completion(err)
-                            self.updateSessionCompletion = nil
-                        }
-                        p(err != nil ? Result.failure(err!) : Result.success(session!))
-                    }
-                }
-            }
-            .asResult()
-            .sink { result in
-                switch(result) {
-                case .success(let s):
-                    self.vonageSession.send(s)
-                case .failure:
-                    self.logger.logSlack(message: ":eyes: Failed to create session: \(result)")
-                    return
-                }
-            }
-            .store(in: &cancellables)
-        } else {
-            // For iOS < 14, use a simpler implementation without Combine
-            if let token = vonageToken.value, token != "" {
-                self.client.createSession(token) { err, session in
-                    if let completion = self.updateSessionCompletion {
-                        completion(err)
-                        self.updateSessionCompletion = nil
-                    }
-                    
-                    if err == nil, let session = session {
-                        self.vonageSession.value = session
-                    } else {
-                        self.logger.logSlack(message: ":eyes: Failed to create session: \(String(describing: err))")
-                    }
-                }
-            }
-        }
 
         // Book keeping for active call
         self.calls
