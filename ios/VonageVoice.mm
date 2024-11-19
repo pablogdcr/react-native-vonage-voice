@@ -26,28 +26,15 @@ RCT_EXPORT_METHOD(setRegion:(NSString *)region) {
     [[VonageVoice shared] setRegionWithRegion:region];
 }
 
-RCT_EXPORT_METHOD(createSession:(NSString *)jwt
+RCT_EXPORT_METHOD(login:(NSString *)jwt
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     [[VonageVoice shared] loginWithJwt:jwt resolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(createSessionWithSessionID:(NSString *)jwt
-                  sessionID:(NSString *)sessionID
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] loginWithSessionIDWithJwt:jwt sessionID:sessionID resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(deleteSession:(RCTPromiseResolveBlock)resolve
+RCT_EXPORT_METHOD(logout:(RCTPromiseResolveBlock)resolve
                    rejecter:(RCTPromiseRejectBlock)reject) {
      [[VonageVoice shared] logoutWithResolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(refreshSession:(NSString *)jwt
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] refreshSessionWithJwt:jwt resolve:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(registerVoipToken:(NSString *)token
@@ -63,45 +50,34 @@ RCT_EXPORT_METHOD(unregisterDeviceTokens:(NSString *)deviceId
     [[VonageVoice shared] unregisterDeviceTokensWithDeviceId:deviceId resolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(getUser:(NSString *)userIdOrName
-                  resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] getUserWithUserIdOrName:userIdOrName resolve:resolve reject:reject];
-}
-
 RCT_EXPORT_METHOD(answerCall:(NSString *)callId
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] answerCallWithCallID:callId resolve:resolve reject:reject];
+    [[VonageVoice shared] answerCallWithCallId:callId resolve:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(rejectCall:(NSString *)callId
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] rejectCallWithCallID:callId resolve:resolve reject:reject];
+    [[VonageVoice shared] rejectCallWithCallId:callId resolve:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(hangup:(NSString *)callId
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] hangupWithCallID:callId resolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(getIsLoggedIn:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] getIsLoggedInResolve:resolve reject:reject];
+    [[VonageVoice shared] hangupCallWithCallId:callId resolve:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(mute:(NSString *)callId
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] muteWithCallID:callId resolve:resolve reject:reject];
+    [[VonageVoice shared] muteWithCallId:callId resolve:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(unmute:(NSString *)callId
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] unmuteWithCallID:callId resolve:resolve reject:reject];
+    [[VonageVoice shared] unmuteWithCallId:callId resolve:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(enableSpeaker:(RCTPromiseResolveBlock)resolve
@@ -112,11 +88,6 @@ RCT_EXPORT_METHOD(enableSpeaker:(RCTPromiseResolveBlock)resolve
 RCT_EXPORT_METHOD(disableSpeaker:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     [[VonageVoice shared] disableSpeakerWithResolve:resolve reject:reject];
-}
-
-RCT_EXPORT_METHOD(getCallStatus:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] getCallStatusWithResolve:resolve reject:reject];
 }
 
 RCT_EXPORT_METHOD(serverCall:(NSString *)to
@@ -130,6 +101,14 @@ RCT_EXPORT_METHOD(sendDTMF:(NSString *)dtmf
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     [[VonageVoice shared] sendDTMFWithDtmf:dtmf resolve:resolve reject:reject];
+}
+
+RCT_EXPORT_METHOD(subscribeToCallEvents) {
+    [[VonageVoice shared] subscribeToCallEvents];
+}
+
+RCT_EXPORT_METHOD(unsubscribeFromCallEvents) {
+    [[VonageVoice shared] unsubscribeFromCallEvents];
 }
 
 @end

@@ -1,27 +1,28 @@
-import { useEffect, useState } from 'react';
+// import { useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import RNVonageVoiceCall from 'react-native-vonage-voice';
+// import RNVonageVoiceCall from 'react-native-vonage-voice';
 
 export default function App() {
-  const [connectionStatus, setConnectionStatus] = useState('Disconnected');
+  // const [connectionStatus, setConnectionStatus] = useState('Disconnected');
 
-  useEffect(() => {
-    const subscription = RNVonageVoiceCall.onReceivedInvite((event) => {
-      console.log('receivedInvite:', event);
-    });
+  // useEffect(() => {
+  //   TODO: rewrite example
+  //   const subscription = RNVonageVoiceCall.onReceivedInvite((event) => {
+  //     console.log('receivedInvite:', event);
+  //   });
 
-    return () => {
-      subscription.remove();
-    };
-  }, []);
+  //   return () => {
+  //     subscription.remove();
+  //   };
+  // }, []);
 
   const login = async () => {
-    const response = await RNVonageVoiceCall.createSession(
-      '<YOUR_TOKEN>',
-      'EU'
-    );
-
-    response && setConnectionStatus(response);
+    // TODO: rewrite example
+    // const response = await RNVonageVoiceCall.createSession(
+    //   '<YOUR_TOKEN>',
+    //   'EU'
+    // );
+    // response && setConnectionStatus(response);
   };
 
   return (
@@ -30,7 +31,7 @@ export default function App() {
         <Text>Login</Text>
       </TouchableOpacity>
 
-      <Text>{connectionStatus}</Text>
+      {/* <Text>{connectionStatus}</Text> */}
     </View>
   );
 }

@@ -1,17 +1,14 @@
-export interface EventBase {
-  callId: string;
-  outbound?: boolean;
+export enum CallStatus {
+  RINGING = 'ringing',
+  ANSWERED = 'answered',
+  RECONNECTING = 'reconnecting',
+  COMPLETED = 'completed',
 }
 
-export interface EventWithCallId extends EventBase {
-  caller: string;
-}
-
-export interface EventWithReason extends EventBase {
-  reason: string;
-}
-
-export interface EventWithConnectionStatus extends EventBase {
-  status: string;
-  reason?: string;
+export interface CallEvent {
+  id: string;
+  status: CallStatus;
+  isOutbound: boolean;
+  phoneNumber: string;
+  startedAt: number;
 }
