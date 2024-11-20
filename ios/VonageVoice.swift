@@ -36,7 +36,9 @@ public class VonageVoice: NSObject {
 
     override init() {
         VGVoiceClient.isUsingCallKit = true
-        callController = VonageCallController()
+
+        let info = UserDefaults.standard.string(forKey: Constants.debugInfoKey)
+        callController = VonageCallController(logger: CustomLogger(debugAdditionalInfo: info))
 
         super.init()
 

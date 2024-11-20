@@ -38,7 +38,7 @@ protocol CallController {
 public class VonageCallController: NSObject {
     var cancellables = Set<AnyCancellable>()
 
-    var logger: CustomLogger
+    let logger: VGLogger?
     let client: VGVoiceClient
     let contactService = ContactService()
 
@@ -74,15 +74,18 @@ public class VonageCallController: NSObject {
         }
     }
     
-    override init() {
-        let info = UserDefaults.standard.string(forKey: Constants.debugInfoKey)
+    init(logger: VGLogger?) {
+        self.logger = logger
+        if let logger = logger {
+            client = VGVoiceClient(VGClientInitConfig(
+                loggingLevel: .error,
+                customLoggers: [logger])
+            )
+        } else {
+            client = VGVoiceClient(VGClientInitConfig(loggingLevel: .error)
+            )
+        }
 
-        logger = CustomLogger(debugAdditionalInfo: info)
-        client = VGVoiceClient(VGClientInitConfig(
-            loggingLevel: logger.isAdmin() ? .warn : .error,
-            customLoggers: [logger])
-        )
-        
         super.init()
         client.delegate = self
         if let region = UserDefaults.standard.string(forKey: "vonage.region") {
@@ -163,14 +166,14 @@ extension VonageCallController: CallController {
 
     private func reportVoipPush(_ notification: Dictionary<String, Any>, refreshVonageTokenUrl: String, refreshSessionBlock: (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void) {
         guard let number = extractCallerNumber(from: notification) else {
-            self.logger.logSlack(message: ":warning: Failed to extract phone number. Notification: \(notification)")
+            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning: Failed to extract phone number. Notification: \(notification)")
             callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
             return
         }
         let maxWaitTime: TimeInterval = 5.0
         let semaphore = DispatchSemaphore(value: 0)
         let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
-            self.logger.logSlack(message: ":hourglass_flowing_sand: Refresh session background task expired")
+            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Refresh session background task expired")
         }
 
         self.isRefreshing = true
@@ -179,7 +182,7 @@ extension VonageCallController: CallController {
                let token = response["accessToken"] as? String {
                 self.contactService.prepareCallInfo(number: number, token: token) { success, error in
                     if let error = error {
-                        self.logger.logSlack(message: "Failed to update contact image: \(error)")
+                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to update contact image: \(error)")
                     }
                 }
 
@@ -197,7 +200,7 @@ extension VonageCallController: CallController {
                         case .finished:
                             break
                         case .failure(let error):
-                            self.logger.logSlack(message: "Failed to refresh Vonage token: \(error)")
+                            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to refresh Vonage token: \(error)")
                         }
                     } receiveValue: { [weak self] (response: TokenResponse) in
                         guard let self = self else {
@@ -209,18 +212,18 @@ extension VonageCallController: CallController {
                     }
                     .store(in: &self.cancellables)
             } else {
-                self.logger.logSlack(message: ":key: Failed to refresh session: No token in response.\nResponse: \(String(describing: response))")
+                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":key: Failed to refresh session: No token in response.\nResponse: \(String(describing: response))")
                 semaphore.signal()
             }
         }, { code, message, error in
-            self.logger.logSlack(message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nError: \(String(describing: error))")
+            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nError: \(String(describing: error))")
             semaphore.signal()
         })
 
         let result = semaphore.wait(timeout: .now() + maxWaitTime)
 
         if result == .timedOut {
-            logger.logSlack(message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:")
+            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:")
         }
         UIApplication.shared.endBackgroundTask(backgroundTaskID)
         self.isRefreshing = false
@@ -258,7 +261,7 @@ extension VonageCallController: CallController {
             receiveCompletion: { result in
                 switch result {
                 case .failure(let error):
-                    self.logger.logSlack(message: ":eyes: Failed to create session: \(error)")
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":eyes: Failed to create session: \(error)")
                     completion?(error)
                 case .finished:
                     completion?(nil)
@@ -310,7 +313,7 @@ extension VonageCallController: CallController {
     func sendDTMF(_ dtmf: String, completion: @escaping ((any Error)?) -> Void) {
         // Get the first active call from vonageActiveCalls
         guard let activeCall = vonageActiveCalls.value.first?.value else {
-            logger.logSlack(message: "No active call found when trying to send DTMF")
+            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "No active call found when trying to send DTMF")
             completion(NSError(domain: "VonageVoice", code: -3, userInfo: [NSLocalizedDescriptionKey: "No active call found when trying to send DTMF"]))
             return
         }
@@ -319,7 +322,7 @@ extension VonageCallController: CallController {
             if error == nil {
                 completion(nil)
             } else {
-                self.logger.logSlack(message: "Failed to send DTMF: \(error?.localizedDescription ?? "unknown error")")
+                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to send DTMF: \(error?.localizedDescription ?? "unknown error")")
                 completion(NSError(domain: "VonageVoice", code: -4, userInfo: [NSLocalizedDescriptionKey: "Failed to send DTMF"]))
             }
         })
@@ -374,7 +377,7 @@ extension VonageCallController {
             self.client.deleteSession { error in
                 // Just log the error if needed
                 if let error = error {
-                    self.logger.logSlack(message: ":eyes: Failed to delete session: \(error)")
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":eyes: Failed to delete session: \(error)")
                 }
             }
         }.store(in: &cancellables)

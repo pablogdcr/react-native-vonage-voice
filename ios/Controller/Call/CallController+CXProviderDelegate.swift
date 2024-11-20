@@ -22,7 +22,7 @@ extension VonageCallController: CXProviderDelegate {
 
             self.client.answer(action.callUUID.toVGCallID()) { err in
                 guard err == nil else {
-                    self.logger.logSlack(message: ":x: Failed to answer call! Error: \(String(describing: err))")
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":x: Failed to answer call! Error: \(String(describing: err))")
                     provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .failed)
                     self.vonageCallUpdates.send((action.callUUID, .completed(remote: false, reason: .failed)))
                     action.fail()
@@ -61,7 +61,7 @@ extension VonageCallController: CXProviderDelegate {
         if (action.isMuted == true) {
             self.client.mute(action.callUUID.toVGCallID()) { err in
                 if let error = err {
-                    self.logger.logSlack(message: "Failed to mute call: \(error)")
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to mute call: \(error)")
                     action.fail()
                     return
                 }
@@ -71,7 +71,7 @@ extension VonageCallController: CXProviderDelegate {
         else {
             self.client.unmute(action.callUUID.toVGCallID()) { err in
                 if let error = err {
-                    self.logger.logSlack(message: "Failed to unmute call: \(error)")
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to unmute call: \(error)")
                     action.fail()
                     return
                 }
@@ -97,12 +97,12 @@ extension VonageCallController: CXProviderDelegate {
         if (action.isOnHold) {
             self.client.mute(callId) { error in
                 if let error = error {
-                    self.logger.logSlack(message: "Failed to mute call on hold: \(error)")
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to mute call on hold: \(error)")
                     return
                 }
                 self.client.enableEarmuff(callId) { error in
                     if let error = error {
-                        self.logger.logSlack(message: "Failed to enable earmuff on hold: \(error)")
+                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to enable earmuff on hold: \(error)")
                         return
                     }
                 }
@@ -110,12 +110,12 @@ extension VonageCallController: CXProviderDelegate {
         } else {
             self.client.unmute(callId) { error in
                 if let error = error {
-                    self.logger.logSlack(message: "Failed to unmute call on hold: \(error)")
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to unmute call on hold: \(error)")
                     return
                 }
                 self.client.disableEarmuff(callId) { error in
                     if let error = error {
-                        self.logger.logSlack(message: "Failed to disable earmuff on hold: \(error)")
+                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to disable earmuff on hold: \(error)")
                         return
                     }
                 }
@@ -140,7 +140,7 @@ extension VonageCallController {
                             completion: { err in
                                 guard err == nil else {
                                     self.client.hangup(callId.toVGCallID()) { err in
-                                        self.logger.logSlack(message: "Failed to report start outboud call: \(String(describing: err))")
+                                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to report start outboud call: \(String(describing: err))")
                                     }
                                     return
                                 }
@@ -177,10 +177,10 @@ extension VonageCallController {
                         callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(from)")
                         self.callProvider.reportNewIncomingCall(with: callId, update: callUpdate) { err in
                             if err != nil {
-                                self.logger.logSlack(message: ":warning: Failed to report new incoming call \(callId). Error: \(String(describing: err))")
+                                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning: Failed to report new incoming call \(callId). Error: \(String(describing: err))")
                                 self.client.reject(callId.toVGCallID()) { err in
                                     if let err = err {
-                                        self.logger.logSlack(message: "Failed to reject failed call. \(err)")
+                                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to reject failed call. \(err)")
                                     }
                                 }
                             }

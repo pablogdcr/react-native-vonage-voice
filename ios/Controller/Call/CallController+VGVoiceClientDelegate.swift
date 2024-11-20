@@ -80,7 +80,7 @@ extension VonageCallController: VGVoiceClientDelegate {
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaErrorForCall callId: String, error: VGError) {
-        self.logger.logSlack(message: "Receive media error for call \(callId): \(error)")
+        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Receive media error for call \(callId): \(error)")
     }
 
     // MARK: VGVoiceClientDelegate LegStatus
