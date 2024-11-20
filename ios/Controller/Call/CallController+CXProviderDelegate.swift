@@ -134,7 +134,6 @@ extension VonageCallController {
                 case let .outbound(callId,to,status,_):
                     switch(status) {
                     case .ringing:
-                        // Outbound calls need reporting to callkit
                         self.cxController.requestTransaction(
                             with: CXStartCallAction(call: callId, handle: CXHandle(type: .generic, value: to)),
                             completion: { err in
@@ -147,22 +146,18 @@ extension VonageCallController {
                                 self.callProvider.reportOutgoingCall(with: callId, startedConnectingAt: Date())
                             }
                         )
-                        
+
                     case .answered:
-                        // Answers are remote by definition, so report them
                         self.callProvider.reportOutgoingCall(with: callId, connectedAt: Date())
-                        let update = CXCallUpdate()
-                        update.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(to)")
-                        update.supportsDTMF = true
-                        update.supportsHolding = true
-                        update.supportsGrouping = false
-                        update.hasVideo = false
-                        self.callProvider.reportCall(with: callId, updated: update)
-                        
+                        let callUpdate = CXCallUpdate()
+
+                        callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(to)")
+                        self.callProvider.reportCall(with: callId, updated: callUpdate)
+
                     case .completed(true, .some(let reason)):
                         // Report Remote Hangups + Cancels
                         self.callProvider.reportCall(with: callId, endedAt: Date(), reason: reason)
-                        
+
                     default:
                         // Nothing needed to report for local hangups
                         return
@@ -173,7 +168,7 @@ extension VonageCallController {
                     case .ringing:
                         // Report new Inbound calls so we follow PushKit and Callkit Rules
                         let callUpdate = CXCallUpdate()
-                                
+
                         callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(from)")
                         self.callProvider.reportNewIncomingCall(with: callId, update: callUpdate) { err in
                             if err != nil {
