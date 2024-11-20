@@ -39,8 +39,7 @@ extension VonageCallController: CXProviderDelegate {
             action.fail()
             return
         }
-                
-        self.contactService.resetCallInfo()
+
         if case .inbound(_,_,.ringing,_) = call {
             self.client.reject(action.callUUID.toVGCallID()){ err in
                 action.fulfill()
@@ -183,6 +182,7 @@ extension VonageCallController {
                     case .completed(true,.some(let reason)):
                         // Report Remote Hangups + Cancels
                         self.callProvider.reportCall(with: callId, endedAt: Date(), reason: reason)
+                        self.contactService.resetCallInfo()
                         
                     default:
                         // Nothing needed to report since answering requires local CXAction
