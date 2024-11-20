@@ -40,8 +40,8 @@ extension VonageCallController: CXProviderDelegate {
             return
         }
                 
+        self.contactService.resetCallInfo()
         if case .inbound(_,_,.ringing,_) = call {
-            self.contactService.resetCallInfo()
             self.client.reject(action.callUUID.toVGCallID()){ err in
                 action.fulfill()
             }
@@ -67,8 +67,7 @@ extension VonageCallController: CXProviderDelegate {
                 }
                 action.fulfill()
             }
-        }
-        else {
+        } else {
             self.client.unmute(action.callUUID.toVGCallID()) { err in
                 if let error = err {
                     self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to unmute call: \(error)")
