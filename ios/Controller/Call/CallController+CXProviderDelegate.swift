@@ -42,6 +42,7 @@ extension VonageCallController: CXProviderDelegate {
 
         if case .inbound(_,_,.ringing,_) = call {
             self.client.reject(action.callUUID.toVGCallID()){ err in
+                self.vonageCalls.send(Call.inbound(id: action.callUUID, from: call.phoneNumber, status: .completed(remote: true, reason: .unanswered)))
                 action.fulfill()
             }
         } else {
