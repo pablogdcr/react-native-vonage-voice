@@ -3,8 +3,11 @@ import {
   IOSConfig,
   withAppDelegate,
   withXcodeProject,
+  withDangerousMod,
 } from 'expo/config-plugins';
 import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const withXcodeLinkBinaryWithLibraries: ConfigPlugin<{
   library: string;
@@ -66,6 +69,50 @@ const handlersBlock = (url: string) => `
 }
 `;
 
+const withVonagePodfileConfig: ConfigPlugin = (config) => {
+  return withDangerousMod(config, [
+    'ios',
+    async (dangerousModConfig) => {
+      const podfilePath = path.join(
+        dangerousModConfig.modRequest.platformProjectRoot,
+        'Podfile'
+      );
+      let podfileContent = fs.readFileSync(podfilePath, 'utf8');
+
+      const podConfigBlock = `
+  installer.pods_project.targets.each do |target|
+    if target.name == 'react-native-vonage-voice'
+      target.build_configurations.each do |config|
+        config.build_settings['SWIFT_INSTALL_OBJC_HEADER'] = 'YES'
+        config.build_settings['DEFINES_MODULE'] = 'YES'
+        config.build_settings['SWIFT_OBJC_INTERFACE_HEADER_NAME'] = "${dangerousModConfig.modRequest.projectName}-Swift.h"
+      end
+    end
+  end`;
+
+      // Check if configuration already exists
+      if (!podfileContent.includes('react-native-vonage-voice')) {
+        // Find the post_install hook or create one
+        if (podfileContent.includes('post_install')) {
+          podfileContent = podfileContent.replace(
+            /post_install do \|installer\|(.*?)end/s,
+            (match) => {
+              const existingContent = match.slice(0, -3); // Remove last 'end'
+              return `${existingContent}${podConfigBlock}\n  end`;
+            }
+          );
+        } else {
+          podfileContent += `\npost_install do |installer|${podConfigBlock}\nend\n`;
+        }
+
+        fs.writeFileSync(podfilePath, podfileContent);
+      }
+
+      return dangerousModConfig;
+    },
+  ]);
+};
+
 const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
   let updatedConfig = config;
 
@@ -77,6 +124,9 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
   updatedConfig = withXcodeLinkBinaryWithLibraries(updatedConfig, {
     library: 'CallKit.framework',
   });
+
+  // Add Podfile configuration
+  updatedConfig = withVonagePodfileConfig(updatedConfig);
 
   return withAppDelegate(updatedConfig, (appDelegateConfig) => {
     // Add required imports

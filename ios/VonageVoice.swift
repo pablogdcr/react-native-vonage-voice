@@ -356,6 +356,16 @@ public class VonageVoice: NSObject {
     }
 }
 
+extension VonageVoice: PKPushRegistryDelegate {
+    public func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
+        VonageVoice.didUpdatePushCredentials(pushCredentials, forType: type)
+    }
+    
+    public func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
+        VonageVoice.didInvalidatePushTokenForType(type)
+    }
+}
+
 extension VonageVoice {
     @objc public func subscribeToCallEvents() {
         callController.calls

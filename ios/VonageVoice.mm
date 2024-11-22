@@ -1,5 +1,6 @@
 #import <React/RCTBridgeModule.h>
 #import <CallKit/CallKit.h>
+#import <PushKit/PushKit.h>
 #import <VonageClientSDKVoice/VGVoiceClient.h>
 #import <react_native_vonage_voice-Swift.h>
 
