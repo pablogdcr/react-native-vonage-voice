@@ -3,11 +3,8 @@ import {
   IOSConfig,
   withAppDelegate,
   withXcodeProject,
-  withDangerousMod,
 } from 'expo/config-plugins';
 import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
-import * as fs from 'fs';
-import * as path from 'path';
 
 const withXcodeLinkBinaryWithLibraries: ConfigPlugin<{
   library: string;
@@ -69,49 +66,21 @@ const handlersBlock = (url: string) => `
 }
 `;
 
-const withVonagePodfileConfig: ConfigPlugin = (config) => {
-  return withDangerousMod(config, [
-    'ios',
-    async (dangerousModConfig) => {
-      const podfilePath = path.join(
-        dangerousModConfig.modRequest.platformProjectRoot,
-        'Podfile'
-      );
-      let podfileContent = fs.readFileSync(podfilePath, 'utf8');
+// Add this new matcher constant
+const userActivityLineMatcher =
+  /- \(BOOL\)application:\(UIApplication \*\)application continueUserActivity:\(nonnull NSUserActivity \*\)userActivity restorationHandler:\(nonnull void \(\^\)\(NSArray<id<UIUserActivityRestoring>> \* _Nullable\)\)restorationHandler \{/g;
 
-      const podConfigBlock = `
-  installer.pods_project.targets.each do |target|
-    if target.name == 'react-native-vonage-voice'
-      target.build_configurations.each do |config|
-        config.build_settings['SWIFT_INSTALL_OBJC_HEADER'] = 'YES'
-        config.build_settings['DEFINES_MODULE'] = 'YES'
-        config.build_settings['SWIFT_OBJC_INTERFACE_HEADER_NAME'] = "${dangerousModConfig.modRequest.projectName}-Swift.h"
-      end
-    end
-  end`;
+// Add this new block constant
+const userActivityBlock = `
+  if ([userActivity.interaction.intent isKindOfClass:[INStartAudioCallIntent class]]) {
+    INPerson *person = [[(INStartAudioCallIntent*)userActivity.interaction.intent contacts] firstObject];
+    NSString *phoneNumber = person.personHandle.value;
+    NSString *telURL = [NSString stringWithFormat:@"tel:%@", phoneNumber];
 
-      // Check if configuration already exists
-      if (!podfileContent.includes('react-native-vonage-voice')) {
-        // Find the post_install hook or create one
-        if (podfileContent.includes('post_install')) {
-          podfileContent = podfileContent.replace(
-            /post_install do \|installer\|(.*?)end/s,
-            (match) => {
-              const existingContent = match.slice(0, -3); // Remove last 'end'
-              return `${existingContent}${podConfigBlock}\n  end`;
-            }
-          );
-        } else {
-          podfileContent += `\npost_install do |installer|${podConfigBlock}\nend\n`;
-        }
-
-        fs.writeFileSync(podfilePath, podfileContent);
-      }
-
-      return dangerousModConfig;
-    },
-  ]);
-};
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:telURL] options:@{} completionHandler:nil];
+    return YES;
+  }
+`;
 
 const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
   let updatedConfig = config;
@@ -125,17 +94,14 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
     library: 'CallKit.framework',
   });
 
-  // Add Podfile configuration
-  updatedConfig = withVonagePodfileConfig(updatedConfig);
-
   return withAppDelegate(updatedConfig, (appDelegateConfig) => {
-    // Add required imports
+    // Update imports to include Intents
     appDelegateConfig.modResults.contents =
       appDelegateConfig.modResults.contents.replace(
         /#import "AppDelegate.h"/g,
         `#import "AppDelegate.h"
 #import <PushKit/PushKit.h>
-#import "AlloDev-Swift.h" // For VonageVoice`
+#import <Intents/Intents.h>`
       );
 
     // Add handlers
@@ -144,6 +110,16 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
       src: appDelegateConfig.modResults.contents,
       newSrc: handlersBlock(options.url),
       anchor: handlersLineMatcher,
+      offset: 2,
+      comment: '//',
+    }).contents;
+
+    // Add user activity handling
+    appDelegateConfig.modResults.contents = mergeContents({
+      tag: '@react-native-vonage-voice-useractivity',
+      src: appDelegateConfig.modResults.contents,
+      newSrc: userActivityBlock,
+      anchor: userActivityLineMatcher,
       offset: 2,
       comment: '//',
     }).contents;
