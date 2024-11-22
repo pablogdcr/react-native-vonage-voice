@@ -54,13 +54,12 @@ const handlersBlock = (url: string) => `
         }];
     };
 
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"voip-push-received" 
-                                                      object:nil 
-                                                    userInfo:payload.dictionaryPayload
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"voip-push-received"
+                                                    object:payload.dictionaryPayload
                                                     userInfo:@{
-    @"refreshSessionBlock": [refreshSessionBlock copy],
-    @"refreshVonageTokenUrlString": @"${url}/v1/app/voip/auth",
-  }];
+      @"refreshSessionBlock": [refreshSessionBlock copy],
+      @"refreshVonageTokenUrlString": @"${url}/v1/app/voip/auth",
+    }];
     
     completion();
 }
@@ -94,6 +93,10 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
     library: 'CallKit.framework',
   });
 
+  updatedConfig = withXcodeLinkBinaryWithLibraries(updatedConfig, {
+    library: 'Intents.framework',
+  });
+
   return withAppDelegate(updatedConfig, (appDelegateConfig) => {
     // Update imports to include Intents
     appDelegateConfig.modResults.contents =
@@ -101,6 +104,7 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
         /#import "AppDelegate.h"/g,
         `#import "AppDelegate.h"
 #import <PushKit/PushKit.h>
+#import <VonageVoice.h>
 #import <Intents/Intents.h>`
       );
 
