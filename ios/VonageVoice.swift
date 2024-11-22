@@ -2,9 +2,12 @@ import VonageClientSDKVoice
 import CallKit
 import AVFoundation
 import Combine
+import PushKit
 
 extension NSNotification.Name {
     static let voipPushReceived = NSNotification.Name("voip-push-received")
+    static let voipTokenRegistered = NSNotification.Name("register")
+    static let voipTokenInvalidated = NSNotification.Name("voip-token-invalidated")
 }
 
 typealias RefreshSessionBlock = (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void
@@ -128,7 +131,7 @@ public class VonageVoice: NSObject {
         }
     }
 
-    @objc public func registerVoipToken(token: String, isSandbox: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    @objc public func registerVonageVoipToken(token: String, isSandbox: Bool, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         guard let tokenData = data(fromHexString: token) else {
             reject("Invalid token", "Token is not a valid string", nil)
             return
@@ -327,6 +330,30 @@ public class VonageVoice: NSObject {
             }
         }
     }
+
+    @objc public static func didUpdatePushCredentials(_ credentials: PKPushCredentials, forType type: PKPushType) {
+        let tokenString = credentials.token.map { String(format: "%02x", $0) }.joined()
+        
+        NotificationCenter.default.post(
+            name: .voipTokenRegistered,
+            object: nil,
+            userInfo: ["token": tokenString]
+        )
+    }
+
+    @objc public static func didInvalidatePushTokenForType(_ type: PKPushType) {
+        NotificationCenter.default.post(
+            name: .voipTokenInvalidated,
+            object: nil,
+            userInfo: ["type": type]
+        )
+    }
+
+    @objc public func registerVoipToken() {
+        let voipRegistry = PKPushRegistry(queue: .main)
+        voipRegistry.delegate = self
+        voipRegistry.desiredPushTypes = [.voIP]
+    }
 }
 
 extension VonageVoice {
@@ -343,6 +370,14 @@ extension VonageVoice {
                 ]
                 
                 EventEmitter.shared.sendEvent(withName: Event.callEvents.rawValue, body: callData)
+            }
+            .store(in: &cancellables)
+        
+        NotificationCenter.default.publisher(for: .voipTokenRegistered)
+            .sink { notification in
+                if let token = notification.userInfo?["token"] as? String {
+                    EventEmitter.shared.sendEvent(withName: "register", body: token)
+                }
             }
             .store(in: &cancellables)
     }

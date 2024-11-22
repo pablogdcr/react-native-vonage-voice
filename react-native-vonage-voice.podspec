@@ -40,4 +40,14 @@ Pod::Spec.new do |s|
       s.dependency "ReactCommon/turbomodule/core"
     end
   end
+
+  if defined?(:spm_dependency)
+    spm_dependency(s,
+      url: 'https://github.com/supabase/supabase-swift.git',
+      requirement: {kind: 'upToNextMajorVersion', minimumVersion: '2.0.0'},
+      products: ['Supabase', 'Auth']
+    )
+  else 
+    raise "Please upgrade React Native to >=0.75.0 to use SPM dependencies." 
+  end 
 end

@@ -17,10 +17,6 @@ interface RNVonageVoiceCallModuleInterface {
   setRegion(region: 'US' | 'EU'): void;
   login(jwt: string, region?: 'US' | 'EU'): Promise<{ success: true } | null>;
   logout(): Promise<{ success: true } | null>;
-  registerVoipToken: (
-    token: string,
-    isSandbox: boolean
-  ) => Promise<string | null>;
   unregisterDeviceTokens(deviceId: string): Promise<void>;
   answerCall(callId: string): Promise<{ success: true } | null>;
   rejectCall(callId: string): Promise<{ success: true } | null>;
@@ -33,6 +29,13 @@ interface RNVonageVoiceCallModuleInterface {
   sendDTMF(dtmf: string): Promise<{ success: true } | null>;
   subscribeToCallEvents(): EmitterSubscription;
   unsubscribeFromCallEvents(): void;
+  subscribeToVoipToken(): EmitterSubscription;
+  subscribeToVoipTokenInvalidation(): EmitterSubscription;
+  registerVonageVoipToken: (
+    token: string,
+    isSandbox: boolean
+  ) => Promise<string | null>;
+  registerVoipToken(): void;
 }
 
 // Create event emitter instance
@@ -50,6 +53,11 @@ const VonageVoice = Platform.select({
       }),
   android: null,
 });
+
+// Create a new event type for VoIP registration
+type VoipRegistrationEvent = {
+  token: string;
+};
 
 class RNVonageVoiceCall {
   static setDebugAdditionalInfo(info: string) {
@@ -85,20 +93,6 @@ class RNVonageVoiceCall {
     }
 
     return VonageVoice!.logout();
-  }
-
-  static registerVoipToken(token: string, isSandbox?: boolean) {
-    if (Platform.OS === 'android') {
-      if (__DEV__) {
-        console.warn("This library doesn't support Android yet.");
-      }
-      return new Promise<null>((resolve) => resolve(null));
-    }
-    try {
-      return VonageVoice!.registerVoipToken(token, isSandbox ?? false);
-    } catch (error) {
-      throw error;
-    }
   }
 
   static unregisterDeviceTokens(deviceId: string) {
@@ -219,8 +213,54 @@ class RNVonageVoiceCall {
     }
     VonageVoice!.unsubscribeFromCallEvents();
   }
+
+  static registerVonageVoipToken(token: string, isSandbox?: boolean) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise<null>((resolve) => resolve(null));
+    }
+    try {
+      return VonageVoice!.registerVonageVoipToken(token, isSandbox ?? false);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static registerVoipToken() {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return;
+    }
+    VonageVoice!.registerVoipToken();
+  }
+
+  static subscribeToVoipToken(
+    callback: (event: VoipRegistrationEvent) => void
+  ) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return;
+    }
+    return eventEmitter.addListener('register', callback);
+  }
+
+  static subscribeToVoipTokenInvalidation(callback: () => void) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return;
+    }
+    return eventEmitter.addListener('voipTokenInvalidated', callback);
+  }
 }
 
-export { CallStatus, type CallEvent };
+export { CallStatus, type CallEvent, type VoipRegistrationEvent };
 
 export default RNVonageVoiceCall;

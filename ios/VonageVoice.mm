@@ -37,11 +37,15 @@ RCT_EXPORT_METHOD(logout:(RCTPromiseResolveBlock)resolve
      [[VonageVoice shared] logoutWithResolve:resolve reject:reject];
 }
 
-RCT_EXPORT_METHOD(registerVoipToken:(NSString *)token
+RCT_EXPORT_METHOD(registerVonageVoipToken:(NSString *)token
                   isSandbox:(BOOL)isSandbox
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    [[VonageVoice shared] registerVoipTokenWithToken:token isSandbox:isSandbox resolve:resolve reject:reject];
+    [[VonageVoice shared] registerVonageVoipTokenWithToken:token isSandbox:isSandbox resolve:resolve reject:reject];
+}
+
+RCT_EXPORT_METHOD(registerVoipToken) {
+    [[VonageVoice shared] registerVoipToken];
 }
 
 RCT_EXPORT_METHOD(unregisterDeviceTokens:(NSString *)deviceId
