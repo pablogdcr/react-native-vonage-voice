@@ -355,10 +355,6 @@ public class VonageVoice: NSObject {
 
     @objc public static func registerVoipToken() {
         if VonageVoice.isVoipRegistered && VonageVoice.lastVoipToken != nil {
-            #if DEBUG
-            print("[VonageVoice] voipRegistration is already registered. return lastVoipToken = \(VonageVoice.lastVoipToken ?? "nil")")
-            #endif
-            
             if let token = VonageVoice.lastVoipToken {
                 NotificationCenter.default.post(
                     name: .voipTokenRegistered,
@@ -369,14 +365,10 @@ public class VonageVoice: NSObject {
         } else {
             VonageVoice.isVoipRegistered = true
             
-            #if DEBUG
-            print("[VonageVoice] voipRegistration enter")
-            #endif
 
             DispatchQueue.main.async {
                 let voipRegistry = PKPushRegistry(queue: .main)
 
-                print("Here? \(String(describing: RCTSharedApplication()?.delegate))")
                 voipRegistry.delegate = RCTSharedApplication()?.delegate as? PKPushRegistryDelegate
                 voipRegistry.desiredPushTypes = [.voIP]
             }

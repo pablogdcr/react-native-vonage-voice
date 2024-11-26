@@ -85,15 +85,6 @@ const userActivityBlock = `
   }
 `;
 
-// Add new matcher for VonageVoice registration
-const vonageRegistrationMatcher = /self\.initialProps = (.+);/g;
-
-// Add new block for VonageVoice registration
-const vonageRegistrationBlock = `
-  self.initialProps = $1;
-  [VonageVoice registerVoipToken];
-`;
-
 const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
   let updatedConfig = config;
 
@@ -120,13 +111,6 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
 #import <PushKit/PushKit.h>
 #import <VonageVoice.h>
 #import <Intents/Intents.h>`
-      );
-
-    // Add VonageVoice registration
-    appDelegateConfig.modResults.contents =
-      appDelegateConfig.modResults.contents.replace(
-        vonageRegistrationMatcher,
-        vonageRegistrationBlock
       );
 
     // Add handlers
