@@ -386,7 +386,7 @@ extension VonageVoice {
         NotificationCenter.default.publisher(for: .voipTokenRegistered)
             .sink { notification in
                 if let token = notification.userInfo?["token"] as? String {
-                    EventEmitter.shared.sendEvent(withName: "register", body: token)
+                    EventEmitter.shared.sendEvent(withName: "register", body: ["token": token])
                 }
             }
             .store(in: &cancellables)
