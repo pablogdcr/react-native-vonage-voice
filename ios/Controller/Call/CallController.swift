@@ -356,7 +356,13 @@ extension VonageCallController: CallController {
 
 extension VonageCallController {
     private func initCXProvider()-> CXProvider {
-        let config = CXProviderConfiguration()
+        let config: CXProviderConfiguration
+
+        if #available(iOS 14.0, *) {
+            config = CXProviderConfiguration()
+        } else {
+            config = CXProviderConfiguration(localizedName: "Allô")
+        }
 
         config.includesCallsInRecents = true
         config.supportsVideo = false
