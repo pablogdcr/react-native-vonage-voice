@@ -9,10 +9,14 @@ import Foundation
 
 enum Event: String {
     case callEvents
+    case register
+    case voipTokenInvalidated
     
     static var supportedEvents: [String] {
         return [
             Event.callEvents.rawValue,
+            Event.register.rawValue,
+            Event.voipTokenInvalidated.rawValue,
         ]
     }
 }
