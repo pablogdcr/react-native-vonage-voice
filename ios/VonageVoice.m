@@ -42,7 +42,7 @@ RCT_EXPORT_METHOD(registerVonageVoipToken:(NSString *)token
 }
 
 RCT_EXPORT_METHOD(registerVoipToken) {
-    [[VonageVoice shared] registerVoipToken];
+    [VonageVoice registerVoipToken];
 }
 
 RCT_EXPORT_METHOD(unregisterDeviceTokens:(NSString *)deviceId

@@ -14,7 +14,7 @@
 // Configuration Methods
 - (void)saveDebugAdditionalInfoWithInfo:(NSString * _Nullable)info;
 - (void)setRegionWithRegion:(NSString * _Nullable)region;
-- (void)registerVoipToken;
++ (void)registerVoipToken;
 
 // Authentication Methods
 - (void)loginWithJwt:(NSString * _Nonnull)jwt resolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;

@@ -27,6 +27,9 @@ public class VonageVoice: NSObject {
     private var isProcessingSpeaker = false
     private var isProcessingServerCall = false
     private var isProcessingDTMF = false
+    private static var isVoipRegistered = false
+    private static var lastVoipToken: String?
+    
 
     @objc var debugAdditionalInfo: String? {
         get {
@@ -333,7 +336,8 @@ public class VonageVoice: NSObject {
 
     @objc public static func didUpdatePushCredentials(_ credentials: PKPushCredentials, forType type: PKPushType) {
         let tokenString = credentials.token.map { String(format: "%02x", $0) }.joined()
-        
+
+        self.lastVoipToken = tokenString
         NotificationCenter.default.post(
             name: .voipTokenRegistered,
             object: nil,
@@ -349,20 +353,34 @@ public class VonageVoice: NSObject {
         )
     }
 
-    @objc public func registerVoipToken() {
-        let voipRegistry = PKPushRegistry(queue: .main)
-        voipRegistry.delegate = self
-        voipRegistry.desiredPushTypes = [.voIP]
-    }
-}
+    @objc public static func registerVoipToken() {
+        if VonageVoice.isVoipRegistered && VonageVoice.lastVoipToken != nil {
+            #if DEBUG
+            print("[VonageVoice] voipRegistration is already registered. return lastVoipToken = \(VonageVoice.lastVoipToken ?? "nil")")
+            #endif
+            
+            if let token = VonageVoice.lastVoipToken {
+                NotificationCenter.default.post(
+                    name: .voipTokenRegistered,
+                    object: nil,
+                    userInfo: ["token": token]
+                )
+            }
+        } else {
+            VonageVoice.isVoipRegistered = true
+            
+            #if DEBUG
+            print("[VonageVoice] voipRegistration enter")
+            #endif
 
-extension VonageVoice: PKPushRegistryDelegate {
-    public func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
-        VonageVoice.didUpdatePushCredentials(pushCredentials, forType: type)
-    }
-    
-    public func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
-        VonageVoice.didInvalidatePushTokenForType(type)
+            DispatchQueue.main.async {
+                let voipRegistry = PKPushRegistry(queue: .main)
+
+                print("Here? \(String(describing: RCTSharedApplication()?.delegate))")
+                voipRegistry.delegate = RCTSharedApplication()?.delegate as? PKPushRegistryDelegate
+                voipRegistry.desiredPushTypes = [.voIP]
+            }
+        }
     }
 }
 

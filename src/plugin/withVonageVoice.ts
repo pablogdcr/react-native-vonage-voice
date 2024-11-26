@@ -2,9 +2,12 @@ import type { ConfigPlugin } from 'expo/config-plugins';
 import {
   IOSConfig,
   withAppDelegate,
+  withDangerousMod,
   withXcodeProject,
 } from 'expo/config-plugins';
 import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
+import fs from 'fs';
+import path from 'path';
 
 const withXcodeLinkBinaryWithLibraries: ConfigPlugin<{
   library: string;
@@ -38,6 +41,7 @@ const handlersBlock = (url: string) => `
 
 - (void)pushRegistry:(PKPushRegistry *)registry didInvalidatePushTokenForType:(PKPushType)type {
     // Handle token invalidation if needed
+    [VonageVoice didInvalidatePushTokenForType:type];
 }
 
 // --- Handle incoming pushes
@@ -81,6 +85,15 @@ const userActivityBlock = `
   }
 `;
 
+// Add new matcher for VonageVoice registration
+const vonageRegistrationMatcher = /self\.initialProps = (.+);/g;
+
+// Add new block for VonageVoice registration
+const vonageRegistrationBlock = `
+  self.initialProps = $1;
+  [VonageVoice registerVoipToken];
+`;
+
 const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
   let updatedConfig = config;
 
@@ -97,7 +110,8 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
     library: 'Intents.framework',
   });
 
-  return withAppDelegate(updatedConfig, (appDelegateConfig) => {
+  // Modify AppDelegate.h using withDangerousMod
+  updatedConfig = withAppDelegate(updatedConfig, (appDelegateConfig) => {
     // Update imports to include Intents
     appDelegateConfig.modResults.contents =
       appDelegateConfig.modResults.contents.replace(
@@ -106,6 +120,13 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
 #import <PushKit/PushKit.h>
 #import <VonageVoice.h>
 #import <Intents/Intents.h>`
+      );
+
+    // Add VonageVoice registration
+    appDelegateConfig.modResults.contents =
+      appDelegateConfig.modResults.contents.replace(
+        vonageRegistrationMatcher,
+        vonageRegistrationBlock
       );
 
     // Add handlers
@@ -130,6 +151,39 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
 
     return appDelegateConfig;
   });
+
+  return withDangerousMod(updatedConfig, [
+    'ios',
+    (dangerousConfig) => {
+      const appDelegateHeaderPath = path.join(
+        dangerousConfig.modRequest.platformProjectRoot,
+        dangerousConfig.modRequest.projectName!,
+        'AppDelegate.h'
+      );
+
+      if (fs.existsSync(appDelegateHeaderPath)) {
+        let headerContents = fs.readFileSync(appDelegateHeaderPath, 'utf-8');
+
+        // Add PushKit import if not already present
+        if (!headerContents.includes('#import <PushKit/PushKit.h>')) {
+          headerContents = headerContents.replace(
+            /#import <UIKit\/UIKit.h>/,
+            '#import <UIKit/UIKit.h>\n#import <PushKit/PushKit.h>'
+          );
+        }
+
+        // Update interface declaration
+        headerContents = headerContents.replace(
+          /@interface AppDelegate : EXAppDelegateWrapper/,
+          '@interface AppDelegate : EXAppDelegateWrapper <UNUserNotificationCenterDelegate, PKPushRegistryDelegate>'
+        );
+
+        fs.writeFileSync(appDelegateHeaderPath, headerContents);
+      }
+
+      return dangerousConfig;
+    },
+  ]);
 };
 
 export default withIosVonageVoice;
