@@ -26,7 +26,6 @@ public class VonageVoice: NSObject {
     private var isProcessingUnmute = false
     private var isProcessingSpeaker = false
     private var isProcessingServerCall = false
-    private var isProcessingDTMF = false
     private static var isVoipRegistered = false
     private static var lastVoipToken: String?
     
@@ -318,14 +317,7 @@ public class VonageVoice: NSObject {
     }
 
     @objc public func sendDTMF(dtmf: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        guard !isProcessingDTMF else {
-            reject("ALREADY_PROCESSING", "Already processing a DTMF request", nil)
-            return
-        }
-        isProcessingDTMF = true
-        
         callController.sendDTMF(dtmf) { [weak self] error in
-            self?.isProcessingDTMF = false
             if error == nil {
                 resolve(["success": true])
             } else {
