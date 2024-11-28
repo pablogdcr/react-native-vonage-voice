@@ -79,6 +79,16 @@ extension VonageCallController: CXProviderDelegate {
         }
     }
 
+    public func provider(_ provider: CXProvider, perform action: CXPlayDTMFCallAction) {
+        guard let call = self.vonageActiveCalls.value[action.callUUID] else {
+            action.fail()
+            return
+        }
+        self.client.sendDTMF(action.callUUID.toVGCallID(), withDigits: action.digits) { err in
+            action.fulfill()
+        }
+    }
+
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
         VGVoiceClient.enableAudio(audioSession)
     }
