@@ -11,14 +11,15 @@ extension VonageCallController: CXProviderDelegate {
     }
 
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction")
         guard let _ = self.vonageActiveCalls.value[action.callUUID]  else {
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - failed 1")
             action.fail()
             return
         }
 
         self.contactService.changeTemporaryContactImage()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [self] in
-//            provider.reportCall(with: action.callUUID, updated: CXCallUpdate())
             self.contactService.resetCallInfo()
 
             self.client.answer(action.callUUID.toVGCallID()) { err in
@@ -26,17 +27,21 @@ extension VonageCallController: CXProviderDelegate {
                     self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":x: Failed to answer call! Error: \(String(describing: err))")
                     provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .failed)
                     self.vonageCallUpdates.send((action.callUUID, .completed(remote: false, reason: .failed)))
+                    self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - failed 2")
                     action.fail()
                     return
                 }
                 self.vonageCallUpdates.send((action.callUUID, .answered))
+                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - fulfilled")
                 action.fulfill()
             }
         }
     }
 
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXEndCallAction")
         guard let call = self.vonageActiveCalls.value[action.callUUID]  else {
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXEndCallAction - failed")
             action.fail()
             return
         }
@@ -44,10 +49,12 @@ extension VonageCallController: CXProviderDelegate {
         if case .inbound(_,_,.ringing,_) = call {
             self.client.reject(action.callUUID.toVGCallID()){ err in
                 self.vonageCalls.send(Call.inbound(id: action.callUUID, from: call.phoneNumber, status: .completed(remote: true, reason: .unanswered)))
+                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXEndCallAction - fulfilled 1")
                 action.fulfill()
             }
         } else {
             self.client.hangup(action.callUUID.toVGCallID()){ err in
+                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXEndCallAction - fulfilled 2")
                 action.fulfill()
             }
         }
@@ -91,25 +98,31 @@ extension VonageCallController: CXProviderDelegate {
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - didActivate")
         VGVoiceClient.enableAudio(audioSession)
     }
     
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - didDeactivate")
         VGVoiceClient.disableAudio(audioSession)
     }
 
     public func provider(_ provider: CXProvider, perform action: CXSetHeldCallAction) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXSetHeldCallAction")
         guard let _ = self.vonageActiveCalls.value[action.callUUID]  else {
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXSetHeldCallAction - failed")
             action.fail()
             return
         }
         let callId = action.callUUID.toVGCallID()
         if (action.isOnHold) {
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXSetHeldCallAction - mute")
             self.client.mute(callId) { error in
                 if let error = error {
                     self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to mute call on hold: \(error)")
                     return
                 }
+                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXSetHeldCallAction - enable earmuff")
                 self.client.enableEarmuff(callId) { error in
                     if let error = error {
                         self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to enable earmuff on hold: \(error)")
@@ -118,11 +131,13 @@ extension VonageCallController: CXProviderDelegate {
                 }
             }
         } else {
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXSetHeldCallAction - unmute")
             self.client.unmute(callId) { error in
                 if let error = error {
                     self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to unmute call on hold: \(error)")
                     return
                 }
+                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXSetHeldCallAction - disable earmuff")
                 self.client.disableEarmuff(callId) { error in
                     if let error = error {
                         self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to disable earmuff on hold: \(error)")
