@@ -47,7 +47,13 @@ public class VonageVoice: NSObject {
 
         super.init()
 
-        try? AVAudioSession.sharedInstance().setCategory(.playAndRecord)
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playAndRecord)
+            try AVAudioSession.sharedInstance().setActive(true)
+            print("AVAudioSession success")
+        } catch {
+            print("AVAudioSession error \(error)")
+        }
     }
 
     @objc public func saveDebugAdditionalInfo(info: String?) {

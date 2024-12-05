@@ -41,7 +41,7 @@ extension VonageCallController: VGVoiceClientDelegate {
         @unknown default:
             fatalError()
         }
-        self.vonageCallUpdates.send((uuid, CallStatus.completed(remote: true, reason: cxreason)))
+        self.vonageCallUpdates.send((uuid, .completed(remote: true, reason: cxreason)))
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveHangupForCall callId: VGCallId, withQuality callQuality: VGRTCQuality, reason: VGHangupReason) {
