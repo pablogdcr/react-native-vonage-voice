@@ -81,7 +81,7 @@ public class VonageCallController: NSObject {
         if let logger = logger {
             client = VGVoiceClient(VGClientInitConfig(
                 loggingLevel: .error,
-                customLoggers: [self.logger])
+                customLoggers: [logger])
             )
         } else {
             client = VGVoiceClient(VGClientInitConfig(loggingLevel: .error))
