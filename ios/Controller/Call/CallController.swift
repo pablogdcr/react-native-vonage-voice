@@ -54,7 +54,9 @@ public class VonageCallController: NSObject {
     let vonageCalls = PassthroughSubject<Call, Never>()
     let vonageCallUpdates = PassthroughSubject<(UUID, CallStatus), Never>()
     var vonageActiveCalls = CurrentValueSubject<Dictionary<UUID,Call>,Never>([:])
-    
+
+    var contactReady = false
+
     // Internal reactive storage for the token provided via `CallController.updateSessionToken()`
     private let vonageToken = CurrentValueSubject<String?,Never>(nil)
     
@@ -180,9 +182,12 @@ extension VonageCallController: CallController {
         refreshSessionBlock({ response in
             if let response = response as? [String: Any],
                let token = response["accessToken"] as? String {
+                self.contactReady = false
                 self.contactService.prepareCallInfo(number: number, token: token) { success, error in
                     if let error = error {
                         self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to update contact image: \(error)")
+                    } else {
+                        self.contactReady = true
                     }
                 }
 
