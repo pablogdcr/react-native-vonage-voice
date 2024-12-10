@@ -33,9 +33,9 @@ extension VonageCallController: CXProviderDelegate {
                 }
                 self.vonageCallUpdates.send((action.callUUID, .answered))
                 self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - fulfilled")
-                action.fulfill()
             }
         }
+        action.fulfill()
     }
 
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
@@ -50,14 +50,13 @@ extension VonageCallController: CXProviderDelegate {
             self.client.reject(action.callUUID.toVGCallID()){ err in
                 self.vonageCalls.send(Call.inbound(id: action.callUUID, from: call.phoneNumber, status: .completed(remote: true, reason: .unanswered)))
                 self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXEndCallAction - fulfilled 1")
-                action.fulfill()
             }
         } else {
             self.client.hangup(action.callUUID.toVGCallID()){ err in
                 self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXEndCallAction - fulfilled 2")
-                action.fulfill()
             }
         }
+        action.fulfill()
     }
 
     public func provider(_ provider: CXProvider, perform action: CXSetMutedCallAction) {
@@ -73,7 +72,6 @@ extension VonageCallController: CXProviderDelegate {
                     action.fail()
                     return
                 }
-                action.fulfill()
             }
         } else {
             self.client.unmute(action.callUUID.toVGCallID()) { err in
@@ -82,19 +80,24 @@ extension VonageCallController: CXProviderDelegate {
                     action.fail()
                     return
                 }
-                action.fulfill()
             }
         }
+        action.fulfill()
     }
 
     public func provider(_ provider: CXProvider, perform action: CXPlayDTMFCallAction) {
-        guard let call = self.vonageActiveCalls.value[action.callUUID] else {
+        guard self.vonageActiveCalls.value[action.callUUID] != nil else {
             action.fail()
             return
         }
         self.client.sendDTMF(action.callUUID.toVGCallID(), withDigits: action.digits) { err in
-            action.fulfill()
+            if let error = err {
+                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to send DTMF: \(error)")
+                action.fail()
+                return
+            }
         }
+        action.fulfill()
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {

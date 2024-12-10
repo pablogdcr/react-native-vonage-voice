@@ -102,6 +102,7 @@ public class VonageCallController: NSObject {
         callProvider = initCXProvider()
         bindCallController()
         bindCallkit()
+        bindAudioRouteChange()
 
         contactService.resetCallInfo()
     }
@@ -184,8 +185,10 @@ extension VonageCallController: CallController {
                 self.contactReady = false
                 self.contactService.prepareCallInfo(number: number, token: token) { success, error in
                     if let error = error {
+                        print("Error: \(error)")
                         self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to update contact image: \(error)")
                     } else {
+                        print("No error. Contact ready.")
                         self.contactReady = true
                     }
                 }
@@ -425,4 +428,29 @@ extension VonageCallController {
             )
         }
     }
+
+    func bindAudioRouteChange() {
+        // NotificationCenter.default.addObserver(self, selector: #selector(handleRouteChange), name: AVAudioSession.routeChangeNotification, object: nil)
+    }
+
+    // @objc func handleRouteChange(notification: Notification) {
+    //     guard let userInfo = notification.userInfo,
+    //         let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+    //         let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+    //             return
+    //     }
+
+    //     switch (reason) {
+    //     case .routeConfigurationChange:
+    //         print("Configuration ! \(reasonValue)")
+    //         break
+
+    //     case .categoryChange:
+    //         print("Category ! \(reasonValue)")
+
+    //     default:
+    //         print("Other \(reasonValue) \(reason)")
+    //         return
+    //     }
+    // }
 }

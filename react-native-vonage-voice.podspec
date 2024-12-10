@@ -17,7 +17,7 @@ Pod::Spec.new do |s|
   s.source_files = "ios/**/*.{h,m,mm,swift}"
   s.public_header_files = "ios/VonageVoice.h"
 
-  s.dependency "VonageClientSDKVoice"
+  s.dependency "VonageClientSDKVoice", "~> 1.7.2"
   s.dependency "PhoneNumberKit", '~> 3.7.6'
 
   if respond_to?(:install_modules_dependencies, true)
