@@ -407,7 +407,6 @@ extension VonageVoice {
 
 extension VonageVoice {
     @objc public func subscribeToAudioRouteChange() {
-        print("Subscribed to audio route change")
         NotificationCenter.default.addObserver(self, selector: #selector(handleRouteChange), name: AVAudioSession.routeChangeNotification, object: nil)
     }
 

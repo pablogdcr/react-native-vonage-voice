@@ -12,6 +12,7 @@ enum Event: String {
     case register
     case voipTokenInvalidated
     case audioRouteChanged
+    case muteChanged
     
     static var supportedEvents: [String] {
         return [
@@ -19,6 +20,7 @@ enum Event: String {
             Event.register.rawValue,
             Event.voipTokenInvalidated.rawValue,
             Event.audioRouteChanged.rawValue,
+            Event.muteChanged.rawValue,
         ]
     }
 }

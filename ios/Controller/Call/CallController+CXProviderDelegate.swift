@@ -72,6 +72,7 @@ extension VonageCallController: CXProviderDelegate {
                     action.fail()
                     return
                 }
+                EventEmitter.shared.sendEvent(withName: Event.muteChanged.rawValue, body: ["muted": true])
             }
         } else {
             self.client.unmute(action.callUUID.toVGCallID()) { err in
@@ -80,6 +81,7 @@ extension VonageCallController: CXProviderDelegate {
                     action.fail()
                     return
                 }
+                EventEmitter.shared.sendEvent(withName: Event.muteChanged.rawValue, body: ["muted": false])
             }
         }
         action.fulfill()

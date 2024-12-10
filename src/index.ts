@@ -7,6 +7,7 @@ import {
 import {
   type AudioRouteChangeEvent,
   type CallEvent,
+  type MuteChangedEvent,
   CallStatus,
 } from './types';
 
@@ -35,6 +36,8 @@ interface RNVonageVoiceCallModuleInterface {
   unsubscribeFromCallEvents(): void;
   subscribeToAudioRouteChange(): EmitterSubscription;
   unsubscribeFromAudioRouteChange(): void;
+  subscribeToMutedEvent(): EmitterSubscription;
+  unsubscribeFromMutedEvent(): void;
   subscribeToVoipToken(): EmitterSubscription;
   subscribeToVoipTokenInvalidation(): EmitterSubscription;
   registerVonageVoipToken: (
@@ -284,6 +287,23 @@ class RNVonageVoiceCall {
       return;
     }
     VonageVoice!.unsubscribeFromAudioRouteChange();
+  }
+
+  static subscribeToMutedEvent(callback: (event: MuteChangedEvent) => void) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return;
+    }
+    return eventEmitter.addListener('muteChanged', callback);
+  }
+
+  static unsubscribeFromMutedEvent() {
+    if (Platform.OS === 'android') {
+      return;
+    }
+    VonageVoice!.unsubscribeFromMutedEvent();
   }
 }
 
