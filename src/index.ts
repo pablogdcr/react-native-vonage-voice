@@ -4,7 +4,11 @@ import {
   NativeEventEmitter,
   type EmitterSubscription,
 } from 'react-native';
-import { type CallEvent, CallStatus } from './types';
+import {
+  type AudioRouteChangeEvent,
+  type CallEvent,
+  CallStatus,
+} from './types';
 
 const LINKING_ERROR =
   `The package 'react-native-vonage-voice' doesn't seem to be linked. Make sure: \n\n` +
@@ -29,6 +33,8 @@ interface RNVonageVoiceCallModuleInterface {
   sendDTMF(dtmf: string): Promise<{ success: true } | null>;
   subscribeToCallEvents(): EmitterSubscription;
   unsubscribeFromCallEvents(): void;
+  subscribeToAudioRouteChange(): EmitterSubscription;
+  unsubscribeFromAudioRouteChange(): void;
   subscribeToVoipToken(): EmitterSubscription;
   subscribeToVoipTokenInvalidation(): EmitterSubscription;
   registerVonageVoipToken: (
@@ -258,6 +264,26 @@ class RNVonageVoiceCall {
       return;
     }
     return eventEmitter.addListener('voipTokenInvalidated', callback);
+  }
+
+  static subscribeToAudioRouteChange(
+    callback: (event: AudioRouteChangeEvent) => void
+  ) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return;
+    }
+    VonageVoice!.subscribeToAudioRouteChange();
+    return eventEmitter.addListener('audioRouteChanged', callback);
+  }
+
+  static unsubscribeFromAudioRouteChange() {
+    if (Platform.OS === 'android') {
+      return;
+    }
+    VonageVoice!.unsubscribeFromAudioRouteChange();
   }
 }
 

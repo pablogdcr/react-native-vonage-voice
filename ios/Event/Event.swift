@@ -11,12 +11,14 @@ enum Event: String {
     case callEvents
     case register
     case voipTokenInvalidated
+    case audioRouteChanged
     
     static var supportedEvents: [String] {
         return [
             Event.callEvents.rawValue,
             Event.register.rawValue,
             Event.voipTokenInvalidated.rawValue,
+            Event.audioRouteChanged.rawValue,
         ]
     }
 }

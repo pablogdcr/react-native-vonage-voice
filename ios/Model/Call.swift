@@ -33,7 +33,7 @@ enum Call {
     init(call:Self, status:CallStatus) {
         switch (call){
         case .inbound(let id, let from, _, let startedAt):
-            let newStartedAt = status == .answered ? Date() : startedAt
+            let newStartedAt = status == .answered ? Date.now : startedAt
             self = .inbound(id:id, from: from, status:status, startedAt: newStartedAt)
         case .outbound(let id, let to, _, let startedAt):
             let newStartedAt = status == .answered ? Date() : startedAt

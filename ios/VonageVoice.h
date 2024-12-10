@@ -42,5 +42,7 @@
 // Event Subscription Methods
 - (void)subscribeToCallEvents;
 - (void)unsubscribeFromCallEvents;
+- (void)subscribeToAudioRouteChange;
+- (void)unsubscribeFromAudioRouteChange;
 
 @end

@@ -323,7 +323,7 @@ public class VonageVoice: NSObject {
     }
 
     @objc public func sendDTMF(dtmf: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-        callController.sendDTMF(dtmf) { [weak self] error in
+        callController.sendDTMF(dtmf) { error in
             if error == nil {
                 resolve(["success": true])
             } else {
@@ -394,7 +394,7 @@ extension VonageVoice {
         NotificationCenter.default.publisher(for: .voipTokenRegistered)
             .sink { notification in
                 if let token = notification.userInfo?["token"] as? String {
-                    EventEmitter.shared.sendEvent(withName: "register", body: ["token": token])
+                    EventEmitter.shared.sendEvent(withName: Event.register.rawValue, body: ["token": token])
                 }
             }
             .store(in: &cancellables)
@@ -402,5 +402,25 @@ extension VonageVoice {
 
     @objc public func unsubscribeFromCallEvents() {
         cancellables.removeAll()
+    }
+}
+
+extension VonageVoice {
+    @objc public func subscribeToAudioRouteChange() {
+        print("Subscribed to audio route change")
+        NotificationCenter.default.addObserver(self, selector: #selector(handleRouteChange), name: AVAudioSession.routeChangeNotification, object: nil)
+    }
+
+    @objc public func unsubscribeFromAudioRouteChange() {
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
+    }
+
+    @objc func handleRouteChange(notification: Notification) {
+        if let type = AVAudioSession.sharedInstance().currentRoute.outputs.first?.portType {
+            EventEmitter.shared.sendEvent(
+                withName: Event.audioRouteChanged.rawValue,
+                body: ["type": type]
+            )
+        }
     }
 }

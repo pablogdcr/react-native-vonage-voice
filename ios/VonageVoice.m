@@ -108,8 +108,16 @@ RCT_EXPORT_METHOD(subscribeToCallEvents) {
     [[VonageVoice shared] subscribeToCallEvents];
 }
 
+RCT_EXPORT_METHOD(subscribeToAudioRouteChange) {
+    [[VonageVoice shared] subscribeToAudioRouteChange];
+}
+
 RCT_EXPORT_METHOD(unsubscribeFromCallEvents) {
     [[VonageVoice shared] unsubscribeFromCallEvents];
+}
+
+RCT_EXPORT_METHOD(unsubscribeFromAudioRouteChange) {
+    [[VonageVoice shared] unsubscribeFromAudioRouteChange];
 }
 
 @end

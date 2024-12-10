@@ -102,7 +102,6 @@ public class VonageCallController: NSObject {
         callProvider = initCXProvider()
         bindCallController()
         bindCallkit()
-        bindAudioRouteChange()
 
         contactService.resetCallInfo()
     }
@@ -428,29 +427,4 @@ extension VonageCallController {
             )
         }
     }
-
-    func bindAudioRouteChange() {
-        // NotificationCenter.default.addObserver(self, selector: #selector(handleRouteChange), name: AVAudioSession.routeChangeNotification, object: nil)
-    }
-
-    // @objc func handleRouteChange(notification: Notification) {
-    //     guard let userInfo = notification.userInfo,
-    //         let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
-    //         let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
-    //             return
-    //     }
-
-    //     switch (reason) {
-    //     case .routeConfigurationChange:
-    //         print("Configuration ! \(reasonValue)")
-    //         break
-
-    //     case .categoryChange:
-    //         print("Category ! \(reasonValue)")
-
-    //     default:
-    //         print("Other \(reasonValue) \(reason)")
-    //         return
-    //     }
-    // }
 }

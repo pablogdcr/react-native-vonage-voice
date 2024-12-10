@@ -12,3 +12,7 @@ export interface CallEvent {
   phoneNumber: string;
   startedAt: number;
 }
+
+export interface AudioRouteChangeEvent {
+  type: string;
+}
