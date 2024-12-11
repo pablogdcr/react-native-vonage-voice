@@ -415,6 +415,9 @@ extension VonageVoice {
     }
 
     @objc func handleRouteChange(notification: Notification) {
+        guard !callController.vonageActiveCalls.value.isEmpty else {
+            return
+        }
         if let type = AVAudioSession.sharedInstance().currentRoute.outputs.first?.portType {
             EventEmitter.shared.sendEvent(
                 withName: Event.audioRouteChanged.rawValue,

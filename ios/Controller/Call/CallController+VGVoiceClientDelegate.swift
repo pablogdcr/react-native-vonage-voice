@@ -58,25 +58,25 @@ extension VonageCallController: VGVoiceClientDelegate {
         @unknown default:
             fatalError()
         }
-        self.vonageCallUpdates.send((uuid, CallStatus.completed(remote: true, reason: cxreason)))
+        self.vonageCallUpdates.send((uuid, .completed(remote: true, reason: cxreason)))
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaDisconnectForCall callId: VGCallId, reason: VGCallDisconnectReason) {
         let uuid = UUID(uuidString: callId)!
 
-        self.vonageCallUpdates.send((uuid, CallStatus.completed(remote: false, reason: .failed)))
+        self.vonageCallUpdates.send((uuid, .completed(remote: false, reason: .failed)))
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectingForCall callId: VGCallId) {
         let uuid = UUID(uuidString: callId)!
 
-        self.vonageCallUpdates.send((uuid, CallStatus.reconnecting))
+        self.vonageCallUpdates.send((uuid, .reconnecting))
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectionForCall callId: VGCallId) {
         let uuid = UUID(uuidString: callId)!
 
-        self.vonageCallUpdates.send((uuid, CallStatus.answered))
+        self.vonageCallUpdates.send((uuid, .answered))
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaErrorForCall callId: String, error: VGError) {
@@ -88,13 +88,13 @@ extension VonageCallController: VGVoiceClientDelegate {
     public func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: VGCallId, withLegId legId: String, andStatus status: VGLegStatus) {
         if (status == .answered) {
             let uuid = UUID(uuidString: callId)!
-            vonageCallUpdates.send((uuid, CallStatus.answered))
+            vonageCallUpdates.send((uuid, .answered))
         }
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveCallTransferForCall callId: VGCallId, withConversationId conversationId: String) {
         // this will only be triggered for our own legs
         let uuid = UUID(uuidString: callId)!
-        vonageCallUpdates.send((uuid, CallStatus.answered)) // report to Call Kit
+        vonageCallUpdates.send((uuid, .answered)) // report to Call Kit
     }
 }

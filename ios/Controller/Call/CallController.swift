@@ -9,6 +9,7 @@ typealias CallStream = AnyPublisher<Call,Never>
 protocol CallController {
     // Public Stream of calls to drive custom UIs
     var calls: AnyPublisher<CallStream,Never> { get }
+    var vonageActiveCalls: CurrentValueSubject<Dictionary<UUID,Call>,Never> { get }
 
     // Callkit actions initiated from custom application UI as opposed to System UI.
     func reportCXAction(_ cxaction:CXAction, completion: @escaping ((any Error)?) -> Void)

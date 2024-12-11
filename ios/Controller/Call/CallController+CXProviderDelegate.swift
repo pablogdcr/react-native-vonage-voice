@@ -47,8 +47,8 @@ extension VonageCallController: CXProviderDelegate {
         }
 
         if case .inbound(_,_,.ringing,_) = call {
+            self.vonageCalls.send(Call.inbound(id: action.callUUID, from: call.phoneNumber, status: .completed(remote: true, reason: .declinedElsewhere)))
             self.client.reject(action.callUUID.toVGCallID()){ err in
-                self.vonageCalls.send(Call.inbound(id: action.callUUID, from: call.phoneNumber, status: .completed(remote: true, reason: .unanswered)))
                 self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXEndCallAction - fulfilled 1")
             }
         } else {
