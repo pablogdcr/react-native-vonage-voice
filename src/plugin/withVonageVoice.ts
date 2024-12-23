@@ -85,6 +85,17 @@ const userActivityBlock = `
   }
 `;
 
+// Add new matcher constant for applicationWillTerminate
+const terminateLineMatcher = /@end/g;
+
+// Add new block constant for applicationWillTerminate
+const terminateBlock = `
+- (void)applicationWillTerminate:(UIApplication *)application {
+  [super applicationWillTerminate:application];
+  [[VonageVoice shared] resetCallInfo];
+}
+`;
+
 const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
   let updatedConfig = config;
 
@@ -130,6 +141,16 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
       newSrc: userActivityBlock,
       anchor: userActivityLineMatcher,
       offset: 2,
+      comment: '//',
+    }).contents;
+
+    // Add applicationWillTerminate
+    appDelegateConfig.modResults.contents = mergeContents({
+      tag: '@react-native-vonage-voice-terminate',
+      src: appDelegateConfig.modResults.contents,
+      newSrc: terminateBlock,
+      anchor: terminateLineMatcher,
+      offset: 0,
       comment: '//',
     }).contents;
 

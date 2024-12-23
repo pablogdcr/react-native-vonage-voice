@@ -34,6 +34,8 @@ protocol CallController {
     func sendDTMF(_ dtmf: String, completion: @escaping ((any Error)?) -> Void)
 
     func saveDebugAdditionalInfo(info: String)
+
+    func resetCallInfo()
 }
 
 public class VonageCallController: NSObject {
@@ -131,6 +133,10 @@ public class VonageCallController: NSObject {
             }
         }
         client.setConfig(config)
+    }
+
+    public func resetCallInfo() {
+        contactService.emergentlyResetCallInfo()
     }
 
     deinit {

@@ -20,9 +20,8 @@ extension VonageCallController: CXProviderDelegate {
 
         self.contactService.changeTemporaryContactImage()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [self] in
-            self.contactService.resetCallInfo()
-
             self.client.answer(action.callUUID.toVGCallID()) { err in
+                self.contactService.resetCallInfo()
                 guard err == nil else {
                     self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":x: Failed to answer call! Error: \(String(describing: err))")
                     provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .failed)

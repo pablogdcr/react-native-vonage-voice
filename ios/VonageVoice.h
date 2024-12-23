@@ -45,4 +45,7 @@
 - (void)subscribeToAudioRouteChange;
 - (void)unsubscribeFromAudioRouteChange;
 
+// Reset Call Info
+- (void)resetCallInfo;
+
 @end

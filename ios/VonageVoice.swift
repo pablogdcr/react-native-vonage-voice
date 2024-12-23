@@ -56,6 +56,7 @@ public class VonageVoice: NSObject {
         }
     }
 
+
     @objc public func saveDebugAdditionalInfo(info: String?) {
         guard let info = info else {
             return
@@ -371,6 +372,10 @@ public class VonageVoice: NSObject {
                 voipRegistry.desiredPushTypes = [.voIP]
             }
         }
+    }
+
+    @objc public func resetCallInfo() {
+        callController.resetCallInfo()
     }
 }
 
