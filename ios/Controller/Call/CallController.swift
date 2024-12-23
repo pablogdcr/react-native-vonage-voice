@@ -178,7 +178,7 @@ extension VonageCallController: CallController {
             callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
             return
         }
-        let maxWaitTime: TimeInterval = 4.0
+        let maxWaitTime: TimeInterval = 3.0
         let semaphore = DispatchSemaphore(value: 0)
         let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
             self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Refresh session background task expired")
