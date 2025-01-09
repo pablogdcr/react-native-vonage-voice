@@ -198,7 +198,7 @@ extension VonageCallController {
                         // Report new Inbound calls so we follow PushKit and Callkit Rules
                         let callUpdate = CXCallUpdate()
 
-                        callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: "+\(from)")
+                        callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: self.contactReady ? "7222555666" : "+\(from)")
                         self.callProvider.reportNewIncomingCall(with: callId, update: callUpdate) { err in
                             if err != nil {
                                 self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning: Failed to report new incoming call \(callId). Error: \(String(describing: err))")

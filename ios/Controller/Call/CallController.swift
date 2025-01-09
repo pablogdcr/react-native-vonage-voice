@@ -375,7 +375,7 @@ extension VonageCallController {
             config = CXProviderConfiguration(localizedName: "Allô")
         }
 
-        config.includesCallsInRecents = true
+        config.includesCallsInRecents = false
         config.supportsVideo = false
         config.maximumCallsPerCallGroup = 1
         config.maximumCallGroups = 1
