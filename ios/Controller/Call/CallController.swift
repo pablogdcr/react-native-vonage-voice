@@ -84,10 +84,11 @@ public class VonageCallController: NSObject {
         if let logger = logger {
             client = VGVoiceClient(VGClientInitConfig(
                 loggingLevel: .error,
-                customLoggers: [logger])
+                customLoggers: [logger],
+                enableNoiseSuppression: true)
             )
         } else {
-            client = VGVoiceClient(VGClientInitConfig(loggingLevel: .error))
+            client = VGVoiceClient(VGClientInitConfig(loggingLevel: .error, enableNoiseSuppression: true))
         }
 
         super.init()
@@ -178,7 +179,7 @@ extension VonageCallController: CallController {
             callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
             return
         }
-        let maxWaitTime: TimeInterval = 3.0
+        let maxWaitTime: TimeInterval = 4.0
         let semaphore = DispatchSemaphore(value: 0)
         let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
             self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Refresh session background task expired")
@@ -188,25 +189,12 @@ extension VonageCallController: CallController {
         refreshSessionBlock({ response in
             if let response = response as? [String: Any],
                let token = response["accessToken"] as? String {
-                self.contactReady = false
-                self.contactService.prepareCallInfo(number: number, token: token) { success, error in
-                    if let error = error {
-                        print("Error: \(error)")
-                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to update contact image: \(error)")
-                    } else {
-                        print("No error. Contact ready.")
-                        self.contactReady = true
-                    }
-                }
-
-
                 let networkController = NetworkController()
                 let api = RefreshTokenAPI(token: token, url: refreshVonageTokenUrl)
 
                 networkController.sendRequest(apiType: api)
                     .sink { [weak self] completion in
                         guard let self = self else { 
-                            semaphore.signal()
                             return 
                         }
                         switch completion {
@@ -217,13 +205,23 @@ extension VonageCallController: CallController {
                         }
                     } receiveValue: { [weak self] (response: TokenResponse) in
                         guard let self = self else {
-                            semaphore.signal()
                             return
                         }
                         self.updateSessionToken(response.data.token)
-                        semaphore.signal()
                     }
                     .store(in: &self.cancellables)
+
+                self.contactReady = false
+                self.contactService.prepareCallInfo(number: number, token: token) { success, error in
+                    if let error = error {
+                        print("Error: \(error)")
+                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to update contact image: \(error)")
+                    } else {
+                        print("No error. Contact ready.")
+                        self.contactReady = true
+                    }
+                    semaphore.signal()
+                }
             } else {
                 self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":key: Failed to refresh session: No token in response.\nResponse: \(String(describing: response))")
                 semaphore.signal()
