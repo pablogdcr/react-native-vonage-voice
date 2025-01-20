@@ -84,11 +84,10 @@ public class VonageCallController: NSObject {
         if let logger = logger {
             client = VGVoiceClient(VGClientInitConfig(
                 loggingLevel: .error,
-                customLoggers: [logger],
-                enableNoiseSuppression: true)
+                customLoggers: [logger])
             )
         } else {
-            client = VGVoiceClient(VGClientInitConfig(loggingLevel: .error, enableNoiseSuppression: true))
+            client = VGVoiceClient(VGClientInitConfig(loggingLevel: .error))
         }
 
         super.init()
@@ -174,6 +173,7 @@ extension VonageCallController: CallController {
     }
 
     private func reportVoipPush(_ notification: Dictionary<String, Any>, refreshVonageTokenUrl: String, refreshSessionBlock: (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] - reportVoipPush")
         guard let number = extractCallerNumber(from: notification) else {
             self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning: Failed to extract phone number. Notification: \(notification)")
             callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
@@ -186,12 +186,14 @@ extension VonageCallController: CallController {
         }
 
         self.isRefreshing = true
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Refreshing session...")
         refreshSessionBlock({ response in
             if let response = response as? [String: Any],
                let token = response["accessToken"] as? String {
                 let networkController = NetworkController()
                 let api = RefreshTokenAPI(token: token, url: refreshVonageTokenUrl)
 
+                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Update Vonage token...")
                 networkController.sendRequest(apiType: api)
                     .sink { [weak self] completion in
                         guard let self = self else { 
@@ -212,7 +214,9 @@ extension VonageCallController: CallController {
                     .store(in: &self.cancellables)
 
                 self.contactReady = false
+                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info...")
                 self.contactService.prepareCallInfo(number: number, token: token) { success, error in
+                    self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info - success: \(success) - error: \(String(describing: error))")
                     if let error = error {
                         print("Error: \(error)")
                         self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to update contact image: \(error)")
@@ -238,6 +242,7 @@ extension VonageCallController: CallController {
         }
         UIApplication.shared.endBackgroundTask(backgroundTaskID)
         self.isRefreshing = false
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Process call invite push data...")
         self.client.processCallInvitePushData(notification)
     }
 
@@ -416,11 +421,12 @@ extension VonageCallController {
             .store(in: &cancellables)
 
         NotificationCenter.default.addObserver(forName: NSNotification.Name.voipPushReceived, object: nil, queue: nil) { [weak self] notification in
+            self?.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] - voipPushReceived")
             guard let self = self,
                   let userInfo = notification.userInfo,
                   let block = userInfo["refreshSessionBlock"] as? AnyObject,
                   let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String  else {
-                print("failed: \(String(describing: notification.userInfo)) \(String(describing: self?.vonageActiveCalls.value))")
+                self?.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] - voipPushReceived - failed \(String(describing: notification.userInfo)) \(String(describing: self?.vonageActiveCalls.value))")
                 return
             }
             let refreshSessionBlock = unsafeBitCast(block, to: (@convention(block) (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void).self)
