@@ -99,17 +99,7 @@ extension VonageCallController: CXProviderDelegate {
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - didActivate")
-        
-        do {
-            try audioSession.setCategory(.playAndRecord, options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker])
-            try audioSession.setMode(.voiceChat)
-            try audioSession.setActive(true)
-            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - didActivate - audioSession activated")
-        } catch {
-            self.logger?.didReceiveLog(logLevel: .error, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - Error setting audio session: \(error.localizedDescription)")
-        }
-        
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - didActivate")        
         VGVoiceClient.enableAudio(audioSession)
     }
     
