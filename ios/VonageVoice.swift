@@ -46,14 +46,6 @@ public class VonageVoice: NSObject {
         callController = VonageCallController(logger: CustomLogger(debugAdditionalInfo: info))
 
         super.init()
-
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playAndRecord)
-            try AVAudioSession.sharedInstance().setActive(true)
-            print("AVAudioSession success")
-        } catch {
-            print("AVAudioSession error \(error)")
-        }
     }
 
 

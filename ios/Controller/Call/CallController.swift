@@ -105,6 +105,7 @@ public class VonageCallController: NSObject {
         callProvider = initCXProvider()
         bindCallController()
         bindCallkit()
+        bindAudioInterruption()
 
         contactService.resetCallInfo()
     }
@@ -380,7 +381,7 @@ extension VonageCallController {
             config = CXProviderConfiguration(localizedName: "Allô")
         }
 
-        config.includesCallsInRecents = false
+        // config.includesCallsInRecents = false
         config.supportsVideo = false
         config.maximumCallsPerCallGroup = 1
         config.maximumCallGroups = 1
@@ -436,6 +437,29 @@ extension VonageCallController {
                 refreshVonageTokenUrl: refreshVonageTokenUrl,
                 refreshSessionBlock: refreshSessionBlock
             )
+        }
+    }
+
+    func bindAudioInterruption() {
+        NotificationCenter.default.addObserver(self, selector: #selector(handleAudioInterruption(_:)), name: AVAudioSession.interruptionNotification, object: nil)
+    }
+
+    @objc func handleAudioInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let type = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt else { return }
+
+        if type == AVAudioSession.InterruptionType.began.rawValue {
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "Audio interruption began")
+        } else if type == AVAudioSession.InterruptionType.ended.rawValue {
+            guard let options = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
+            if options & AVAudioSession.InterruptionOptions.shouldResume.rawValue != 0 {
+                do {
+                    try AVAudioSession.sharedInstance().setActive(true)
+                    self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "Audio session reactivated after interruption")
+                } catch {
+                    self.logger?.didReceiveLog(logLevel: .error, topic: .DEFAULT.first!, message: "Failed to reactivate audio session: \(error.localizedDescription)")
+                }
+            }
         }
     }
 }

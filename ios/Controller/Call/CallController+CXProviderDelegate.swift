@@ -18,21 +18,18 @@ extension VonageCallController: CXProviderDelegate {
             return
         }
 
-        self.contactService.changeTemporaryContactImage()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [self] in
-            self.client.answer(action.callUUID.toVGCallID()) { err in
-                self.contactService.resetCallInfo()
-                guard err == nil else {
-                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":x: Failed to answer call! Error: \(String(describing: err))")
-                    provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .failed)
-                    self.vonageCallUpdates.send((action.callUUID, .completed(remote: false, reason: .failed)))
-                    self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - failed 2")
-                    action.fail()
-                    return
-                }
-                self.vonageCallUpdates.send((action.callUUID, .answered))
-                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - fulfilled")
+        self.client.answer(action.callUUID.toVGCallID()) { err in
+            self.contactService.resetCallInfo()
+            guard err == nil else {
+                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":x: Failed to answer call! Error: \(String(describing: err))")
+                provider.reportCall(with: action.callUUID, endedAt: Date(), reason: .failed)
+                self.vonageCallUpdates.send((action.callUUID, .completed(remote: false, reason: .failed)))
+                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - failed 2")
+                action.fail()
+                return
             }
+            self.vonageCallUpdates.send((action.callUUID, .answered))
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - fulfilled")
         }
         action.fulfill()
     }
@@ -103,6 +100,16 @@ extension VonageCallController: CXProviderDelegate {
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - didActivate")
+        
+        do {
+            try audioSession.setCategory(.playAndRecord, options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker])
+            try audioSession.setMode(.voiceChat)
+            try audioSession.setActive(true)
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - didActivate - audioSession activated")
+        } catch {
+            self.logger?.didReceiveLog(logLevel: .error, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - Error setting audio session: \(error.localizedDescription)")
+        }
+        
         VGVoiceClient.enableAudio(audioSession)
     }
     
