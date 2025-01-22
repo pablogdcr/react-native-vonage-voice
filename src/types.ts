@@ -14,9 +14,15 @@ export interface CallEvent {
 }
 
 export interface AudioRouteChangeEvent {
-  type: string;
+  device: AudioDevice;
 }
 
 export interface MuteChangedEvent {
   muted: boolean;
+}
+
+export interface AudioDevice {
+  name: string;
+  id: string;
+  type: string;
 }

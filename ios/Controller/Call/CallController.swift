@@ -33,6 +33,8 @@ protocol CallController {
 
     func sendDTMF(_ dtmf: String, completion: @escaping ((any Error)?) -> Void)
 
+    func reconnectCall(_ callId: String, completion: @escaping ((any Error)?) -> Void)
+
     func saveDebugAdditionalInfo(info: String)
 
     func resetCallInfo()
@@ -342,6 +344,15 @@ extension VonageCallController: CallController {
                 completion(NSError(domain: "VonageVoice", code: -4, userInfo: [NSLocalizedDescriptionKey: "Failed to send DTMF"]))
             }
         })
+    }
+
+    func reconnectCall(_ callId: String, completion: @escaping ((any Error)?) -> Void) {
+        client.reconnectCall(callId) { error in
+            if error == nil {
+                self.vonageCallUpdates.send((UUID(uuidString: callId)!, .answered))
+            }
+            completion(nil)
+        }
     }
 
     func unregisterPushTokens(_ deviceId: String, callback: @escaping ((any Error)?) -> Void) {

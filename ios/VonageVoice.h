@@ -38,6 +38,7 @@
 // Outbound Call Methods
 - (void)serverCallTo:(NSString *_Nonnull)to customData:(NSDictionary<NSString *, NSString *> *_Nonnull)customData resolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;
 - (void)sendDTMFWithDtmf:(NSString *_Nonnull)dtmf resolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;
+- (void)reconnectCallWithCallId:(NSString *_Nonnull)callId resolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;
 
 // Event Subscription Methods
 - (void)subscribeToCallEvents;

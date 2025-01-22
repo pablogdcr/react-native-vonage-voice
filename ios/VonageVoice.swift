@@ -46,6 +46,18 @@ public class VonageVoice: NSObject {
         callController = VonageCallController(logger: CustomLogger(debugAdditionalInfo: info))
 
         super.init()
+
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setCategory(
+                .playAndRecord,
+                mode: .default,
+                options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker]
+            )
+            try audioSession.setActive(true)
+        } catch {
+            print("Failed to configure audio session: \(error.localizedDescription)")
+        }
     }
 
 
@@ -221,6 +233,16 @@ public class VonageVoice: NSObject {
                 reject("Failed to hangup call", error?.localizedDescription, error)
             }
         })
+    }
+
+    @objc public func reconnectCall(callId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        callController.reconnectCall(callId) { error in
+            if error == nil {
+                resolve(["success": true])
+            } else {
+                reject("Failed to reconnect call", error?.localizedDescription, error)
+            }
+        }
     }
 
     @objc public func mute(callId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
@@ -415,10 +437,16 @@ extension VonageVoice {
         guard !callController.vonageActiveCalls.value.isEmpty else {
             return
         }
-        if let type = AVAudioSession.sharedInstance().currentRoute.outputs.first?.portType {
+        if let device = AVAudioSession.sharedInstance().currentRoute.outputs.first {
             EventEmitter.shared.sendEvent(
                 withName: Event.audioRouteChanged.rawValue,
-                body: ["type": type]
+                body: [
+                    "device": [
+                        "name": device.portName,
+                        "id": device.uid,
+                        "type": device.portType
+                    ]
+                ]
             )
         }
     }

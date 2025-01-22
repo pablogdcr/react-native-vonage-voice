@@ -8,6 +8,7 @@ import {
   type AudioRouteChangeEvent,
   type CallEvent,
   type MuteChangedEvent,
+  type AudioDevice,
   CallStatus,
 } from './types';
 
@@ -32,6 +33,7 @@ interface RNVonageVoiceCallModuleInterface {
   disableSpeaker(): Promise<{ success: true } | null>;
   serverCall(to: string, customData?: Record<string, string>): Promise<string>;
   sendDTMF(dtmf: string): Promise<{ success: true } | null>;
+  reconnectCall(callId: string): Promise<{ success: true } | null>;
   subscribeToCallEvents(): EmitterSubscription;
   unsubscribeFromCallEvents(): void;
   subscribeToAudioRouteChange(): EmitterSubscription;
@@ -205,6 +207,16 @@ class RNVonageVoiceCall {
     return VonageVoice!.sendDTMF(dtmf);
   }
 
+  static reconnectCall(callId: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise<null>((resolve) => resolve(null));
+    }
+    return VonageVoice!.reconnectCall(callId);
+  }
+
   static subscribeToCallEvents(callback: (event: CallEvent) => void) {
     if (Platform.OS === 'android') {
       if (__DEV__) {
@@ -307,6 +319,11 @@ class RNVonageVoiceCall {
   }
 }
 
-export { CallStatus, type CallEvent, type VoipRegistrationEvent };
+export {
+  CallStatus,
+  type CallEvent,
+  type VoipRegistrationEvent,
+  type AudioDevice,
+};
 
 export default RNVonageVoiceCall;

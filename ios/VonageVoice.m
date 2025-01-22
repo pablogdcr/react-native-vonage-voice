@@ -104,6 +104,12 @@ RCT_EXPORT_METHOD(sendDTMF:(NSString *)dtmf
     [[VonageVoice shared] sendDTMFWithDtmf:dtmf resolve:resolve reject:reject];
 }
 
+RCT_EXPORT_METHOD(reconnectCall:(NSString *)callId
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    [[VonageVoice shared] reconnectCallWithCallId:callId resolve:resolve reject:reject];
+}
+
 RCT_EXPORT_METHOD(subscribeToCallEvents) {
     [[VonageVoice shared] subscribeToCallEvents];
 }
