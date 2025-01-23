@@ -34,6 +34,8 @@
 // Audio Control Methods
 - (void)enableSpeakerWithResolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;
 - (void)disableSpeakerWithResolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;
+- (void)getAvailableAudioDevicesWithResolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;
+- (void)setAudioDeviceWithDeviceId:(NSString *_Nonnull)deviceId resolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;
 
 // Outbound Call Methods
 - (void)serverCallTo:(NSString *_Nonnull)to customData:(NSDictionary<NSString *, NSString *> *_Nonnull)customData resolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;

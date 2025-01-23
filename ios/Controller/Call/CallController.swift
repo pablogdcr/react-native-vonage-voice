@@ -29,6 +29,9 @@ protocol CallController {
     // Enable/Disable Noise Suppression in ongoing calls
     func toggleNoiseSuppression(call: Call, isOn: Bool)
 
+    // Set audio device
+    func setAudioDevice(_ device: AVAudioSessionPortDescription, completion: @escaping ((any Error)?) -> Void)
+
     func setRegion(region: String?)
 
     func sendDTMF(_ dtmf: String, completion: @escaping ((any Error)?) -> Void)
@@ -377,6 +380,15 @@ extension VonageCallController: CallController {
             client.disableNoiseSuppression(callId) { err in
                 // Handle the completion/error if needed
             }
+        }
+    }
+
+    func setAudioDevice(_ device: AVAudioSessionPortDescription, completion: @escaping ((any Error)?) -> Void) {
+        do {
+            try AVAudioSession.sharedInstance().setPreferredInput(device)
+            completion(nil)
+        } catch {
+            completion(NSError(domain: "VonageVoice", code: -5, userInfo: [NSLocalizedDescriptionKey: "Failed to set audio device"]))
         }
     }
 }

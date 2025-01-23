@@ -306,7 +306,11 @@ public class VonageVoice: NSObject {
         
         do {
             let audioSession = AVAudioSession.sharedInstance()
+            let device = audioSession.availableInputs?.first { $0.portType == .builtInMic }
+
             try audioSession.overrideOutputAudioPort(.none)
+
+            try? audioSession.setPreferredInput(device) // Disable Bluetooth input explicitly
             isProcessingSpeaker = false
             resolve(["success": true])
         } catch {
@@ -450,4 +454,34 @@ extension VonageVoice {
             )
         }
     }
+
+    @objc func getAvailableAudioDevices(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        let devices = AVAudioSession.sharedInstance().availableInputs
+
+        resolve(devices?.map { device in
+            return [
+                "name": device.portName,
+                "id": device.uid,
+                "type": device.portType
+            ]
+        })
+    }
+
+    @objc public func setAudioDevice(deviceId: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        let devices = AVAudioSession.sharedInstance().availableInputs
+        let device = devices?.first { $0.uid == deviceId }
+
+        if let device = device {
+            callController.setAudioDevice(device) { error in
+                if error == nil {
+                    resolve(["success": true])
+                } else {
+                    reject("Failed to set audio device", error?.localizedDescription, error)
+                }
+            }
+        } else {
+            reject("Device not found", "Device with id \(deviceId) not found", nil)
+        }
+    }
 }
+

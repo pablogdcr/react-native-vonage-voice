@@ -126,4 +126,14 @@ RCT_EXPORT_METHOD(unsubscribeFromAudioRouteChange) {
     [[VonageVoice shared] unsubscribeFromAudioRouteChange];
 }
 
+RCT_EXPORT_METHOD(getAvailableAudioDevices:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    [[VonageVoice shared] getAvailableAudioDevicesWithResolve:resolve reject:reject];
+}
+
+RCT_EXPORT_METHOD(setAudioDevice:(NSString *)deviceId
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    [[VonageVoice shared] setAudioDeviceWithDeviceId:deviceId resolve:resolve reject:reject];
+}
 @end

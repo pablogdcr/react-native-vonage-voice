@@ -47,6 +47,8 @@ interface RNVonageVoiceCallModuleInterface {
     isSandbox: boolean
   ) => Promise<string | null>;
   registerVoipToken(): void;
+  getAvailableAudioDevices(): Promise<AudioDevice[] | null>;
+  setAudioDevice(deviceId: string): Promise<{ success: true } | null>;
 }
 
 // Create event emitter instance
@@ -316,6 +318,26 @@ class RNVonageVoiceCall {
       return;
     }
     VonageVoice!.unsubscribeFromMutedEvent();
+  }
+
+  static getAvailableAudioDevices() {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise<null>((resolve) => resolve(null));
+    }
+    return VonageVoice!.getAvailableAudioDevices();
+  }
+
+  static setAudioDevice(deviceId: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise<null>((resolve) => resolve(null));
+    }
+    return VonageVoice!.setAudioDevice(deviceId);
   }
 }
 
