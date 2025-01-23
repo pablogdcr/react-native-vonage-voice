@@ -64,6 +64,7 @@ public class VonageCallController: NSObject {
     var vonageActiveCalls = CurrentValueSubject<Dictionary<UUID,Call>,Never>([:])
 
     var contactReady = false
+    var contactName: String?
 
     // Internal reactive storage for the token provided via `CallController.updateSessionToken()`
     private let vonageToken = CurrentValueSubject<String?,Never>(nil)
@@ -219,14 +220,12 @@ extension VonageCallController: CallController {
                     .store(in: &self.cancellables)
 
                 self.contactReady = false
+                self.contactName = nil
                 self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info...")
-                self.contactService.prepareCallInfo(number: number, token: token) { success, error in
-                    self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info - success: \(success) - error: \(String(describing: error))")
-                    if let error = error {
-                        print("Error: \(error)")
-                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to update contact image: \(error)")
-                    } else {
-                        print("No error. Contact ready.")
+                self.contactService.prepareCallInfo(number: number, token: token) { contactName, error in
+                    self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info - error: \(String(describing: error))")
+                    self.contactName = contactName
+                    if error == nil {
                         self.contactReady = true
                     }
                     semaphore.signal()

@@ -1,6 +1,7 @@
 import Foundation
 import CallKit
 import VonageClientSDKVoice
+import PhoneNumberKit
 
 extension VonageCallController: CXProviderDelegate {
     public func providerDidReset(_ provider: CXProvider) {
@@ -195,7 +196,10 @@ extension VonageCallController {
                         // Report new Inbound calls so we follow PushKit and Callkit Rules
                         let callUpdate = CXCallUpdate()
 
-                        callUpdate.remoteHandle = CXHandle(type: .phoneNumber, value: self.contactReady ? "7222555666" : "+\(from)")
+                        callUpdate.remoteHandle = (self.contactReady || !from.isEmpty)
+                            ? CXHandle(type: .phoneNumber, value: self.contactReady ? "7222555666" : "+\(from)")
+                            : nil
+                        callUpdate.localizedCallerName = self.contactName ?? (self.contactReady ? PartialFormatter().formatPartial("+\(from)") : nil)
                         self.callProvider.reportNewIncomingCall(with: callId, update: callUpdate) { err in
                             if err != nil {
                                 self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning: Failed to report new incoming call \(callId). Error: \(String(describing: err))")
