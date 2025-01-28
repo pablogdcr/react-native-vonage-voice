@@ -314,6 +314,13 @@ extension VonageCallController: CallController {
             .first()
         }
 
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playAndRecord)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            self.logger?.didReceiveLog(logLevel: .error, topic: .DEFAULT.first!, message: "[serverCall] Failed to activate audio session: \(error.localizedDescription)")
+        }
+
         call.asResult()
             .sink { result in
             switch (result) {
