@@ -166,7 +166,7 @@ extension VonageCallController {
                             completion: { err in
                                 guard err == nil else {
                                     self.client.hangup(callId.toVGCallID()) { err in
-                                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to report start outboud call: \(String(describing: err))")
+                                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to report start outbound call: \(String(describing: err))")
                                     }
                                     return
                                 }
@@ -197,9 +197,9 @@ extension VonageCallController {
                         let callUpdate = CXCallUpdate()
 
                         callUpdate.remoteHandle = (self.contactReady || !from.isEmpty)
-                            ? CXHandle(type: .phoneNumber, value: self.contactReady ? "7222555666" : "+\(from)")
+                        ? CXHandle(type: .phoneNumber, value: !self.timedOut && self.contactReady ? "7222555666" : "+\(from)")
                             : nil
-                        callUpdate.localizedCallerName = self.contactName ?? (self.contactReady ? PartialFormatter().formatPartial("+\(from)") : nil)
+                        callUpdate.localizedCallerName = self.contactName ?? (self.contactReady && !self.timedOut ? PartialFormatter().formatPartial("+\(from)") : nil)
                         self.callProvider.reportNewIncomingCall(with: callId, update: callUpdate) { err in
                             if err != nil {
                                 self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning: Failed to report new incoming call \(callId). Error: \(String(describing: err))")

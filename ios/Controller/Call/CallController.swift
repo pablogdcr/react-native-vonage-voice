@@ -65,14 +65,14 @@ public class VonageCallController: NSObject {
 
     var contactReady = false
     var contactName: String?
+    var isRefreshing = false
+    var timedOut = false
 
     // Internal reactive storage for the token provided via `CallController.updateSessionToken()`
     private let vonageToken = CurrentValueSubject<String?,Never>(nil)
     
     var callProvider: CXProvider!
     lazy var cxController = CXCallController()
-
-    var isRefreshing = false
 
     private var refreshSessionBlock: RefreshSessionBlock?
     
@@ -192,6 +192,9 @@ extension VonageCallController: CallController {
         }
 
         self.isRefreshing = true
+        self.contactReady = false
+        self.contactName = nil
+        self.timedOut = false
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Refreshing session...")
         refreshSessionBlock({ response in
             if let response = response as? [String: Any],
@@ -207,6 +210,7 @@ extension VonageCallController: CallController {
                         }
                         switch completion {
                         case .finished:
+                            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Vonage token updated successfully!")
                             break
                         case .failure(let error):
                             self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to refresh Vonage token: \(error)")
@@ -216,11 +220,10 @@ extension VonageCallController: CallController {
                             return
                         }
                         self.updateSessionToken(response.data.token)
+                        self.isRefreshing = false
                     }
                     .store(in: &self.cancellables)
 
-                self.contactReady = false
-                self.contactName = nil
                 self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info...")
                 self.contactService.prepareCallInfo(number: number, token: token) { contactName, error in
                     self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info - error: \(String(describing: error))")
@@ -243,9 +246,9 @@ extension VonageCallController: CallController {
 
         if result == .timedOut {
             self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:")
+            self.timedOut = true
         }
         UIApplication.shared.endBackgroundTask(backgroundTaskID)
-        self.isRefreshing = false
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Process call invite push data...")
         self.client.processCallInvitePushData(notification)
     }
@@ -312,13 +315,6 @@ extension VonageCallController: CallController {
                 }
             }
             .first()
-        }
-
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playAndRecord)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            self.logger?.didReceiveLog(logLevel: .error, topic: .DEFAULT.first!, message: "[serverCall] Failed to activate audio session: \(error.localizedDescription)")
         }
 
         call.asResult()
