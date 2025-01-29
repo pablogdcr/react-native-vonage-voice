@@ -196,88 +196,6 @@ extension VonageCallController: CallController {
         .eraseToAnyPublisher()
     }
 
-    private func extractCallerNumber(from notification: Dictionary<String, Any>) -> String? {
-        let nexmo = notification["nexmo"] as? [String: Any]
-        let body = nexmo?["body"] as? [String: Any]
-        let channel = body?["channel"] as? [String: Any]
-        let from = channel?["from"] as? [String: Any]
-
-        return from?["number"] as? String
-    }
-
-    private func reportVoipPush(_ notification: Dictionary<String, Any>, refreshVonageTokenUrl: String) {
-        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] - reportVoipPush")
-        guard self.supabaseToken != nil,
-              let number = extractCallerNumber(from: notification) else {
-            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning: Failed to extract phone number. Notification: \(notification)")
-            callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
-            return
-        }
-        let maxWaitTime: TimeInterval = 3.0
-        let semaphore = DispatchSemaphore(value: 0)
-        let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
-            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Refresh session background task expired")
-        }
-        self.timedOut = false
-
-        if self.vonageExpiresAt == nil || ((self.vonageExpiresAt?.doubleValue ?? 0) < Date().timeIntervalSince1970 + (15 * 60)) {
-            self.isRefreshing = true
-            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Update Vonage token...")
-            let networkController = NetworkController()
-            let api = RefreshTokenAPI(token: self.supabaseToken!, url: refreshVonageTokenUrl)
-            networkController.sendRequest(apiType: api)
-                .sink { [weak self] completion in
-                    guard let self = self else {
-                        return 
-                    }
-                    switch completion {
-                    case .finished:
-                        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Vonage token updated successfully!")
-                        break
-                    case .failure(let error):
-                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to refresh Vonage token: \(error)")
-                    }
-                } receiveValue: { [weak self] (response: TokenResponse) in
-                    guard let self = self else {
-                        return
-                    }
-                    self.updateSessionToken(response.data.token)
-
-                    let tokenComponents = response.data.token.components(separatedBy: ".")
-                    if tokenComponents.count > 1,
-                       let payloadData = Data(base64Encoded: tokenComponents[1].padding(toLength: ((tokenComponents[1].count + 3) / 4) * 4, withPad: "=", startingAt: 0)),
-                       let payload = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any],
-                       let exp = payload["exp"] as? TimeInterval {
-                        self.vonageExpiresAt = NSNumber(value: exp)
-                    }
-                    self.isRefreshing = false
-                }
-                .store(in: &self.cancellables)
-        } else {
-            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Vonage token not expired. Skip refresh")
-        }
-
-        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info...")
-        self.contactService.prepareCallInfo(number: number, token: self.supabaseToken!) { contactName, error in
-            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info - error: \(String(describing: error))")
-            self.contactName = contactName
-            if error == nil {
-                self.contactReady = true
-            }
-            semaphore.signal()
-        }
-
-        let result = semaphore.wait(timeout: .now() + maxWaitTime)
-
-        if result == .timedOut {
-            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:")
-            self.timedOut = true
-        }
-        UIApplication.shared.endBackgroundTask(backgroundTaskID)
-        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Process call invite push data...")
-        self.client.processCallInvitePushData(notification)
-    }
-
     func reportCXAction(_ cxaction: CXAction, completion: @escaping ((any Error)?) -> Void) {
         cxController.requestTransaction(with: [cxaction], completion: completion)
     }
@@ -441,6 +359,120 @@ extension VonageCallController {
         return provider
     }
 
+    private func extractCallerNumber(from notification: Dictionary<String, Any>) -> String? {
+        let nexmo = notification["nexmo"] as? [String: Any]
+        let body = nexmo?["body"] as? [String: Any]
+        let channel = body?["channel"] as? [String: Any]
+        let from = channel?["from"] as? [String: Any]
+
+        return from?["number"] as? String
+    }
+
+    private func prepareCall(_ userInfo: [AnyHashable: Any], notification: Dictionary<String, Any>, completion: @escaping ((any Error)?) -> Void) {
+        guard let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String,
+              self.supabaseToken != nil,
+              let number = extractCallerNumber(from: notification) else {
+            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to prepare call.")
+            completion(NSError(domain: "VonageVoice", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare call"]))
+            return
+        }
+        let maxWaitTime: TimeInterval = 3.0
+        let group = DispatchGroup()
+
+        if self.vonageExpiresAt == nil || ((self.vonageExpiresAt?.doubleValue ?? 0) < Date().timeIntervalSince1970 + (15 * 60)) {
+            group.enter()
+            self.isRefreshing = true
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Refresh Vonage token...")
+            let networkController = NetworkController()
+            let api = RefreshTokenAPI(token: self.supabaseToken!, url: refreshVonageTokenUrl)
+            networkController.sendRequest(apiType: api)
+                .sink { [weak self] networkCompletion in
+                    guard let self = self else {
+                        return
+                    }
+                    switch networkCompletion {
+                    case .finished:
+                        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Vonage token refreshed successfully")
+                        break
+                    case .failure(let error):
+                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to refresh Vonage token: \(error)")
+                        break
+                    }
+                    group.leave()
+                } receiveValue: { [weak self] (response: TokenResponse) in
+                    guard let self = self else {
+                        return
+                    }
+                    self.updateSessionToken(response.data.token)
+
+                    let tokenComponents = response.data.token.components(separatedBy: ".")
+                    if tokenComponents.count > 1,
+                       let payloadData = Data(base64Encoded: tokenComponents[1].padding(toLength: ((tokenComponents[1].count + 3) / 4) * 4, withPad: "=", startingAt: 0)),
+                       let payload = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any],
+                       let exp = payload["exp"] as? TimeInterval {
+                        self.vonageExpiresAt = NSNumber(value: exp)
+                    }
+                    self.isRefreshing = false
+                }
+                .store(in: &self.cancellables)
+        } else {
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Vonage token not expired. Skip refresh")
+        }
+
+        group.enter()
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info...")
+        self.contactService.prepareCallInfo(number: number, token: self.supabaseToken!) { contactName, error in
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info - error: \(String(describing: error))")
+            self.contactName = contactName
+            if error == nil {
+                self.contactReady = true
+            }
+            group.leave()
+        }
+
+        let result = group.wait(timeout: .now() + maxWaitTime)
+
+        if result == .timedOut {
+            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:")
+            self.timedOut = true
+        }
+        completion(nil)
+    }
+
+    private func refreshSupabaseSessionIfNeeded(_ userInfo: [AnyHashable: Any], completion: @escaping ((any Error)?) -> Void) {
+        guard let block = userInfo["refreshSessionBlock"] as? AnyObject else {
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to refresh Supabase session \(String(describing: userInfo))")
+            completion(NSError(domain: "VonageVoice", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to refresh session"]))
+            return
+        }
+        let refreshSessionBlock = unsafeBitCast(block, to: (@convention(block) (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void).self)
+
+        if self.supabaseToken == nil
+        || self.supabaseExpiresAt == nil
+        || ((self.supabaseExpiresAt?.doubleValue ?? 0) < Date().timeIntervalSince1970 + 10) {
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Refresh Supabase token...")
+            refreshSessionBlock({ response in
+                if let response = response as? [String: Any],
+                    let token = response["accessToken"] as? String,
+                    let expiresAt = response["expiresAt"] as? NSNumber {
+                    self.supabaseToken = token
+                    self.supabaseExpiresAt = expiresAt
+                    self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Supabase token refreshed successfully")
+                    completion(nil)
+                } else {
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":key: Failed to refresh Supabase token: No token in response.\nResponse: \(String(describing: response))")
+                    completion(NSError(domain: "VonageVoice", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to refresh session"]))
+                }
+            }, { code, message, error in
+                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":key: Failed to refresh Supabase token\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nError: \(String(describing: error))")
+                completion(NSError(domain: "VonageVoice", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to refresh session"]))
+            })
+        } else {
+            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Supabase token not expired. Skip refresh")
+            completion(nil)
+        }
+    }
+
     func bindCallController() {
         // Handle session deletion when token becomes nil
         vonageToken.dropFirst().filter { $0 == nil }.sink { _ in
@@ -469,49 +501,39 @@ extension VonageCallController {
             .store(in: &cancellables)
 
         NotificationCenter.default.addObserver(forName: NSNotification.Name.voipPushReceived, object: nil, queue: nil) { [weak self] notification in
-            self?.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] - voipPushReceived")
+            self?.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] VoIP Push Received")
             guard let self = self,
-                  let userInfo = notification.userInfo,
-                  let block = userInfo["refreshSessionBlock"] as? AnyObject,
-                  let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String  else {
-                self?.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] - voipPushReceived - failed \(String(describing: notification.userInfo)) \(String(describing: self?.vonageActiveCalls.value))")
+                  let userInfo = notification.userInfo else {
+                self?.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] :x: Failed \(String(describing: notification.userInfo)) \(String(describing: self?.vonageActiveCalls.value))")
                 return
             }
-            let refreshSessionBlock = unsafeBitCast(block, to: (@convention(block) (@escaping RCTPromiseResolveBlock, @escaping RCTPromiseRejectBlock) -> Void).self)
-
+            let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
+                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning: Refresh session background task expired")
+            }
+            let semaphore = DispatchSemaphore(value: 0)
             self.contactReady = false
             self.contactName = nil
+            self.timedOut = false
 
-            if self.supabaseToken == nil
-            || self.supabaseExpiresAt == nil
-            || ((self.supabaseExpiresAt?.doubleValue ?? 0) < Date().timeIntervalSince1970 + 10) {
-                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Expired token. Refreshing session...")
-                refreshSessionBlock({ response in
-                    if let response = response as? [String: Any],
-                        let token = response["accessToken"] as? String,
-                        let expiresAt = response["expiresAt"] as? NSNumber {
-                        self.supabaseToken = token
-                        self.supabaseExpiresAt = expiresAt
-                        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Session refreshed successfully")
-                        self.reportVoipPush(
-                            notification.object as! Dictionary<String, Any>,
-                            refreshVonageTokenUrl: refreshVonageTokenUrl
-                        )
-                    } else {
-                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":key: Failed to refresh session: No token in response.\nResponse: \(String(describing: response))")
-                        self.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
-                    }
-                }, { code, message, error in
-                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":key: Failed to refresh session\ncode: \(String(describing: code))\nmessage: \(String(describing: message))\nError: \(String(describing: error))")
+            self.refreshSupabaseSessionIfNeeded(userInfo) { error in
+                if error != nil {
                     self.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
-                })
-            } else {
-                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Session not expired.")
-                self.reportVoipPush(
-                    notification.object as! Dictionary<String, Any>,
-                    refreshVonageTokenUrl: refreshVonageTokenUrl
-                )
+                    semaphore.signal()
+                    return
+                }
+                self.prepareCall(userInfo, notification: notification.object as! Dictionary<String, Any>) { error in
+                    if error != nil {
+                        self.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
+                        semaphore.signal()
+                        return
+                    }
+                    self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Process call invite push data...")
+                    self.client.processCallInvitePushData(notification.object as! Dictionary<String, Any>)
+                    semaphore.signal()
+                }
             }
+            semaphore.wait()
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
         }
     }
 }
