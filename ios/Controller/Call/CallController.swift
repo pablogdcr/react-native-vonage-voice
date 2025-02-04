@@ -539,8 +539,7 @@ extension VonageCallController {
         vonageSessionError.sink { [weak self] error in
             guard let self = self else { return }
             if error.localizedDescription.contains("invalid-token") {
-                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!,
-                    message: "[Session Error 1] Invalid token detected via publisher, clearing saved tokens")
+                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[Session Error 1] Invalid token detected via publisher, clearing saved tokens (token: \(self.vonageToken)")
                 self.vonageExpiresAt = nil
                 self.supabaseToken = nil
                 self.supabaseExpiresAt = nil
