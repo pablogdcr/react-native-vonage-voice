@@ -554,17 +554,3 @@ extension VonageCallController {
         }.store(in: &cancellables)
     }
 }
-
-extension VonageCallController: VGVoiceClientDelegate {
-    func voiceClient(_ client: VGVoiceClient, didReceiveSessionError error: VGSessionErrorReason) {
-        if error.localizedDescription.contains("invalid-token") {
-            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!,
-                message: "[Session Error 2] Invalid token detected, clearing saved tokens")
-            self.vonageExpiresAt = nil
-            self.supabaseToken = nil
-            self.supabaseExpiresAt = nil
-        } else {
-            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[Session Error 2] \(error)")
-        }
-    }
-}
