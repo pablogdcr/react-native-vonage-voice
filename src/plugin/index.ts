@@ -1,11 +1,15 @@
 import type { ConfigPlugin } from 'expo/config-plugins';
-import withVonageVoice from './withVonageVoice';
+import withIosVonageVoice from './withIosVonageVoice';
+import withAndroidVonageVoice from './withAndroidVonageVoice';
 
-const withVonageVoicePlugin: ConfigPlugin<{ url: string }> = (
-  config,
-  options
-) => {
-  return withVonageVoice(config, options);
+const withVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
+  // Apply iOS configuration
+  config = withIosVonageVoice(config, options);
+
+  // Apply Android configuration
+  config = withAndroidVonageVoice(config);
+
+  return config;
 };
 
-export default withVonageVoicePlugin;
+export default withVonageVoice;

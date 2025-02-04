@@ -41,7 +41,9 @@
     "!**/__tests__",
     "!**/__fixtures__",
     "!**/__mocks__",
-    "!**/.*"
+    "!**/.*",
+    "react-native-vonage-voice.podspec",
+    "react-native.config.js"
   ],
   "scripts": {
     "example": "yarn workspace react-native-vonage-voice-example",
@@ -54,8 +56,8 @@
   },
   "keywords": [
     "react-native",
-    "ios",
-    "android"
+    "vonage",
+    "voice"
   ],
   "repository": {
     "type": "git",
