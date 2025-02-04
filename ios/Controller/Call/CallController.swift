@@ -382,45 +382,41 @@ extension VonageCallController {
         let maxWaitTime: TimeInterval = 3.0
         let group = DispatchGroup()
 
-        if self.vonageExpiresAt == nil || ((self.vonageExpiresAt?.doubleValue ?? 0) < Date().timeIntervalSince1970 + (15 * 60)) {
-            group.enter()
-            self.isRefreshing = true
-            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Refresh Vonage token...")
-            let networkController = NetworkController()
-            let api = RefreshTokenAPI(token: self.supabaseToken!, url: refreshVonageTokenUrl)
-            networkController.sendRequest(apiType: api)
-                .sink { [weak self] networkCompletion in
-                    guard let self = self else {
-                        return
-                    }
-                    switch networkCompletion {
-                    case .finished:
-                        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Vonage token refreshed successfully")
-                        break
-                    case .failure(let error):
-                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to refresh Vonage token: \(error)")
-                        break
-                    }
-                    group.leave()
-                } receiveValue: { [weak self] (response: TokenResponse) in
-                    guard let self = self else {
-                        return
-                    }
-                    self.updateSessionToken(response.data.token)
-
-                    let tokenComponents = response.data.token.components(separatedBy: ".")
-                    if tokenComponents.count > 1,
-                       let payloadData = Data(base64Encoded: tokenComponents[1].padding(toLength: ((tokenComponents[1].count + 3) / 4) * 4, withPad: "=", startingAt: 0)),
-                       let payload = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any],
-                       let exp = payload["exp"] as? TimeInterval {
-                        self.vonageExpiresAt = NSNumber(value: exp)
-                    }
-                    self.isRefreshing = false
+        group.enter()
+        self.isRefreshing = true
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Refresh Vonage token...")
+        let networkController = NetworkController()
+        let api = RefreshTokenAPI(token: self.supabaseToken!, url: refreshVonageTokenUrl)
+        networkController.sendRequest(apiType: api)
+            .sink { [weak self] networkCompletion in
+                guard let self = self else {
+                    return
                 }
-                .store(in: &self.cancellables)
-        } else {
-            self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Vonage token not expired. Skip refresh")
-        }
+                switch networkCompletion {
+                case .finished:
+                    self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Vonage token refreshed successfully")
+                    break
+                case .failure(let error):
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to refresh Vonage token: \(error)")
+                    break
+                }
+                group.leave()
+            } receiveValue: { [weak self] (response: TokenResponse) in
+                guard let self = self else {
+                    return
+                }
+                self.updateSessionToken(response.data.token)
+
+                let tokenComponents = response.data.token.components(separatedBy: ".")
+                if tokenComponents.count > 1,
+                   let payloadData = Data(base64Encoded: tokenComponents[1].padding(toLength: ((tokenComponents[1].count + 3) / 4) * 4, withPad: "=", startingAt: 0)),
+                   let payload = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any],
+                   let exp = payload["exp"] as? TimeInterval {
+                    self.vonageExpiresAt = NSNumber(value: exp)
+                }
+                self.isRefreshing = false
+            }
+            .store(in: &self.cancellables)
 
         group.enter()
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Prepare call info...")
