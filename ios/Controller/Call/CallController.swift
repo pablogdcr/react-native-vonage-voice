@@ -203,16 +203,12 @@ extension VonageCallController: CallController {
     func updateSessionToken(_ token: String?, completion: ((Error?) -> Void)? = nil) {
         // If token is nil, just delete the session
         guard let token = token, token != "" else {
-            client.deleteSession { error in
-                completion?(error)
-                if error == nil {
-                    self.vonageToken.value = nil
-                    self.vonageSession.send(nil)
-                    self.vonageExpiresAt = nil
-                    self.supabaseToken = nil
-                    self.supabaseExpiresAt = nil
-                }
-            }
+            self.vonageToken.value = nil
+            self.vonageSession.send(nil)
+            self.vonageExpiresAt = nil
+            self.supabaseToken = nil
+            self.supabaseExpiresAt = nil
+            completion?(nil)
             return
         }
 
@@ -248,13 +244,7 @@ extension VonageCallController: CallController {
     // but we special case the start of outbound calls
     // so we can ensure the correct UUID can be provided to Callkit
     func startOutboundCall(_ context: [String : String], completion: @escaping ((any Error)?, String?) -> Void) {
-        let session = Future<String?,Error> { p in
-            self.client.createSession(self.vonageToken.value ?? "") { err, session in
-                p(err != nil ? Result.failure(err!) : Result.success(session!))
-            }
-        }
-
-        let call = session.flatMap { _ in
+        let call = self.vonageSession.flatMap { _ in
             Future<String,Error> { p in
                 self.client.serverCall(context) { err, callId in
                     p(err != nil ? Result.failure(err!) : Result.success(callId!))

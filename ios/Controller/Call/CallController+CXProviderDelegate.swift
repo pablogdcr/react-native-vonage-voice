@@ -189,7 +189,7 @@ extension VonageCallController {
                         // Nothing needed to report for local hangups
                         return
                     }
-                    
+
                 case let .inbound(callId,from,status,_):
                     switch (status) {
                     case .ringing:
@@ -210,7 +210,7 @@ extension VonageCallController {
                                 }
                             }
                         }
-                        
+
                     case .completed(true,.some(let reason)):
                         // Report Remote Hangups + Cancels
                         self.callProvider.reportCall(with: callId, endedAt: Date(), reason: reason)

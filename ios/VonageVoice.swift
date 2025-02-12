@@ -60,7 +60,6 @@ public class VonageVoice: NSObject {
         }
     }
 
-
     @objc public func saveDebugAdditionalInfo(info: String?) {
         guard let info = info else {
             return
@@ -325,7 +324,7 @@ public class VonageVoice: NSObject {
             return
         }
         isProcessingServerCall = true
-        
+
         var callData = ["to": to]
         if let customData = customData {
             callData.merge(customData) { (_, new) in new }
@@ -381,7 +380,6 @@ public class VonageVoice: NSObject {
             }
         } else {
             VonageVoice.isVoipRegistered = true
-            
 
             DispatchQueue.main.async {
                 let voipRegistry = PKPushRegistry(queue: .main)
