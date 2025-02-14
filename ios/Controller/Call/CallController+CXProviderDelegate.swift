@@ -165,8 +165,9 @@ extension VonageCallController {
                             with: CXStartCallAction(call: callId, handle: CXHandle(type: .generic, value: to)),
                             completion: { err in
                                 guard err == nil else {
+                                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to report start outbound call: \(String(describing: err))")
                                     self.client.hangup(callId.toVGCallID()) { err in
-                                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to report start outbound call: \(String(describing: err))")
+                                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to hangup outbound call: \(String(describing: err))")
                                     }
                                     return
                                 }
