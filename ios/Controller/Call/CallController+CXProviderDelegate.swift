@@ -8,6 +8,7 @@ extension VonageCallController: CXProviderDelegate {
     }
     
     public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXStartCallAction")
         action.fulfill()
     }
 

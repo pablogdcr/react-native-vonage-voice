@@ -62,25 +62,28 @@ extension VonageCallController: VGVoiceClientDelegate {
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaDisconnectForCall callId: VGCallId, reason: VGCallDisconnectReason) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveMediaDisconnectForCall \(callId) \(reason)")
         let uuid = UUID(uuidString: callId)!
 
         self.vonageCallUpdates.send((uuid, .completed(remote: false, reason: .failed)))
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectingForCall callId: VGCallId) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveMediaReconnectingForCall \(callId)")
         let uuid = UUID(uuidString: callId)!
 
         self.vonageCallUpdates.send((uuid, .reconnecting))
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaReconnectionForCall callId: VGCallId) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveMediaReconnectionForCall \(callId)")
         let uuid = UUID(uuidString: callId)!
 
         self.vonageCallUpdates.send((uuid, .answered))
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaErrorForCall callId: String, error: VGError) {
-        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Receive media error for call \(callId): \(error)")
+        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveMediaErrorForCall \(callId) \(error)")
     }
 
     // MARK: VGVoiceClientDelegate LegStatus

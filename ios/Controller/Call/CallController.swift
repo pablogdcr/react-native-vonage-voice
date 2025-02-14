@@ -289,8 +289,10 @@ extension VonageCallController: CallController {
     }
 
     func reconnectCall(_ callId: String, completion: @escaping ((any Error)?) -> Void) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Reconnect call \(callId)")
         client.reconnectCall(callId) { error in
             if error == nil {
+                self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Reconnect call \(callId) - success")
                 self.vonageCallUpdates.send((UUID(uuidString: callId)!, .answered))
             }
             completion(nil)
