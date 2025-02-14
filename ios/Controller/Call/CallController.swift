@@ -245,7 +245,13 @@ extension VonageCallController: CallController {
     // so we can ensure the correct UUID can be provided to Callkit
     func startOutboundCall(_ context: [String : String], completion: @escaping ((any Error)?, String?) -> Void) {
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Start outbound call")
-        let call = self.vonageSession.flatMap { _ in
+        let session = Future<String?,Error> { p in
+            self.client.createSession(self.vonageToken.value ?? "") { err, session in
+                p(err != nil ? Result.failure(err!) : Result.success(session!))
+            }
+        }
+
+        let call = session.flatMap { _ in
             Future<String,Error> { p in
                 self.client.serverCall(context) { err, callId in
                     p(err != nil ? Result.failure(err!) : Result.success(callId!))
