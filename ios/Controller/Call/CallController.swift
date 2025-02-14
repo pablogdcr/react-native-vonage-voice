@@ -244,6 +244,7 @@ extension VonageCallController: CallController {
     // but we special case the start of outbound calls
     // so we can ensure the correct UUID can be provided to Callkit
     func startOutboundCall(_ context: [String : String], completion: @escaping ((any Error)?, String?) -> Void) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Start outbound call")
         let call = self.vonageSession.flatMap { _ in
             Future<String,Error> { p in
                 self.client.serverCall(context) { err, callId in
