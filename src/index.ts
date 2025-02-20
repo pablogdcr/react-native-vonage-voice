@@ -34,7 +34,10 @@ interface RNVonageVoiceCallModuleInterface {
   serverCall(to: string, customData?: Record<string, string>): Promise<string>;
   sendDTMF(dtmf: string): Promise<{ success: true } | null>;
   reconnectCall(callId: string): Promise<{ success: true } | null>;
-  subscribeToCallEvents(): EmitterSubscription;
+  subscribeToCallEvents(): void;
+  addCallEventListener(
+    callback: (event: CallEvent) => void
+  ): EmitterSubscription;
   unsubscribeFromCallEvents(): void;
   subscribeToAudioRouteChange(): EmitterSubscription;
   unsubscribeFromAudioRouteChange(): void;
@@ -219,7 +222,7 @@ class RNVonageVoiceCall {
     return VonageVoice!.reconnectCall(callId);
   }
 
-  static subscribeToCallEvents(callback: (event: CallEvent) => void) {
+  static subscribeToCallEvents() {
     if (Platform.OS === 'android') {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
@@ -227,6 +230,9 @@ class RNVonageVoiceCall {
       return;
     }
     VonageVoice!.subscribeToCallEvents();
+  }
+
+  static addCallEventListener(callback: (event: CallEvent) => void) {
     return eventEmitter.addListener('callEvents', callback);
   }
 

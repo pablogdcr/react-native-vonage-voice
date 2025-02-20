@@ -41,6 +41,7 @@ extension VonageCallController: VGVoiceClientDelegate {
         @unknown default:
             fatalError()
         }
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveInviteCancelForCall")
         self.vonageCallUpdates.send((uuid, .completed(remote: true, reason: cxreason)))
     }
 
@@ -58,12 +59,14 @@ extension VonageCallController: VGVoiceClientDelegate {
         @unknown default:
             fatalError()
         }
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveHangupForCall")
         self.vonageCallUpdates.send((uuid, .completed(remote: true, reason: cxreason)))
     }
 
     public func voiceClient(_ client: VGVoiceClient, didReceiveMediaDisconnectForCall callId: VGCallId, reason: VGCallDisconnectReason) {
         let uuid = UUID(uuidString: callId)!
 
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveMediaDisconnectForCall")
         self.vonageCallUpdates.send((uuid, .completed(remote: false, reason: .failed)))
     }
     

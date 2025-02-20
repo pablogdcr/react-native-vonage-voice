@@ -185,6 +185,7 @@ extension VonageCallController {
 
                     case .completed(true, .some(let reason)):
                         // Report Remote Hangups + Cancels
+                        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXCallUpdate - completed")
                         self.callProvider.reportCall(with: callId, endedAt: Date(), reason: reason)
 
                     default:
@@ -214,7 +215,7 @@ extension VonageCallController {
                         }
 
                     case .completed(true,.some(let reason)):
-                        // Report Remote Hangups + Cancels
+                        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXCallUpdate - completed")
                         self.callProvider.reportCall(with: callId, endedAt: Date(), reason: reason)
                         self.contactService.resetCallInfo()
                         

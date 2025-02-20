@@ -405,7 +405,7 @@ extension VonageVoice {
                     "status": call.status.description,
                     "isOutbound": call.isOutbound,
                     "phoneNumber": call.phoneNumber,
-                    "startedAt": call.startedAt?.timeIntervalSince1970 ?? 0
+                    "startedAt": call.startedAt?.timeIntervalSince1970
                 ]
                 
                 EventEmitter.shared.sendEvent(withName: Event.callEvents.rawValue, body: callData)

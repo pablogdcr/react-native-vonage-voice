@@ -374,7 +374,6 @@ extension VonageCallController {
         guard let refreshVonageTokenUrl = userInfo["refreshVonageTokenUrlString"] as? String,
               self.supabaseToken != nil,
               let number = extractCallerNumber(from: notification) else {
-            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to prepare call.")
             completion(NSError(domain: "VonageVoice", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare call"]))
             return
         }
@@ -515,12 +514,14 @@ extension VonageCallController {
 
             self.refreshSupabaseSessionIfNeeded(userInfo) { error in
                 if error != nil {
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to refresh Supabase session: \(error)")
                     self.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
                     semaphore.signal()
                     return
                 }
                 self.prepareCall(userInfo, notification: notification.object as! Dictionary<String, Any>) { error in
                     if error != nil {
+                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to prepare call: \(error)")
                         self.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
                         semaphore.signal()
                         return

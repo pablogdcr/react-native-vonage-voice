@@ -10,7 +10,7 @@ export interface CallEvent {
   status: CallStatus;
   isOutbound: boolean;
   phoneNumber: string;
-  startedAt: number;
+  startedAt?: number;
 }
 
 export interface AudioRouteChangeEvent {
