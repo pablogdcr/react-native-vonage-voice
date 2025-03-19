@@ -24,7 +24,7 @@ protocol CallController {
     func unregisterPushTokens(_ deviceId: String, callback: @escaping ((any Error)?) -> Void)
     
     // Special case for CXStartCallAction
-    func startOutboundCall(_ context:[String:String], completion: @escaping ((any Error)?, String?) -> Void)
+    func startOutboundCall(_ context:[String:Any], completion: @escaping ((any Error)?, String?) -> Void)
     
     // Enable/Disable Noise Suppression in ongoing calls
     func toggleNoiseSuppression(call: Call, isOn: Bool)
@@ -243,7 +243,7 @@ extension VonageCallController: CallController {
     // Normally we just forward all CXActions to Callkit
     // but we special case the start of outbound calls
     // so we can ensure the correct UUID can be provided to Callkit
-    func startOutboundCall(_ context: [String : String], completion: @escaping ((any Error)?, String?) -> Void) {
+    func startOutboundCall(_ context: [String : Any], completion: @escaping ((any Error)?, String?) -> Void) {
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Start outbound call")
         guard let token = self.vonageToken.value else {
             completion(NSError(domain: "VonageVoice", code: -1, userInfo: [NSLocalizedDescriptionKey: "No token found"]), nil)
@@ -269,7 +269,7 @@ extension VonageCallController: CallController {
             switch (result) {
             case .success(let callId):
                 self.vonageCalls.send(
-                    Call.outbound(id: UUID(uuidString: callId)!, to: context["to"] ?? "unknown", status: .ringing)
+                    Call.outbound(id: UUID(uuidString: callId)!, to: (context["to"] as? String) ?? "unknown", status: .ringing)
                 )
                 completion(nil, callId)
             case .failure:
@@ -518,14 +518,14 @@ extension VonageCallController {
 
             self.refreshSupabaseSessionIfNeeded(userInfo) { error in
                 if error != nil {
-                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to refresh Supabase session: \(error)")
+                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to refresh Supabase session: \(String(describing: error))")
                     self.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
                     semaphore.signal()
                     return
                 }
                 self.prepareCall(userInfo, notification: notification.object as! Dictionary<String, Any>) { error in
                     if error != nil {
-                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to prepare call: \(error)")
+                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to prepare call: \(String(describing: error))")
                         self.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
                         semaphore.signal()
                         return

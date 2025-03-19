@@ -75,8 +75,8 @@ const userActivityLineMatcher =
 
 // Add this new block constant
 const userActivityBlock = `
-  if ([userActivity.interaction.intent isKindOfClass:[INStartAudioCallIntent class]]) {
-    INPerson *person = [[(INStartAudioCallIntent*)userActivity.interaction.intent contacts] firstObject];
+  if ([userActivity.interaction.intent isKindOfClass:[INStartCallIntent class]]) {
+    INPerson *person = [[(INStartCallIntent*)userActivity.interaction.intent contacts] firstObject];
     NSString *phoneNumber = person.personHandle.value;
     NSString *telURL = [NSString stringWithFormat:@"tel:%@", phoneNumber];
 

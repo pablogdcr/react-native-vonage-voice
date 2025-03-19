@@ -318,16 +318,18 @@ public class VonageVoice: NSObject {
         }
     }
 
-    @objc public func serverCall(to: String, customData: [String: String]? = nil, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    @objc public func serverCall(to: String, customData: [String:Any]? = nil, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         guard !isProcessingServerCall else {
             reject("ALREADY_PROCESSING", "Already processing a server call request", nil)
             return
         }
         isProcessingServerCall = true
 
-        var callData = ["to": to]
+        var callData: [String:Any] = ["to": to]
         if let customData = customData {
-            callData.merge(customData) { (_, new) in new }
+            for (key, value) in customData {
+                callData[key] = value
+            }
         }
 
         callController.startOutboundCall(callData) { [weak self] error, callId in
@@ -405,7 +407,7 @@ extension VonageVoice {
                     "status": call.status.description,
                     "isOutbound": call.isOutbound,
                     "phoneNumber": call.phoneNumber,
-                    "startedAt": call.startedAt?.timeIntervalSince1970
+                    "startedAt": call.startedAt?.timeIntervalSince1970 as Any
                 ]
                 
                 EventEmitter.shared.sendEvent(withName: Event.callEvents.rawValue, body: callData)
