@@ -192,7 +192,7 @@ class RNVonageVoiceCall {
     return VonageVoice!.disableSpeaker();
   }
 
-  static serverCall(to: string, customData?: Record<string, string>) {
+  static serverCall(to: string, customData?: Record<string, any>) {
     if (Platform.OS === 'android') {
       if (__DEV__) {
         console.warn("This library doesn't support Android yet.");
