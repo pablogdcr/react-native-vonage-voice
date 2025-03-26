@@ -200,7 +200,7 @@ extension VonageCallController {
                         let callUpdate = CXCallUpdate()
 
                         callUpdate.remoteHandle = (self.contactReady || !from.isEmpty)
-                        ? CXHandle(type: .phoneNumber, value: !self.timedOut && self.contactReady ? "7222555666" : "+\(from)")
+                            ? CXHandle(type: .phoneNumber, value: !self.timedOut && self.contactReady ? "7222555666" : "+\(from)")
                             : nil
                         callUpdate.localizedCallerName = self.contactName ?? (self.contactReady && !self.timedOut ? PartialFormatter().formatPartial("+\(from)") : nil)
                         self.callProvider.reportNewIncomingCall(with: callId, update: callUpdate) { err in

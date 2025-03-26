@@ -3,6 +3,7 @@ import PushKit
 import Combine
 import VonageClientSDKVoice
 import AVFoundation
+import PhoneNumberKit
 
 typealias CallStream = AnyPublisher<Call,Never>
 
@@ -381,7 +382,6 @@ extension VonageCallController {
             completion(NSError(domain: "VonageVoice", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare call"]))
             return
         }
-        let maxWaitTime: TimeInterval = 3.0
         let group = DispatchGroup()
 
         group.enter()
@@ -431,10 +431,10 @@ extension VonageCallController {
             group.leave()
         }
 
-        let result = group.wait(timeout: .now() + maxWaitTime)
+        let result = group.wait(timeout: .now() + 3.0)
 
         if result == .timedOut {
-            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after \(maxWaitTime) seconds. Call reported successfully :white_check_mark:")
+            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after 3.0 seconds. Call reported successfully :white_check_mark:")
             self.timedOut = true
         }
         completion(nil)
@@ -504,38 +504,49 @@ extension VonageCallController {
         NotificationCenter.default.addObserver(forName: NSNotification.Name.voipPushReceived, object: nil, queue: nil) { [weak self] notification in
             self?.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] VoIP Push Received")
             guard let self = self,
-                  let userInfo = notification.userInfo else {
+                  let userInfo = notification.userInfo,
+                  let number = extractCallerNumber(from: notification.object as! Dictionary<String, Any>) else {
                 self?.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] :x: Failed \(String(describing: notification.userInfo)) \(String(describing: self?.vonageActiveCalls.value))")
+                self?.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
                 return
             }
-            let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
-                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning: Refresh session background task expired")
-            }
-            let semaphore = DispatchSemaphore(value: 0)
             self.contactReady = false
             self.contactName = nil
             self.timedOut = false
+            let group = DispatchGroup()
 
+            group.enter()
+            let backgroundTaskID = UIApplication.shared.beginBackgroundTask {
+                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning: Refresh session background task expired")
+            }
+            
             self.refreshSupabaseSessionIfNeeded(userInfo) { error in
-                if error != nil {
-                    self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to refresh Supabase session: \(String(describing: error))")
+                if let error = error {
+                    self.logger?.didReceiveLog(logLevel: .error, topic: .DEFAULT.first!, message: "[CallController] Session refresh failed: \(error.localizedDescription)")
                     self.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
-                    semaphore.signal()
+                    group.leave()
                     return
                 }
+                
                 self.prepareCall(userInfo, notification: notification.object as! Dictionary<String, Any>) { error in
-                    if error != nil {
-                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to prepare call: \(String(describing: error))")
+                    if let error = error {
+                        self.logger?.didReceiveLog(logLevel: .error, topic: .DEFAULT.first!, message: "[CallController] Call preparation failed: \(error.localizedDescription)")
                         self.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
-                        semaphore.signal()
+                        group.leave()
                         return
                     }
-                    self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Process call invite push data...")
+                    
                     self.client.processCallInvitePushData(notification.object as! Dictionary<String, Any>)
-                    semaphore.signal()
+                    group.leave()
                 }
             }
-            semaphore.wait()
+            let result = group.wait(timeout: .now() + 5.0)
+            
+            if result == .timedOut {
+                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after 5.0 seconds.")
+                self.timedOut = true
+                self.client.processCallInvitePushData(notification.object as! Dictionary<String, Any>)
+            }
             UIApplication.shared.endBackgroundTask(backgroundTaskID)
         }
 
