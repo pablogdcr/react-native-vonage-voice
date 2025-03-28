@@ -548,7 +548,7 @@ extension VonageVoice {
         do {
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(
-                .playback,
+                .ambient,
                 mode: .default,
                 options: [.mixWithOthers]
             )
