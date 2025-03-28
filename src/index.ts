@@ -52,6 +52,8 @@ interface RNVonageVoiceCallModuleInterface {
   registerVoipToken(): void;
   getAvailableAudioDevices(): Promise<AudioDevice[] | null>;
   setAudioDevice(deviceId: string): Promise<{ success: true } | null>;
+  playDTMFTone(key: string): Promise<{ success: true }>;
+  stopDTMFTone(): Promise<{ success: true }>;
 }
 
 // Create event emitter instance
@@ -344,6 +346,26 @@ class RNVonageVoiceCall {
       return new Promise<null>((resolve) => resolve(null));
     }
     return VonageVoice!.setAudioDevice(deviceId);
+  }
+
+  static playDTMFTone(key: string) {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise<null>((resolve) => resolve(null));
+    }
+    return VonageVoice!.playDTMFTone(key);
+  }
+
+  static stopDTMFTone() {
+    if (Platform.OS === 'android') {
+      if (__DEV__) {
+        console.warn("This library doesn't support Android yet.");
+      }
+      return new Promise<null>((resolve) => resolve(null));
+    }
+    return VonageVoice!.stopDTMFTone();
   }
 }
 

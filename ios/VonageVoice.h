@@ -42,6 +42,9 @@
 - (void)sendDTMFWithDtmf:(NSString *_Nonnull)dtmf resolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;
 - (void)reconnectCallWithCallId:(NSString *_Nonnull)callId resolve:(RCTPromiseResolveBlock _Nonnull )resolve reject:(RCTPromiseRejectBlock _Nonnull )reject;
 
+- (void)playDTMFToneWithKey:(NSString *_Nonnull)key resolve:(RCTPromiseResolveBlock _Nonnull)resolve reject:(RCTPromiseRejectBlock _Nonnull)reject;
+- (void)stopDTMFToneWithResolve:(RCTPromiseResolveBlock _Nonnull)resolve reject:(RCTPromiseRejectBlock _Nonnull)reject;
+
 // Event Subscription Methods
 - (void)subscribeToCallEvents;
 - (void)unsubscribeFromCallEvents;

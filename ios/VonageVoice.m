@@ -136,4 +136,15 @@ RCT_EXPORT_METHOD(setAudioDevice:(NSString *)deviceId
                   rejecter:(RCTPromiseRejectBlock)reject) {
     [[VonageVoice shared] setAudioDeviceWithDeviceId:deviceId resolve:resolve reject:reject];
 }
+
+RCT_EXPORT_METHOD(playDTMFTone:(NSString *)key
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    [[VonageVoice shared] playDTMFToneWithKey:key resolve:resolve reject:reject];
+}
+
+RCT_EXPORT_METHOD(stopDTMFTone:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    [[VonageVoice shared] stopDTMFToneWithResolve:resolve reject:reject];
+}
 @end

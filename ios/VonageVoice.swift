@@ -29,6 +29,50 @@ public class VonageVoice: NSObject {
     private static var isVoipRegistered = false
     private static var lastVoipToken: String?
     
+    // Audio properties
+    private var audioEngine: AVAudioEngine?
+    private var toneGenerator: AVAudioSourceNode?
+    private var sampleRate: Double = 44100.0
+    private var currentSampleIndex: Int = 0
+    private var currentSamples: [Float]?
+    private var isPlaying = false
+    private var stopDispatchWorkItem: DispatchWorkItem?
+
+    // DTMF frequencies for each key
+    private struct DTMF {
+        static let frequencies: [String: (high: Float, low: Float)] = [
+            "1": (697, 1209),
+            "2": (697, 1336),
+            "3": (697, 1477),
+            "4": (770, 1209),
+            "5": (770, 1336),
+            "6": (770, 1477),
+            "7": (852, 1209),
+            "8": (852, 1336),
+            "9": (852, 1477),
+            "*": (941, 1209),
+            "0": (941, 1336),
+            "#": (941, 1477)
+        ]
+        
+        // Pre-calculated samples for each key
+        static let samples: [String: [Float]] = {
+            let sampleRate = 44100.0
+            let duration = 3.0 // 200ms
+            let numSamples = Int(sampleRate * duration)
+            
+            return frequencies.reduce(into: [:]) { result, entry in
+                var samples = [Float](repeating: 0, count: numSamples)
+                for i in 0..<numSamples {
+                    let t = Double(i) / sampleRate
+                    let highAngle = 2.0 * Double.pi * Double(entry.value.high) * t
+                    let lowAngle = 2.0 * Double.pi * Double(entry.value.low) * t
+                    samples[i] = Float(sin(highAngle) + sin(lowAngle)) * 0.5
+                }
+                result[entry.key] = samples
+            }
+        }()
+    }
 
     @objc var debugAdditionalInfo: String? {
         get {
@@ -46,18 +90,6 @@ public class VonageVoice: NSObject {
         callController = VonageCallController(logger: CustomLogger(debugAdditionalInfo: info))
 
         super.init()
-
-        let audioSession = AVAudioSession.sharedInstance()
-        do {
-            try audioSession.setCategory(
-                .playAndRecord,
-                mode: .default,
-                options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker]
-            )
-            try audioSession.setActive(true)
-        } catch {
-            print("Failed to configure audio session: \(error.localizedDescription)")
-        }
     }
 
     @objc public func saveDebugAdditionalInfo(info: String?) {
@@ -223,7 +255,7 @@ public class VonageVoice: NSObject {
             return
         }
         isProcessingHangup = true
-        
+
         callController.reportCXAction(CXEndCallAction(call: UUID(uuidString: callId)!), completion: { [weak self] error in
             self?.isProcessingHangup = false
             if error == nil {
@@ -485,3 +517,138 @@ extension VonageVoice {
     }
 }
 
+extension VonageVoice {
+    private func processAudioBuffer(ptr: UnsafeMutablePointer<Float>, frameCount: UInt32) {
+        guard let samples = currentSamples else { return }
+        
+        for frame in 0..<Int(frameCount) {
+            if currentSampleIndex < samples.count {
+                ptr[frame] = samples[currentSampleIndex]
+                currentSampleIndex += 1
+            } else {
+                ptr[frame] = 0
+            }
+        }
+    }
+
+    @objc public func playDTMFTone(key: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        guard let samples = DTMF.samples[key] else {
+            reject("INVALID_KEY", "Invalid DTMF key", nil)
+            return
+        }
+
+        // If we're already playing, just update the samples
+        if isPlaying {
+            currentSampleIndex = 0
+            currentSamples = samples
+            resolve(["success": true])
+            return
+        }
+
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(
+                .playback,
+                mode: .default,
+                options: [.mixWithOthers]
+            )
+            try audioSession.setActive(true)
+        } catch {
+            reject("AUDIO_SESSION_ERROR", "Failed to configure audio session: \(error.localizedDescription)", error)
+            return
+        }
+
+        // Reset state
+        currentSampleIndex = 0
+        currentSamples = samples
+        isPlaying = true
+
+        // Create and configure audio engine
+        audioEngine = AVAudioEngine()
+        guard let audioEngine = audioEngine else {
+            reject("AUDIO_ENGINE_ERROR", "Failed to create audio engine", nil)
+            return
+        }
+
+        // Create tone generator node
+        toneGenerator = AVAudioSourceNode { [weak self] _, _, frameCount, audioBufferList in
+            guard let self = self else { return noErr }
+            
+            let ablPointer = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            let buffer = ablPointer[0]
+            guard let ptr = buffer.mData?.assumingMemoryBound(to: Float.self) else { return noErr }
+            
+            self.processAudioBuffer(ptr: ptr, frameCount: frameCount)
+            return noErr
+        }
+
+        // Configure audio format
+        let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                 sampleRate: sampleRate,
+                                 channels: 1,
+                                 interleaved: false)!
+
+        // Attach and connect nodes
+        audioEngine.attach(toneGenerator!)
+        
+        // Create a mixer node with volume control
+        let mixerNode = AVAudioMixerNode()
+        audioEngine.attach(mixerNode)
+        
+        // Connect nodes
+        audioEngine.connect(toneGenerator!,
+                          to: mixerNode,
+                          format: format)
+        
+        audioEngine.connect(mixerNode,
+                          to: audioEngine.mainMixerNode,
+                          format: format)
+        
+        // Set volume
+        mixerNode.volume = 0.005
+
+        do {
+            try audioEngine.start()
+            
+            // Cancel any existing stop work item
+            stopDispatchWorkItem?.cancel()
+            
+            // Create new work item for automatic stop
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.stopDTMFTone(resolve: nil, reject: nil)
+            }
+            stopDispatchWorkItem = workItem
+            
+            // Schedule automatic stop after 3 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: workItem)
+            
+            resolve(["success": true])
+        } catch {
+            print("Failed to start audio engine: \(error)")
+            reject("AUDIO_ENGINE_ERROR", error.localizedDescription, error)
+        }
+    }
+
+    @objc public func stopDTMFTone(resolve: RCTPromiseResolveBlock?, reject: RCTPromiseRejectBlock?) {
+        // Cancel any pending automatic stop
+        stopDispatchWorkItem?.cancel()
+        stopDispatchWorkItem = nil
+        
+        audioEngine?.stop()
+        audioEngine = nil
+        toneGenerator = nil
+        currentSampleIndex = 0
+        currentSamples = nil
+        isPlaying = false
+        
+        // Reset audio session
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("Error resetting audio session: \(error)")
+        }
+        
+        resolve?(["success": true])
+    }
+}
