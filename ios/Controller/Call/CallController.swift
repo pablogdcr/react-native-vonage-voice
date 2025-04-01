@@ -126,6 +126,10 @@ public class VonageCallController: NSObject {
 
         super.init()
         client.delegate = self
+        
+        // Set up audio session route change observer
+        AVAudioSession.sharedInstance().setRouteChangeDelegate(self)
+        
         if let region = UserDefaults.standard.string(forKey: "vonage.region") {
             switch region {
             case "EU":
@@ -562,5 +566,23 @@ extension VonageCallController {
                 self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[Session Error 1] \(error)")
             }
         }.store(in: &cancellables)
+    }
+}
+
+extension VonageCallController: AVAudioSessionRouteChangeDelegate {
+    public func handleRouteChange(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+            return
+        }
+        
+        let previousRoute = userInfo[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription
+        let currentRoute = AVAudioSession.sharedInstance().currentRoute
+        
+        let previousOutput = previousRoute?.outputs.first?.portType.rawValue ?? "unknown"
+        let currentOutput = currentRoute.outputs.first?.portType.rawValue ?? "unknown"
+        
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[Audio Route Change] Reason: \(reason), From: \(previousOutput), To: \(currentOutput)")
     }
 }
