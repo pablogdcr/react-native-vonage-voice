@@ -126,10 +126,7 @@ public class VonageCallController: NSObject {
 
         super.init()
         client.delegate = self
-        
-        // Set up audio session route change observer
-        AVAudioSession.sharedInstance().setRouteChangeDelegate(self)
-        
+                
         if let region = UserDefaults.standard.string(forKey: "vonage.region") {
             switch region {
             case "EU":
@@ -143,6 +140,7 @@ public class VonageCallController: NSObject {
         callProvider = initCXProvider()
         bindCallController()
         bindCallkit()
+        bindAVAudioSessionRouteChange()
 
         contactService.resetCallInfo()
     }
@@ -569,8 +567,15 @@ extension VonageCallController {
     }
 }
 
-extension VonageCallController: AVAudioSessionRouteChangeDelegate {
-    public func handleRouteChange(_ notification: Notification) {
+extension VonageCallController {
+    func bindAVAudioSessionRouteChange() {
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handleRouteChange),
+                                               name: AVAudioSession.routeChangeNotification,
+                                               object: nil)
+    }
+
+    @objc func handleRouteChange(_ notification: Notification) {
         guard let userInfo = notification.userInfo,
               let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
               let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
