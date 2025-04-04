@@ -69,6 +69,8 @@ public class VonageCallController: NSObject {
     var isRefreshing = false
     var timedOut = false
 
+    var audioSessionTimer: Timer?
+
     // Internal reactive storage for the token provided via `CallController.updateSessionToken()`
     private let vonageToken = CurrentValueSubject<String?,Never>(nil)
     
@@ -140,7 +142,6 @@ public class VonageCallController: NSObject {
         callProvider = initCXProvider()
         bindCallController()
         bindCallkit()
-        bindAVAudioSessionRouteChange()
 
         contactService.resetCallInfo()
     }
@@ -564,30 +565,5 @@ extension VonageCallController {
                 self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[Session Error 1] \(error)")
             }
         }.store(in: &cancellables)
-    }
-}
-
-extension VonageCallController {
-    func bindAVAudioSessionRouteChange() {
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(handleRouteChange),
-                                               name: AVAudioSession.routeChangeNotification,
-                                               object: nil)
-    }
-
-    @objc func handleRouteChange(_ notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
-              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
-            return
-        }
-        
-        let previousRoute = userInfo[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription
-        let currentRoute = AVAudioSession.sharedInstance().currentRoute
-        
-        let previousOutput = previousRoute?.outputs.first?.portType.rawValue ?? "unknown"
-        let currentOutput = currentRoute.outputs.first?.portType.rawValue ?? "unknown"
-        
-        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[Audio Route Change] Reason: \(reason), From: \(previousOutput), To: \(currentOutput)")
     }
 }

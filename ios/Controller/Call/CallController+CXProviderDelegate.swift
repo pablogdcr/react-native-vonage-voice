@@ -4,7 +4,9 @@ import VonageClientSDKVoice
 import PhoneNumberKit
 
 extension VonageCallController: CXProviderDelegate {
+    
     public func providerDidReset(_ provider: CXProvider) {
+        stopAudioSessionTimer()
     }
     
     public func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
@@ -32,6 +34,7 @@ extension VonageCallController: CXProviderDelegate {
             }
             self.vonageCallUpdates.send((action.callUUID, .answered))
             self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - fulfilled")
+            self.startAudioSessionTimer()
         }
         action.fulfill()
     }
@@ -54,6 +57,7 @@ extension VonageCallController: CXProviderDelegate {
                 self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXEndCallAction - fulfilled 2")
             }
         }
+        stopAudioSessionTimer()
         action.fulfill()
     }
 
@@ -101,12 +105,15 @@ extension VonageCallController: CXProviderDelegate {
     }
 
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - didActivate")        
         VGVoiceClient.enableAudio(audioSession)
+        do {
+            try audioSession.setCategory(.playAndRecord, mode: .voiceChat)
+        } catch {
+            self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to set Audio Session Category: \(error)")
+        }
     }
-    
+
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - didDeactivate")
         VGVoiceClient.disableAudio(audioSession)
     }
 
@@ -150,6 +157,29 @@ extension VonageCallController: CXProviderDelegate {
             }
         }
         action.fulfill()
+    }
+    
+    private func startAudioSessionTimer() {
+        stopAudioSessionTimer()
+        DispatchQueue.main.async {
+            self.audioSessionTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+                let audioSession = AVAudioSession.sharedInstance()
+
+                if (audioSession.category != .playAndRecord) {
+                    self?.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning::rotating_light: AudioSession category not .playAndRecord @Pablo")
+                    do {
+                        try audioSession.setCategory(.playAndRecord, mode: .voiceChat)
+                    } catch {
+                        self?.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning::rotating_light: Error setting AudioSession category to .playAndRecord @Pablo\n\(error)")
+                    }
+                }
+            }
+        }
+    }
+    
+    private func stopAudioSessionTimer() {
+        audioSessionTimer?.invalidate()
+        audioSessionTimer = nil
     }
 }
 
@@ -218,6 +248,7 @@ extension VonageCallController {
                         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXCallUpdate - completed")
                         self.callProvider.reportCall(with: callId, endedAt: Date(), reason: reason)
                         self.contactService.resetCallInfo()
+                        self.stopAudioSessionTimer()
                         
                     default:
                         // Nothing needed to report since answering requires local CXAction
