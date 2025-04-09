@@ -55,6 +55,3 @@ class TelecomHelper(context: Context) {
         telecomManager.endCall()
     }
 }
-
-
-

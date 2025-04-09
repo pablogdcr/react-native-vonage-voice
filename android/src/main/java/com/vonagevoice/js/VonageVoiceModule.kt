@@ -74,7 +74,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         Log.d("VonageVoiceModule", "registerVonageVoipToken $token")
         scope.launch {
             promise.tryBlocking {
-                vonageAuthenticationService.registerVonageVoipToken(token)
+                vonageAuthenticationService.registerVonageVoipToken(newTokenFirebase = token)
             }
         }
     }

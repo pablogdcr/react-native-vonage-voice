@@ -7,7 +7,7 @@ interface IVonageAuthenticationService {
 
     suspend fun logout()
 
-    suspend fun registerVonageVoipToken(token: String)
+    suspend fun registerVonageVoipToken(newTokenFirebase: String)
 
     fun setRegion(region: String)
 }

@@ -27,6 +27,9 @@ interface ICallActionsHandler {
     suspend fun processPushCallInvite(remoteMessage: RemoteMessage)
 }
 
+/**
+ * Interface for app authentication, required to connect with vonage
+ */
 interface IAppAuthProvider {
     suspend fun getJwtToken(): String
 }
@@ -108,8 +111,10 @@ class CallActionsHandler(
     /** Give the incoming push to the SDK to process */
     override suspend fun processPushCallInvite(remoteMessage: RemoteMessage) {
         Log.d("CallActionsHandler", "processPushCallInvite $remoteMessage")
-        val jwt: String = appAuthProvider.getJwtToken()
-        vonageAuthenticationService.login(jwt)
+        val clientAppJwtToken: String = appAuthProvider.getJwtToken()
+        Log.d("CallActionsHandler", "processPushCallInvite clientAppJwtToken $clientAppJwtToken")
+        vonageAuthenticationService.login(clientAppJwtToken)
+        Log.d("CallActionsHandler", "processPushCallInvite calling vonage processPushCallInvite")
         voiceClient.processPushCallInvite(remoteMessage.data.toString())
     }
 }

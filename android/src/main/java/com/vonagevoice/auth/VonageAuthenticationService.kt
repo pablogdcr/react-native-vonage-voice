@@ -38,6 +38,7 @@ class VonageAuthenticationService(
     override suspend fun login(jwt: String) {
         Log.d("VonageAuthenticationService", "login $jwt")
         currentSessionId = voiceClient.createSession(jwt)
+        Log.d("VonageAuthenticationService", "login sessionId $currentSessionId")
     }
 
     override suspend fun logout() {
@@ -46,28 +47,23 @@ class VonageAuthenticationService(
     }
 
     /** For push to work, you need to register a token. This token maps this device to this user. */
-    override suspend fun registerVonageVoipToken(token: String) {
+    override suspend fun registerVonageVoipToken(newTokenFirebase: String) {
         Log.d("VonageAuthenticationService", "registerVonageVoipToken")
-        val storedToken = vonageStorage.getPushTokenStr()
-        Log.d("VonageAuthenticationService", "registerVonageVoipToken storedToken: $storedToken")
-        Log.d("VonageAuthenticationService", "registerVonageVoipToken token: $token")
+        val storedTokenFirebase = vonageStorage.getPushTokenStr()
+        Log.d("VonageAuthenticationService", "registerVonageVoipToken storedTokenFirebase: $storedTokenFirebase")
+        Log.d("VonageAuthenticationService", "registerVonageVoipToken newTokenFirebase: $newTokenFirebase")
 
-        val shouldRegisterDevicePushToken = storedToken != null && !storedToken.contentEquals(token)
+        val shouldRegisterDevicePushToken = storedTokenFirebase != newTokenFirebase
 
         Log.d(
             "VonageAuthenticationService",
             "registerVonageVoipToken shouldRegisterDevicePushToken $shouldRegisterDevicePushToken"
         )
-        val deviceId: String =
-            if (shouldRegisterDevicePushToken) {
-                voiceClient.registerDevicePushToken(token)
-            } else {
-                requireNotNull(storedToken)
-            }
+        val deviceId: String = voiceClient.registerDevicePushToken(newTokenFirebase)
 
         Log.d("VonageAuthenticationService", "registerVonageVoipToken deviceId $deviceId")
         vonageStorage.saveDeviceId(deviceId)
-        vonageStorage.savePushTokenStr(token)
+        vonageStorage.savePushTokenStr(newTokenFirebase)
         Log.d("VonageAuthenticationService", "registerVonageVoipToken end")
     }
 
