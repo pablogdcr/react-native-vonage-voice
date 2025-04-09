@@ -8,6 +8,9 @@ import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.js.Event
 import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.storage.VonageStorage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class VonageAuthenticationService(
     private val voiceClient: VoiceClient,
@@ -20,12 +23,15 @@ class VonageAuthenticationService(
     init {
         Log.d("VonageAuthenticationService", "init")
         // observe session errors and send to JS
+
         voiceClient.setSessionErrorListener {
-            eventEmitter.sendEvent(
-                Event.SessionError,
-                Arguments.createMap().apply { putString("reason", it.toString()) },
-            )
-            Log.d("VonageAuthenticationService", "SessionError reason $it")
+            CoroutineScope(Dispatchers.IO).launch {
+                eventEmitter.sendEvent(
+                    Event.SessionError,
+                    Arguments.createMap().apply { putString("reason", it.toString()) },
+                )
+                Log.d("VonageAuthenticationService", "SessionError reason $it")
+            }
         }
     }
 
@@ -43,10 +49,15 @@ class VonageAuthenticationService(
     override suspend fun registerVonageVoipToken(token: String) {
         Log.d("VonageAuthenticationService", "registerVonageVoipToken")
         val storedToken = vonageStorage.getPushTokenStr()
+        Log.d("VonageAuthenticationService", "registerVonageVoipToken storedToken: $storedToken")
+        Log.d("VonageAuthenticationService", "registerVonageVoipToken token: $token")
 
-        // val encoded = Base64.encodeToString(storedToken, Base64.NO_WRAP)
         val shouldRegisterDevicePushToken = storedToken != null && !storedToken.contentEquals(token)
 
+        Log.d(
+            "VonageAuthenticationService",
+            "registerVonageVoipToken shouldRegisterDevicePushToken $shouldRegisterDevicePushToken"
+        )
         val deviceId: String =
             if (shouldRegisterDevicePushToken) {
                 voiceClient.registerDevicePushToken(token)
@@ -54,8 +65,10 @@ class VonageAuthenticationService(
                 requireNotNull(storedToken)
             }
 
+        Log.d("VonageAuthenticationService", "registerVonageVoipToken deviceId $deviceId")
         vonageStorage.saveDeviceId(deviceId)
         vonageStorage.savePushTokenStr(token)
+        Log.d("VonageAuthenticationService", "registerVonageVoipToken end")
     }
 
     override fun setRegion(region: String) {
@@ -73,4 +86,27 @@ class VonageAuthenticationService(
         val config = VGClientConfig(region = vonageRegion)
         voiceClient.setConfig(config)
     }
+
+    fun dataFromHexString(hexString: String): ByteArray? {
+        var hex = hexString.replace(" ", "") // Remove spaces
+
+        // Ensure even number of characters for proper hex representation
+        if (hex.length % 2 != 0) {
+            return null
+        }
+
+        val data = mutableListOf<Byte>()
+        var index = 0
+
+        while (index < hex.length) {
+            val byteString = hex.substring(index, index + 2)
+            val byte = byteString.toUByteOrNull(16)?.toByte() ?: return null
+            data.add(byte)
+            index += 2
+        }
+
+        return data.toByteArray()
+    }
+
+
 }

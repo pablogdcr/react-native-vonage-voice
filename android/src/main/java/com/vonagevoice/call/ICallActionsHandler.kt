@@ -58,7 +58,6 @@ class CallActionsHandler(
             // Handling incoming call invite
             Log.d("CallActionsHandler", "handleIncomingCalls setCallInviteListener callId: $callId, from: $from, channelType: $channelType")
 
-
             telecomHelper.showIncomingCall(callId, from)
         }
     }

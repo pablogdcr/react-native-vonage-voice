@@ -12,18 +12,19 @@ import androidx.annotation.RequiresPermission
 import androidx.core.content.getSystemService
 import com.vonagevoice.call.CallConnectionService
 
-class TelecomHelper(private val context: Context, private val callController: CallController) {
+class TelecomHelper(context: Context) {
 
     private val telecomManager: TelecomManager =
         context.getSystemService<TelecomManager>() as TelecomManager
 
     private var phoneAccountHandle: PhoneAccountHandle
+    private var phoneAccount: PhoneAccount
 
     init {
         Log.d("TelecomHelper", "init")
         val componentName = ComponentName(context, CallConnectionService::class.java)
         phoneAccountHandle = PhoneAccountHandle(componentName, "Vonage Voip Calling")
-        val phoneAccount =
+        phoneAccount =
             PhoneAccount.builder(phoneAccountHandle, "Vonage Voip Calling")
                 .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
                 .build()
@@ -37,7 +38,7 @@ class TelecomHelper(private val context: Context, private val callController: Ca
     }
 
     fun showIncomingCall(callId: String, from: String) {
-        Log.d("TelecomHelper", "showIncomingCall")
+        Log.d("TelecomHelper", "showIncomingCall callId: $callId, from: $from")
         val extras =
             Bundle().apply {
                 putString(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS, from)
@@ -45,22 +46,7 @@ class TelecomHelper(private val context: Context, private val callController: Ca
                 putString("from", from)
             }
 
-        val builder =
-            PhoneAccount.builder(
-                    PhoneAccountHandle(
-                        ComponentName(context, CallConnectionService::class.java),
-                        callId,
-                    ),
-                    "Vonage Call",
-                )
-                .apply { setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER) }
-
-        telecomManager.registerPhoneAccount(builder.build())
-
-        telecomManager.addNewIncomingCall(
-            PhoneAccountHandle(ComponentName(context, CallConnectionService::class.java), callId),
-            extras,
-        )
+        telecomManager.addNewIncomingCall(phoneAccountHandle, extras)
     }
 
     @RequiresPermission(Manifest.permission.ANSWER_PHONE_CALLS)

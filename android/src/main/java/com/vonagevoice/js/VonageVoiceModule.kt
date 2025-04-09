@@ -1,13 +1,18 @@
 package com.vonagevoice.js
 
+import android.content.Context
+import android.content.Intent
 import android.util.Log
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
+import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.call.ICallActionsHandler
+import com.vonagevoice.call.VonagePushMessageService
 import com.vonagevoice.speakers.SpeakerController
 import com.vonagevoice.storage.VonageStorage
 import com.vonagevoice.utils.tryBlocking
@@ -23,6 +28,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     private val vonageAuthenticationService: IVonageAuthenticationService by inject()
     private val speakerController: SpeakerController by inject()
     private val callActionsHandler: ICallActionsHandler by inject()
+    private val eventEmitter: EventEmitter by inject()
     private val scope = CoroutineScope(Dispatchers.IO)
 
     /*
@@ -167,6 +173,24 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     fun disableSpeaker(promise: Promise) {
         Log.d("VonageVoiceModule", "disableSpeaker")
         speakerController.disableSpeaker()
+    }
+
+    @ReactMethod
+    fun subscribeToAudioRouteChange(promise: Promise) {
+        Log.d("VonageVoiceModule", "subscribeToAudioRouteChange")
+    }
+
+    @ReactMethod
+    fun registerVoipToken(promise: Promise) {
+        Log.d("VonageVoiceModule", "registerVoipToken")
+
+        scope.launch {
+            val pushToken = VonagePushMessageService.requestToken()
+            eventEmitter.sendEvent(
+                Event.REGISTER,
+                Arguments.createMap().apply { putString("token", pushToken) }
+            )
+        }
     }
 
     override fun invalidate() {

@@ -25,7 +25,7 @@ class VonageStorage(context: Context) {
 
     fun getRegion(): String {
         val region = sharedPrefs.getString(REGION_KEY, "US") ?: "US"
-        Log.d("VonageStorage", "getRegion $region")
+        Log.d("VonageStorage", "getRegion region: $region")
         return region
     }
 
@@ -42,7 +42,7 @@ class VonageStorage(context: Context) {
 
     fun getPushTokenStr(): String? {
         val token = sharedPrefs.getString(PUSH_TOKEN_STR_KEY, "")
-        Log.d("VonageStorage", "getPushTokenStr $token")
+        Log.d("VonageStorage", "getPushTokenStr token: $token")
         return token
     }
 
@@ -66,7 +66,7 @@ class VonageStorage(context: Context) {
 
     fun getDeviceId(): String? {
         val deviceId = sharedPrefs.getString(DEVICE_ID_KEY, null)
-        Log.d("VonageStorage", "saveDeviceId $deviceId")
+        Log.d("VonageStorage", "saveDeviceId deviceId: $deviceId")
         return deviceId
     }
 
