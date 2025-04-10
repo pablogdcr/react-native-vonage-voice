@@ -23,7 +23,7 @@ class VonageAuthenticationService(
     init {
         Log.d("VonageAuthenticationService", "init")
         // observe session errors and send to JS
-
+/*
         voiceClient.setSessionErrorListener {
             CoroutineScope(Dispatchers.IO).launch {
                 eventEmitter.sendEvent(
@@ -33,6 +33,8 @@ class VonageAuthenticationService(
                 Log.d("VonageAuthenticationService", "SessionError reason $it")
             }
         }
+
+ */
     }
 
     override suspend fun login(jwt: String) {
@@ -82,27 +84,4 @@ class VonageAuthenticationService(
         val config = VGClientConfig(region = vonageRegion)
         voiceClient.setConfig(config)
     }
-
-    fun dataFromHexString(hexString: String): ByteArray? {
-        var hex = hexString.replace(" ", "") // Remove spaces
-
-        // Ensure even number of characters for proper hex representation
-        if (hex.length % 2 != 0) {
-            return null
-        }
-
-        val data = mutableListOf<Byte>()
-        var index = 0
-
-        while (index < hex.length) {
-            val byteString = hex.substring(index, index + 2)
-            val byte = byteString.toUByteOrNull(16)?.toByte() ?: return null
-            data.add(byte)
-            index += 2
-        }
-
-        return data.toByteArray()
-    }
-
-
 }

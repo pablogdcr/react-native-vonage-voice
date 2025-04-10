@@ -1,5 +1,7 @@
 package com.vonagevoice.di
 
+import com.vonage.android_core.VGClientInitConfig
+import com.vonage.clientcore.core.api.LoggingLevel
 import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.auth.VonageAuthenticationService
@@ -15,12 +17,9 @@ import org.koin.dsl.bind
 import org.koin.dsl.module
 
 val vonageModule = module {
-    // singleOf(::CallControllerImpl) bind CallController::class
-    //
-    // single { VoiceClient(get(), VGClientInitConfig(loggingLevel = LoggingLevel.Error)) }
-    singleOf(::TelecomHelper)
+    single { TelecomHelper(context = get(), appName = "Allo Android Phone Account") }
     singleOf(::SpeakerController)
-    single { VoiceClient(ctx = get())}
+    single { VoiceClient(ctx = get(), VGClientInitConfig(loggingLevel = LoggingLevel.Error)) }
     singleOf(::VonageAuthenticationService) bind IVonageAuthenticationService::class
     singleOf(::CallActionsHandler) bind ICallActionsHandler::class
     singleOf(::CallConnection)

@@ -1,13 +1,15 @@
 package com.vonagevoice.call
 
+import android.content.Context
+import android.content.Intent
 import android.util.Log
 import com.google.firebase.messaging.RemoteMessage
-import com.google.firebase.messaging.remoteMessage
 import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.deprecated.TelecomHelper
 
 interface ICallActionsHandler {
+    suspend fun call(to: String)
     suspend fun answer(callId: String)
 
     suspend fun reject(callId: String)
@@ -24,7 +26,7 @@ interface ICallActionsHandler {
 
     suspend fun disableNoiseSuppression(callId: String)
 
-    suspend fun processPushCallInvite(remoteMessage: RemoteMessage)
+    suspend fun processPushCallInvite(remoteMessageStr: String)
 }
 
 /**
@@ -34,35 +36,80 @@ interface IAppAuthProvider {
     suspend fun getJwtToken(): String
 }
 
+interface IOpenCustomPhoneDialerUI {
+    operator fun invoke(callId: String, from: String)
+}
+
 class CallActionsHandler(
     private val appAuthProvider: IAppAuthProvider,
     private val voiceClient: VoiceClient,
     private val vonageAuthenticationService: IVonageAuthenticationService,
-    private val telecomHelper: TelecomHelper
+    private val telecomHelper: TelecomHelper,
+    private val context: Context,
+    private val openCustomPhoneDialerUI: IOpenCustomPhoneDialerUI,
 ) : ICallActionsHandler {
 
     init {
         Log.d("CallActionsHandler", "init")
-        handleIncomingCalls()
-        callLegUpdates()
+        observeIncomingCalls()
+        observeLegStatus()
+        observeHangups()
+        observeSessionErrors()
     }
 
-    private fun callLegUpdates() {
+    private fun observeSessionErrors() {
+        voiceClient.setSessionErrorListener { error ->
+            // Handle session errors
+        }
+    }
+
+    private fun observeHangups() {
+        voiceClient.setOnCallHangupListener { callId, callQuality, reason ->
+            // Handle hangups
+        }
+    }
+
+    private fun observeLegStatus() {
         Log.d("CallActionsHandler", "callLegUpdates")
         voiceClient.setOnLegStatusUpdate { callId, legId, status ->
             // Call leg updates
-            Log.d("CallActionsHandler", "callLegUpdates setOnLegStatusUpdate callId: $callId, legId: $legId, status: $status")
+            Log.d(
+                "CallActionsHandler",
+                "callLegUpdates setOnLegStatusUpdate callId: $callId, legId: $legId, status: $status"
+            )
         }
     }
 
-    private fun handleIncomingCalls() {
+    enum class PhoneType {
+        NativePhoneDialerUI, CustomPhoneDialerUI
+    }
+
+    private fun observeIncomingCalls() {
         Log.d("CallActionsHandler", "handleIncomingCalls")
         voiceClient.setCallInviteListener { callId, from, channelType ->
             // Handling incoming call invite
-            Log.d("CallActionsHandler", "handleIncomingCalls setCallInviteListener callId: $callId, from: $from, channelType: $channelType")
+            Log.d(
+                "CallActionsHandler",
+                "handleIncomingCalls setCallInviteListener callId: $callId, from: $from, channelType: $channelType"
+            )
 
-            telecomHelper.showIncomingCall(callId, from)
+            val phoneType: PhoneType = PhoneType.CustomPhoneDialerUI
+            Log.d("CallActionsHandler", "handleIncomingCalls phoneType: $phoneType")
+            when (phoneType) {
+                PhoneType.NativePhoneDialerUI -> { // used for android auto
+                    telecomHelper.showIncomingCall(callId, from)
+                }
+
+                PhoneType.CustomPhoneDialerUI -> {
+                    Log.d("CallActionsHandler", "handleIncomingCalls startActivity")
+                    openCustomPhoneDialerUI(callId, from)
+                }
+            }
         }
+    }
+
+    override suspend fun call(to: String) {
+        voiceClient.serverCall(mapOf("to" to to))
     }
 
     override suspend fun answer(callId: String) {
@@ -79,7 +126,7 @@ class CallActionsHandler(
 
     override suspend fun hangup(callId: String) {
         Log.d("CallActionsHandler", "hangup $callId")
-    
+
         voiceClient.hangup(callId)
     }
 
@@ -109,12 +156,19 @@ class CallActionsHandler(
     }
 
     /** Give the incoming push to the SDK to process */
-    override suspend fun processPushCallInvite(remoteMessage: RemoteMessage) {
-        Log.d("CallActionsHandler", "processPushCallInvite $remoteMessage")
+    override suspend fun processPushCallInvite(remoteMessageStr: String) {
+        Log.d("CallActionsHandler", "processPushCallInvite remoteMessageStr: $remoteMessageStr")
+        Log.d(
+            "CallActionsHandler",
+            "processPushCallInvite requesting clientAppJwtToken to app to use Vonage"
+        )
         val clientAppJwtToken: String = appAuthProvider.getJwtToken()
-        Log.d("CallActionsHandler", "processPushCallInvite clientAppJwtToken $clientAppJwtToken")
+            ?: throw IllegalStateException("appAuthProvider returned a null jwt token")
+        Log.d("CallActionsHandler", "processPushCallInvite clientAppJwtToken: $clientAppJwtToken")
         vonageAuthenticationService.login(clientAppJwtToken)
         Log.d("CallActionsHandler", "processPushCallInvite calling vonage processPushCallInvite")
-        voiceClient.processPushCallInvite(remoteMessage.data.toString())
+
+        // This voiceClient::processPushCallInvite call triggers CallActionsHandler::observeIncomingCalls
+        voiceClient.processPushCallInvite(remoteMessageStr)
     }
 }
