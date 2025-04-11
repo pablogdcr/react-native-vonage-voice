@@ -1,5 +1,33 @@
 package com.vonagevoice.deprecated
 
+import android.content.Context
+import android.media.AudioManager
+import android.os.Build
+
+data class AudioDevice(
+    val name: String,
+    val id: String,
+    val type: String,
+)
+
+fun getAvailableAudioInputs(context: Context): List<AudioDevice> {
+    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    val devices = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+
+    return devices.map { device ->
+        AudioDevice(
+            name = device.productName?.toString() ?: "Unknown",
+            id = device.id.toString(),
+            type = device.type.toString()
+        )
+    }
+}
+
+fun setAudioInputById(context: Context, deviceId: Int, onResult: (Boolean, String?) -> Unit) {
+
+}
+
+
 /*
 class VonageDeviceManager(private val voiceClient: VoiceClient) : DeviceManager {
     override fun getAvailableAudioDevices(): Result<List<AudioDevice>> {

@@ -13,8 +13,10 @@ import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.call.ICallActionsHandler
 import com.vonagevoice.call.VonagePushMessageService
+import com.vonagevoice.deprecated.getAvailableAudioInputs
 import com.vonagevoice.speakers.SpeakerController
 import com.vonagevoice.storage.VonageStorage
+import com.vonagevoice.utils.success
 import com.vonagevoice.utils.tryBlocking
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +31,10 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     private val speakerController: SpeakerController by inject()
     private val callActionsHandler: ICallActionsHandler by inject()
     private val eventEmitter: EventEmitter by inject()
+    private val storage: VonageStorage by inject()
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val context: Context by inject()
+
 
     /*
         private val callManager: CallActionsHandler by inject()
@@ -68,6 +73,8 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
 
     /**
      * isSandbox looks used only for iOS, we ignore it here
+     * This method is triggered by react native when event register is sent by event emitter
+     * @param token = push token from firebase
      */
     @ReactMethod
     fun registerVonageVoipToken(token: String, isSandbox: Boolean, promise: Promise) {
@@ -105,6 +112,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun serverCall(to: String, customData: ReadableMap, promise: Promise) {
         Log.d("VonageVoiceModule", "serverCall to: $to, customData: $customData")
+        scope.launch { promise.tryBlocking { callActionsHandler.call(to) } }
     }
 
     @ReactMethod
@@ -122,6 +130,21 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun getAvailableAudioDevices(promise: Promise) {
         Log.d("VonageVoiceModule", "getAvailableAudioDevices")
+
+        getAvailableAudioInputs(context).map {
+            Arguments.createMap().apply { putBoolean("success", true) }
+        }
+
+        /*
+                let devices = AVAudioSession.sharedInstance().availableInputs
+
+                resolve(devices?.map { device in
+                        return [
+                            "name": device.portName,
+                    "id": device.uid,
+                    "type": device.portType
+                    ]
+                })*/
     }
 
     @ReactMethod
@@ -132,6 +155,31 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun subscribeToCallEvents() {
         Log.d("VonageVoiceModule", "subscribeToCallEvents")
+
+        /*
+         callController.calls
+            .flatMap { $0 }
+            .sink { call in
+                let callData: [String: Any] = [
+                    "id": call.id.uuidString,
+                    "status": call.status.description,
+                    "isOutbound": call.isOutbound,
+                    "phoneNumber": call.phoneNumber,
+                    "startedAt": call.startedAt?.timeIntervalSince1970 as Any
+                ]
+
+                EventEmitter.shared.sendEvent(withName: Event.callEvents.rawValue, body: callData)
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .voipTokenRegistered)
+            .sink { notification in
+                if let token = notification.userInfo?["token"] as? String {
+                    EventEmitter.shared.sendEvent(withName: Event.register.rawValue, body: ["token": token])
+                }
+            }
+            .store(in: &cancellables)
+         */
     }
 
     @ReactMethod
