@@ -28,6 +28,13 @@ sealed class Call {
                 is Outbound -> to
             }
 
+    val sstartedAt: Long?
+        get() =
+            when (this) {
+                is Inbound -> startedAt
+                is Outbound -> startedAt
+            }
+
     val callId: String
         get() =
             when (this) {

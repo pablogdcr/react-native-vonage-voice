@@ -3,10 +3,19 @@ package com.vonagevoice.call
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.facebook.react.bridge.WritableNativeMap
 import com.google.firebase.messaging.RemoteMessage
+import com.vonage.clientcore.core.api.LegStatus
 import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IVonageAuthenticationService
+import com.vonagevoice.deprecated.Call
 import com.vonagevoice.deprecated.TelecomHelper
+import com.vonagevoice.js.Event
+import com.vonagevoice.js.EventEmitter
+import com.vonagevoice.storage.CallRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 interface ICallActionsHandler {
     suspend fun call(to: String)
@@ -41,6 +50,10 @@ interface IOpenCustomPhoneDialerUI {
     operator fun invoke(callId: String, from: String)
 }
 
+interface ICallListener {
+    fun dispatchCallEvent(callEvent: Event)
+}
+
 class CallActionsHandler(
     private val appAuthProvider: IAppAuthProvider,
     private val voiceClient: VoiceClient,
@@ -48,7 +61,12 @@ class CallActionsHandler(
     private val telecomHelper: TelecomHelper,
     private val context: Context,
     private val openCustomPhoneDialerUI: IOpenCustomPhoneDialerUI,
+    private val eventEmitter: EventEmitter,
+    private val callRepository: CallRepository
 ) : ICallActionsHandler {
+
+    private var callListener: ICallListener? = null
+    private val scope = CoroutineScope(Dispatchers.IO)
 
     init {
         Log.d("CallActionsHandler", "init")
@@ -58,15 +76,30 @@ class CallActionsHandler(
         observeSessionErrors()
     }
 
+    fun attachCallListener(callListener: ICallListener) {
+        Log.d("CallActionsHandler", "attachCallListener")
+        this.callListener = callListener
+    }
+
     private fun observeSessionErrors() {
+        Log.d("CallActionsHandler", "observeSessionErrors")
         voiceClient.setSessionErrorListener { error ->
+            Log.d("CallActionsHandler", "setSessionErrorListener $error")
             // Handle session errors
         }
     }
 
     private fun observeHangups() {
+        Log.d("CallActionsHandler", "observeHangups")
         voiceClient.setOnCallHangupListener { callId, callQuality, reason ->
             // Handle hangups
+
+            Log.d(
+                "CallActionsHandler",
+                "observeHangups callId: $callId, callQuality: $callQuality, reason: $reason"
+            )
+
+            callRepository.removeHangedUpCall(callId)
         }
     }
 
@@ -78,6 +111,44 @@ class CallActionsHandler(
                 "CallActionsHandler",
                 "callLegUpdates setOnLegStatusUpdate callId: $callId, legId: $legId, status: $status"
             )
+
+            val storedCall = callRepository.getCall(callId)
+                ?: throw IllegalStateException("Call $callId does not exist on storage")
+
+            val map = WritableNativeMap().apply {
+                putString("id", callId)
+                putString("status", status.name)
+                putBoolean("isOutbound", storedCall is Call.Outbound)
+                putString("phoneNumber", storedCall?.phoneNumber)
+                putInt("", storedCall?.sstartedAt?.toInt() ?: 0)
+            }
+
+            when (status) {
+                LegStatus.completed -> {
+                    Log.d("CallActionsHandler", "observeLegStatus completed")
+
+                    // TODO cancelCallNotification(context, CALL_IN_PROGRESS_NOTIFICATION_ID)
+                    // when status is completed remove item from list
+                    callRepository.removeHangedUpCall(callId)
+                }
+
+                LegStatus.ringing -> {
+                    Log.d("CallActionsHandler", "observeLegStatus ringing")
+                }
+
+                LegStatus.answered -> {
+                    Log.d("CallActionsHandler", "observeLegStatus answered")
+                    // update status
+                    // when status change
+                    // and update startedAt when answered for inbound
+                    callRepository.answerInboundCall(callId)
+                }
+            }
+
+            scope.launch {
+                Log.d("CallActionsHandler", "observeLegStatus sendEvent callEvents with $map")
+                eventEmitter.sendEvent(Event.CALL_EVENTS, map)
+            }
         }
     }
 
@@ -93,6 +164,8 @@ class CallActionsHandler(
                 "CallActionsHandler",
                 "handleIncomingCalls setCallInviteListener callId: $callId, from: $from, channelType: $channelType"
             )
+
+            callRepository.newInbound(callId, from)
 
             val phoneType: PhoneType = PhoneType.CustomPhoneDialerUI
             Log.d("CallActionsHandler", "handleIncomingCalls phoneType: $phoneType")

@@ -17,7 +17,7 @@ class EventEmitter(
 
     init {
         reactContext = reactInstanceManager.currentReactContext
-        Log.d("EventEmitter", "init $reactContext")
+        Log.d("EventEmitter", "init reactContext: $reactContext")
         reactInstanceManager.addReactInstanceEventListener(object : ReactInstanceEventListener {
             override fun onReactContextInitialized(context: ReactContext) {
                 Log.d("EventEmitter", "onReactContextInitialized $context")

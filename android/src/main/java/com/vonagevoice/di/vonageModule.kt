@@ -11,6 +11,7 @@ import com.vonagevoice.call.CallConnection
 import com.vonagevoice.deprecated.TelecomHelper
 import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.speakers.SpeakerController
+import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.storage.VonageStorage
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
@@ -25,4 +26,5 @@ val vonageModule = module {
     singleOf(::CallConnection)
     singleOf(::EventEmitter)
     singleOf(::VonageStorage)
+    singleOf(::CallRepository)
 }
