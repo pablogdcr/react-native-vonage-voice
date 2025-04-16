@@ -34,15 +34,15 @@ interface RNVonageVoiceCallModuleInterface {
   serverCall(to: string, customData?: Record<string, string>): Promise<string>;
   sendDTMF(dtmf: string): Promise<{ success: true } | null>;
   reconnectCall(callId: string): Promise<{ success: true } | null>;
-  subscribeToCallEvents(): void;
   addCallEventListener(
     callback: (event: CallEvent) => void
   ): EmitterSubscription;
-  unsubscribeFromCallEvents(): void;
-  subscribeToAudioRouteChange(): EmitterSubscription;
-  unsubscribeFromAudioRouteChange(): void;
-  subscribeToMutedEvent(): EmitterSubscription;
-  unsubscribeFromMutedEvent(): void;
+  addAudioRouteChangeListener(
+    callback: (event: AudioRouteChangeEvent) => void
+  ): EmitterSubscription;
+  addMutedEventListener(
+    callback: (event: MuteChangedEvent) => void
+  ): EmitterSubscription;
   subscribeToVoipToken(): EmitterSubscription;
   subscribeToVoipTokenInvalidation(): EmitterSubscription;
   registerVonageVoipToken: (
@@ -144,16 +144,8 @@ class RNVonageVoiceCall {
     return VonageVoice!.reconnectCall(callId);
   }
 
-  static subscribeToCallEvents() {
-    VonageVoice!.subscribeToCallEvents();
-  }
-
   static addCallEventListener(callback: (event: CallEvent) => void) {
     return eventEmitter.addListener('callEvents', callback);
-  }
-
-  static unsubscribeFromCallEvents() {
-    VonageVoice!.unsubscribeFromCallEvents();
   }
 
   static registerVonageVoipToken(token: string, isSandbox?: boolean) {
@@ -178,23 +170,14 @@ class RNVonageVoiceCall {
     return eventEmitter.addListener('voipTokenInvalidated', callback);
   }
 
-  static subscribeToAudioRouteChange(
+  static addAudioRouteChangeListener(
     callback: (event: AudioRouteChangeEvent) => void
   ) {
-    VonageVoice!.subscribeToAudioRouteChange();
     return eventEmitter.addListener('audioRouteChanged', callback);
   }
 
-  static unsubscribeFromAudioRouteChange() {
-    VonageVoice!.unsubscribeFromAudioRouteChange();
-  }
-
-  static subscribeToMutedEvent(callback: (event: MuteChangedEvent) => void) {
+  static addMutedEventListener(callback: (event: MuteChangedEvent) => void) {
     return eventEmitter.addListener('muteChanged', callback);
-  }
-
-  static unsubscribeFromMutedEvent() {
-    VonageVoice!.unsubscribeFromMutedEvent();
   }
 
   static getAvailableAudioDevices() {
