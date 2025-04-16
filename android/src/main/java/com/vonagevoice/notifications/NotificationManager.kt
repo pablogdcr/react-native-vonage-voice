@@ -259,13 +259,16 @@ class NotificationManager(private val context: Context, private val appIntent: I
             NotificationCompat.Builder(context, "inprogress_call_channel")
                 .setContentTitle("Appel en cours")
                 .setContentText("$phoneName - $time")
-                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setSilent(true)
                 .setSmallIcon(R.drawable.ic_call)
-                .setOngoing(true) // Notification persistante
                 .addAction(0, "Raccrocher", hangUpPendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_MIN) // Priorité minimale
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setOngoing(true) // Notification persistante
+                .setSound(null)
+                .setVibrate(null)
+                .setVisibility(NotificationCompat.VISIBILITY_SECRET)
                 .build()
 
         val notificationManager =

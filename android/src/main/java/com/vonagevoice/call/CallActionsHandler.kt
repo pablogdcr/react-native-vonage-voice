@@ -9,7 +9,6 @@ import com.vonagevoice.auth.IAppAuthProvider
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.js.Event
 import com.vonagevoice.js.EventEmitter
-import com.vonagevoice.nativedialer.TelecomHelper
 import com.vonagevoice.notifications.NotificationManager
 import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.nowDate
@@ -32,7 +31,6 @@ import kotlinx.coroutines.launch
 class CallActionsHandler(
     private val appAuthProvider: IAppAuthProvider,
     private val vonageAuthenticationService: IVonageAuthenticationService,
-    private val telecomHelper: TelecomHelper,
     private val openCustomPhoneDialerUI: IOpenCustomPhoneDialerUI,
     private val eventEmitter: EventEmitter,
     private val callRepository: CallRepository,
@@ -83,9 +81,11 @@ class CallActionsHandler(
                 putDouble("startedAt", storedCall.startedAt ?: 0.0)
             }
             scope.launch {
-                Log.d("CallActionsHandler", "observeLegStatus sendEvent callEvents with $map")
+                Log.d("CallActionsHandler", "observeCallInviteCancel sendEvent callEvents with $map")
                 eventEmitter.sendEvent(Event.CALL_EVENTS, map)
             }
+            notificationManager.cancelInProgressNotification()
+            CallLifecycleManager.callback?.onCallEnded()
         }
     }
 
@@ -107,13 +107,32 @@ class CallActionsHandler(
         voiceClient.setOnCallHangupListener { callId, callQuality, reason ->
             // Handle hangups
 
+            val normalizedCallId = callId.lowercase()
+
             Log.d(
                 "CallActionsHandler",
                 "observeHangups callId: $callId, callQuality: $callQuality, reason: $reason",
             )
 
-            callRepository.removeHangedUpCall(callId)
             notificationManager.cancelInProgressNotification()
+
+            scope.launch {
+                val storedCall = callRepository.getCall(callId)
+
+                val map =
+                    WritableNativeMap().apply {
+                        putString("id", normalizedCallId)
+                        putString("status", CallStatus.COMPLETED.name)
+                        putBoolean("isOutbound", storedCall is Call.Outbound)
+                        putString("phoneNumber", (storedCall)?.phoneNumber)
+                        putDouble("startedAt", storedCall?.startedAt ?: 0.0)
+                    }
+                Log.d("CallActionsHandler", "observeHangups sendEvent callEvents with $map")
+                eventEmitter.sendEvent(Event.CALL_EVENTS, map)
+
+                callRepository.removeHangedUpCall(callId)
+            }
+            CallLifecycleManager.callback?.onCallEnded()
         }
     }
 
@@ -136,22 +155,17 @@ class CallActionsHandler(
                 "callLegUpdates setOnLegStatusUpdate callId: $callId, legId: $legId, status: $status",
             )
 
-            val storedCall =
-                callRepository.getCall(callId)
-                    ?: throw IllegalStateException("Call $callId does not exist on storage")
-
             val normalizedCallId = callId.lowercase()
 
             when (status) {
                 LegStatus.completed -> {
                     Log.d("CallActionsHandler", "observeLegStatus completed")
-                    callRepository.removeHangedUpCall(normalizedCallId)
                     notificationManager.cancelInProgressNotification()
                 }
 
                 LegStatus.ringing -> {
                     Log.d("CallActionsHandler", "observeLegStatus ringing")
-                    callRepository.newInbound(callId, storedCall.phoneNumber)
+                    // no need to call callRepository.newInbound because it's already called in observeIncomingCalls setCallInviteListener
                 }
 
                 LegStatus.answered -> {
@@ -165,15 +179,17 @@ class CallActionsHandler(
             }
 
             scope.launch {
-                val call = callRepository.getCall(callId)
+                val storedCall =
+                    callRepository.getCall(callId)
+                        ?: throw IllegalStateException("Call $callId does not exist on storage")
 
                 val map =
                     WritableNativeMap().apply {
                         putString("id", normalizedCallId)
                         putString("status", status.name)
-                        putBoolean("isOutbound", call is Call.Outbound)
-                        putString("phoneNumber", (call ?: storedCall).phoneNumber)
-                        putDouble("startedAt", ((call ?: storedCall).startedAt ?: 0.0))
+                        putBoolean("isOutbound", storedCall is Call.Outbound)
+                        putString("phoneNumber", storedCall.phoneNumber)
+                        putDouble("startedAt", storedCall.startedAt ?: 0.0)
                     }
                 Log.d("CallActionsHandler", "observeLegStatus sendEvent callEvents with $map")
                 eventEmitter.sendEvent(Event.CALL_EVENTS, map)
@@ -191,12 +207,12 @@ class CallActionsHandler(
      * @param channelType The channel type (e.g., voice, video).
      */
     private fun observeIncomingCalls() {
-        Log.d("CallActionsHandler", "handleIncomingCalls")
+        Log.d("CallActionsHandler", "observeIncomingCalls")
         voiceClient.setCallInviteListener { callId, from, channelType ->
             // Handling incoming call invite
             Log.d(
                 "CallActionsHandler",
-                "handleIncomingCalls setCallInviteListener callId: $callId, from: $from, channelType: $channelType",
+                "observeIncomingCalls setCallInviteListener callId: $callId, from: $from, channelType: $channelType",
             )
 
             callRepository.newInbound(callId, from)
@@ -220,7 +236,7 @@ class CallActionsHandler(
             Log.d("CallActionsHandler", "handleIncomingCalls phoneType: $phoneType")
             when (phoneType) {
                 PhoneType.NativePhoneDialerUI -> { // used for android auto
-                    telecomHelper.showIncomingCall(callId, from)
+                   // telecomHelper.showIncomingCall(callId, from)
                 }
 
                 PhoneType.CustomPhoneDialerUI -> {
@@ -257,9 +273,25 @@ class CallActionsHandler(
      */
     override suspend fun reject(callId: String) {
         Log.d("CallActionsHandler", "reject $callId")
+        val normalizedCallId = callId.lowercase()
         voiceClient.reject(callId)
-        /* callConnection.setDisconnected(DisconnectCause(DisconnectCause.LOCAL))
-        callConnection.destroy()*/
+
+        scope.launch {
+            val storedCall = callRepository.getCall(callId)
+
+            val map =
+                WritableNativeMap().apply {
+                    putString("id", normalizedCallId)
+                    putString("status", CallStatus.COMPLETED.name)
+                    putBoolean("isOutbound", storedCall is Call.Outbound)
+                    putString("phoneNumber", (storedCall)?.phoneNumber)
+                    putDouble("startedAt", storedCall?.startedAt ?: 0.0)
+                }
+            Log.d("CallActionsHandler", "reject sendEvent callEvents with $map")
+            eventEmitter.sendEvent(Event.CALL_EVENTS, map)
+            callRepository.removeHangedUpCall(callId)
+        }
+        CallLifecycleManager.callback?.onCallEnded()
     }
 
     /**

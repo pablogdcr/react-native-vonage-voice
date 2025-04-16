@@ -1,5 +1,6 @@
 package com.vonagevoice.storage
 
+import android.util.Log
 import com.vonagevoice.call.Call
 import com.vonagevoice.call.CallStatus
 import com.vonagevoice.utils.nowDate
@@ -24,7 +25,7 @@ class CallRepository {
                 id = callId,
                 to = phoneNumber,
                 status = CallStatus.RINGING,
-                startedAt = nowDate()
+                startedAt = nowDate(),
             )
         )
     }
@@ -37,8 +38,8 @@ class CallRepository {
      * - a status set to [CallStatus.RINGING],
      * - and a `startedAt` timestamp set to `null` because the call hasn't been answered yet.
      *
-     * The phone number can be updated later via [setInboundPhoneNumber],
-     * and the timestamp will be set via [answerInboundCall] when the call is answered.
+     * The phone number can be updated later via [setInboundPhoneNumber], and the timestamp will be
+     * set via [answerInboundCall] when the call is answered.
      *
      * @param callId The unique identifier of the inbound call.
      */
@@ -48,7 +49,7 @@ class CallRepository {
                 id = callId,
                 from = from ?: "",
                 status = CallStatus.RINGING,
-                startedAt = null
+                startedAt = null,
             )
         )
     }
@@ -56,8 +57,7 @@ class CallRepository {
     /**
      * Marks an inbound call as answered by updating its status and start time.
      *
-     * This is called when the user accepts the incoming call.
-     * We update:
+     * This is called when the user accepts the incoming call. We update:
      * - the call's status to [CallStatus.ANSWERED]
      * - and the start timestamp to the current time.
      *
@@ -67,17 +67,14 @@ class CallRepository {
         val index = calls.indexOfFirst { it is Call.Inbound && it.id == callId }
         if (index != -1) {
             val inboundCall = calls[index] as Call.Inbound
-            val updatedCall = inboundCall.copy(
-                status = CallStatus.ANSWERED,
-                startedAt = nowDate()
-            )
+            val updatedCall = inboundCall.copy(status = CallStatus.ANSWERED, startedAt = nowDate())
             calls[index] = updatedCall
         }
     }
 
     /**
-     * Vonage doesn't provide the caller's phone number immediately for inbound calls.
-     * We store the call in a list and update its phone number later when it becomes available.
+     * Vonage doesn't provide the caller's phone number immediately for inbound calls. We store the
+     * call in a list and update its phone number later when it becomes available.
      *
      * @param callId The unique ID of the call to update.
      * @param phoneNumber The phone number to set for the corresponding inbound call.
@@ -92,6 +89,7 @@ class CallRepository {
     }
 
     fun getCall(callId: String): Call? {
+        Log.d("CallRepository", "getCall callId: $callId , calls: $calls")
         return calls.find { it.id == callId }
     }
 

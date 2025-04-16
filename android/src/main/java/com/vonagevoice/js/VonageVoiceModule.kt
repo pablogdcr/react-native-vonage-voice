@@ -1,6 +1,5 @@
 package com.vonagevoice.js
 
-import android.content.Context
 import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -8,12 +7,11 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
+import com.vonagevoice.audio.SpeakerController
+import com.vonagevoice.audio.getAvailableAudioOutputs
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.call.ICallActionsHandler
 import com.vonagevoice.call.VonagePushMessageService
-import com.vonagevoice.audio.SpeakerController
-import com.vonagevoice.audio.getAvailableAudioOutputs
-import com.vonagevoice.storage.VonageStorage
 import com.vonagevoice.utils.tryBlocking
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,16 +25,9 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     private val vonageAuthenticationService: IVonageAuthenticationService by inject()
     private val speakerController: SpeakerController by inject()
     private val callActionsHandler: ICallActionsHandler by inject()
-    private val eventEmitter: EventEmitter by inject()
-    private val storage: VonageStorage by inject()
     private val jsEventSender: JSEventSender by inject()
     private val scope = CoroutineScope(Dispatchers.IO)
-    private val context: Context by inject()
 
-    /*
-        private val callManager: CallActionsHandler by inject()
-        private val deviceManager: DeviceManager by inject()
-    */
     override fun getName(): String {
         return "VonageVoiceModule"
     }
