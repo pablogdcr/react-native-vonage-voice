@@ -90,6 +90,15 @@ public class VonageVoice: NSObject {
         callController = VonageCallController(logger: CustomLogger(debugAdditionalInfo: info))
 
         super.init()
+
+        listenForCallEvents()
+        NotificationCenter.default.addObserver(self, selector: #selector(handleRouteChange), name: AVAudioSession.routeChangeNotification, object: nil)
+    }
+
+    @objc
+    func invalidate() {
+        cancellables.removeAll()
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
     }
 
     @objc public func saveDebugAdditionalInfo(info: String?) {
@@ -430,7 +439,7 @@ public class VonageVoice: NSObject {
 }
 
 extension VonageVoice {
-    @objc public func subscribeToCallEvents() {
+    @objc public func listenForCallEvents() {
         callController.calls
             .flatMap { $0 }
             .sink { call in
@@ -454,21 +463,9 @@ extension VonageVoice {
             }
             .store(in: &cancellables)
     }
-
-    @objc public func unsubscribeFromCallEvents() {
-        cancellables.removeAll()
-    }
 }
 
 extension VonageVoice {
-    @objc public func subscribeToAudioRouteChange() {
-        NotificationCenter.default.addObserver(self, selector: #selector(handleRouteChange), name: AVAudioSession.routeChangeNotification, object: nil)
-    }
-
-    @objc public func unsubscribeFromAudioRouteChange() {
-        NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
-    }
-
     @objc func handleRouteChange(notification: Notification) {
         guard !callController.vonageActiveCalls.value.isEmpty else {
             return
