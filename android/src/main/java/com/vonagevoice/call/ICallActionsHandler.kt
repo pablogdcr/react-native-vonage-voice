@@ -1,16 +1,13 @@
 package com.vonagevoice.call
 
 import android.content.Context
-import android.content.Intent
 import android.util.Log
 import com.facebook.react.bridge.WritableNativeMap
-import com.google.firebase.messaging.RemoteMessage
 import com.vonage.clientcore.core.api.LegStatus
 import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.deprecated.Call
 import com.vonagevoice.deprecated.TelecomHelper
-import com.vonagevoice.di.VoiceClientHolder
 import com.vonagevoice.js.Event
 import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.storage.CallRepository
@@ -64,9 +61,9 @@ class CallActionsHandler(
     private val context: Context,
     private val openCustomPhoneDialerUI: IOpenCustomPhoneDialerUI,
     private val eventEmitter: EventEmitter,
-    private val callRepository: CallRepository
+    private val callRepository: CallRepository,
+    private val voiceClient: VoiceClient
 ) : ICallActionsHandler {
-    private val voiceClient: VoiceClient  = VoiceClientHolder.get()
     private var callListener: ICallListener? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 

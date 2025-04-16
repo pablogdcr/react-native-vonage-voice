@@ -1,24 +1,17 @@
 package com.vonagevoice.auth
 
 import android.util.Log
-import com.facebook.react.bridge.Arguments
 import com.vonage.android_core.VGClientConfig
 import com.vonage.clientcore.core.api.ClientConfigRegion
 import com.vonage.voice.api.VoiceClient
-import com.vonagevoice.di.VoiceClientHolder
-import com.vonagevoice.js.Event
 import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.storage.VonageStorage
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class VonageAuthenticationService(
     private val eventEmitter: EventEmitter,
     private val vonageStorage: VonageStorage,
+    private val voiceClient: VoiceClient
 ) : IVonageAuthenticationService {
-
-    private val voiceClient: VoiceClient = VoiceClientHolder.get()
 
     private var currentSessionId: String = ""
 
