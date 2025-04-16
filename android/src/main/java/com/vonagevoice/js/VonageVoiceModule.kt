@@ -11,7 +11,7 @@ import com.facebook.react.bridge.ReadableMap
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.call.ICallActionsHandler
 import com.vonagevoice.call.VonagePushMessageService
-import com.vonagevoice.deprecated.getAvailableAudioInputs
+import com.vonagevoice.deprecated.getAvailableAudioOutputs
 import com.vonagevoice.speakers.SpeakerController
 import com.vonagevoice.storage.VonageStorage
 import com.vonagevoice.utils.tryBlocking
@@ -131,15 +131,19 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         Log.d("VonageVoiceModule", "getAvailableAudioDevices")
 
         try {
-            val inputs = getAvailableAudioInputs(reactApplicationContext)
-            val mapped = inputs.map {
-                mapOf(
-                    "name" to it.name,
-                    "id" to it.id,
-                    "type" to it.type
-                )
+            val inputs = getAvailableAudioOutputs(reactApplicationContext)
+            val array = Arguments.createArray()
+
+            inputs.forEach { input ->
+                val device = Arguments.createMap().apply {
+                    putString("name", input.name)
+                    putString("id", input.id)
+                    putString("type", input.type)
+                }
+                array.pushMap(device)
             }
-            promise.resolve(mapped)
+
+            promise.resolve(array)
         } catch (e: Exception) {
             promise.reject("AUDIO_INPUT_ERROR", e.message, e)
         }

@@ -114,15 +114,6 @@ class CallActionsHandler(
             val storedCall = callRepository.getCall(callId)
                 ?: throw IllegalStateException("Call $callId does not exist on storage")
 
-            val normalizedCallId = callId.lowercase()
-
-            val map = WritableNativeMap().apply {
-                putString("id", normalizedCallId)
-                putString("status", status.name)
-                putBoolean("isOutbound", storedCall is Call.Outbound)
-                putString("phoneNumber", storedCall.phoneNumber)
-                putInt("startedAt", storedCall.sstartedAt?.toInt() ?: 0)
-            }
 
             when (status) {
                 LegStatus.completed -> {
@@ -150,6 +141,18 @@ class CallActionsHandler(
             }
 
             scope.launch {
+                val call = callRepository.getCall(callId)
+                    ?: throw IllegalStateException("Call $callId does not exist on storage")
+
+                val normalizedCallId = callId.lowercase()
+
+                val map = WritableNativeMap().apply {
+                    putString("id", normalizedCallId)
+                    putString("status", status.name)
+                    putBoolean("isOutbound", call is Call.Outbound)
+                    putString("phoneNumber", call.phoneNumber)
+                    putDouble("startedAt", (call.sstartedAt?.toDouble() ?: 0.0) / 1000)
+                }
                 Log.d("CallActionsHandler", "observeLegStatus sendEvent callEvents with $map")
                 eventEmitter.sendEvent(Event.CALL_EVENTS, map)
             }
@@ -178,7 +181,7 @@ class CallActionsHandler(
                     putString("status", "ringing")
                     putBoolean("isOutbound", false)
                     putString("phoneNumber", from)
-                    putInt("startedAt", nowDate().toInt())
+                    putDouble("startedAt", System.currentTimeMillis().toDouble() / 1000)
                 }
 
                 Log.d("CallActionsHandler", "observeLegStatus sendEvent callEvents with $map")

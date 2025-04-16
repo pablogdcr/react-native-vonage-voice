@@ -33,9 +33,11 @@ class SpeakerController(
 
         scope.launch {
             val map = WritableNativeMap().apply {
-                putString("name", "speaker enabled")
-                putString("id", "idk")
-                putString("type", "speaker_enabled")
+                putMap("device", WritableNativeMap().apply {
+                    putString("name", "Speaker")
+                    putString("id", "idk")
+                    putString("type", "Speaker")
+                })
             }
 
             eventEmitter.sendEvent(
@@ -53,9 +55,9 @@ class SpeakerController(
 
         scope.launch {
             val map = WritableNativeMap().apply {
-                putString("name", "speaker disabled")
+                putString("name", "Receiver")
                 putString("id", "idk")
-                putString("type", "speaker_disabled")
+                putString("type", "Receiver")
             }
 
             eventEmitter.sendEvent(
@@ -70,10 +72,11 @@ class SpeakerController(
 
 fun mapDeviceType(type: Int): String {
     return when (type) {
-        AudioDeviceInfo.TYPE_BUILTIN_MIC -> "BUILTIN_MIC"
-        AudioDeviceInfo.TYPE_WIRED_HEADSET -> "WIRED_HEADSET"
-        AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "BLUETOOTH"
-        // ajoute d'autres types si besoin
-        else -> "UNKNOWN $type"
+        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Speaker"
+        AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Receiver"
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth"
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth"
+        AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Headphones"
+        else -> "UNKNOWN (type: $type)"
     }
 }

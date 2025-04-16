@@ -1,8 +1,10 @@
 package com.vonagevoice.deprecated
 
 import android.content.Context
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
+import android.util.Log
 import com.vonagevoice.speakers.mapDeviceType
 
 data class AudioDevice(
@@ -11,16 +13,23 @@ data class AudioDevice(
     val type: String,
 )
 
-fun getAvailableAudioInputs(context: Context): List<AudioDevice> {
+fun getAvailableAudioOutputs(context: Context): List<AudioDevice> {
     val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    val devices = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+    val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
 
-    return devices.map { device ->
-        AudioDevice(
-            name = device.productName?.toString() ?: "Unknown",
-            id = device.id.toString(),
-            type = mapDeviceType(device.type)
-        )
+    return devices.mapNotNull { device ->
+        when (device.type) {
+            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> {
+                AudioDevice(
+                    name = device.productName.toString(),
+                    id = device.id.toString(),
+                    type = mapDeviceType(device.type)
+                )
+            }
+            else -> null
+        }
     }
 }
 
