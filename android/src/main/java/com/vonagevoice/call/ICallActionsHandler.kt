@@ -10,9 +10,11 @@ import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.deprecated.Call
 import com.vonagevoice.deprecated.TelecomHelper
+import com.vonagevoice.di.VoiceClientHolder
 import com.vonagevoice.js.Event
 import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.storage.CallRepository
+import com.vonagevoice.storage.nowDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -56,7 +58,7 @@ interface ICallListener {
 
 class CallActionsHandler(
     private val appAuthProvider: IAppAuthProvider,
-    private val voiceClient: VoiceClient,
+
     private val vonageAuthenticationService: IVonageAuthenticationService,
     private val telecomHelper: TelecomHelper,
     private val context: Context,
@@ -64,7 +66,7 @@ class CallActionsHandler(
     private val eventEmitter: EventEmitter,
     private val callRepository: CallRepository
 ) : ICallActionsHandler {
-
+    private val voiceClient: VoiceClient  = VoiceClientHolder.get()
     private var callListener: ICallListener? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -115,12 +117,14 @@ class CallActionsHandler(
             val storedCall = callRepository.getCall(callId)
                 ?: throw IllegalStateException("Call $callId does not exist on storage")
 
+            val normalizedCallId = callId.lowercase()
+
             val map = WritableNativeMap().apply {
-                putString("id", callId)
+                putString("id", normalizedCallId)
                 putString("status", status.name)
                 putBoolean("isOutbound", storedCall is Call.Outbound)
-                putString("phoneNumber", storedCall?.phoneNumber)
-                putInt("", storedCall?.sstartedAt?.toInt() ?: 0)
+                putString("phoneNumber", storedCall.phoneNumber)
+                putInt("startedAt", storedCall.sstartedAt?.toInt() ?: 0)
             }
 
             when (status) {
@@ -134,6 +138,7 @@ class CallActionsHandler(
 
                 LegStatus.ringing -> {
                     Log.d("CallActionsHandler", "observeLegStatus ringing")
+                    callRepository.newInbound(callId, storedCall.phoneNumber)
                 }
 
                 LegStatus.answered -> {
@@ -142,6 +147,8 @@ class CallActionsHandler(
                     // when status change
                     // and update startedAt when answered for inbound
                     callRepository.answerInboundCall(callId)
+
+                    // TODO cancelCallNotification(context, CALL_INBOUND_NOTIFICATION_ID)
                 }
             }
 
@@ -166,6 +173,20 @@ class CallActionsHandler(
             )
 
             callRepository.newInbound(callId, from)
+
+            val normalizedCallId = callId.lowercase()
+            scope.launch {
+                val map = WritableNativeMap().apply {
+                    putString("id", normalizedCallId)
+                    putString("status", "ringing")
+                    putBoolean("isOutbound", false)
+                    putString("phoneNumber", from)
+                    putInt("startedAt", nowDate().toInt())
+                }
+
+                Log.d("CallActionsHandler", "observeLegStatus sendEvent callEvents with $map")
+                eventEmitter.sendEvent(Event.CALL_EVENTS, map)
+            }
 
             val phoneType: PhoneType = PhoneType.CustomPhoneDialerUI
             Log.d("CallActionsHandler", "handleIncomingCalls phoneType: $phoneType")
@@ -207,11 +228,19 @@ class CallActionsHandler(
     override suspend fun mute(callId: String) {
         Log.d("CallActionsHandler", "mute $callId")
         voiceClient.mute(callId)
+        val param = WritableNativeMap().apply {
+            putBoolean("muted", true)
+        }
+        eventEmitter.sendEvent(Event.MUTE_CHANGED, param)
     }
 
     override suspend fun unmute(callId: String) {
         Log.d("CallActionsHandler", "unmute $callId")
         voiceClient.unmute(callId)
+        val param = WritableNativeMap().apply {
+            putBoolean("muted", false)
+        }
+        eventEmitter.sendEvent(Event.MUTE_CHANGED, param)
     }
 
     override suspend fun reconnectCall(legId: String) {

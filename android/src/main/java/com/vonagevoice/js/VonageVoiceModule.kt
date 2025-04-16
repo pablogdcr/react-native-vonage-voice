@@ -1,7 +1,6 @@
 package com.vonagevoice.js
 
 import android.content.Context
-import android.content.Intent
 import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -9,14 +8,12 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
-import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.call.ICallActionsHandler
 import com.vonagevoice.call.VonagePushMessageService
 import com.vonagevoice.deprecated.getAvailableAudioInputs
 import com.vonagevoice.speakers.SpeakerController
 import com.vonagevoice.storage.VonageStorage
-import com.vonagevoice.utils.success
 import com.vonagevoice.utils.tryBlocking
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,9 +29,8 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     private val callActionsHandler: ICallActionsHandler by inject()
     private val eventEmitter: EventEmitter by inject()
     private val storage: VonageStorage by inject()
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope = CoroutineScope(Dispatchers.Main)
     private val context: Context by inject()
-
 
     /*
         private val callManager: CallActionsHandler by inject()
@@ -93,20 +89,23 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun answerCall(callId: String, promise: Promise) {
-        Log.d("VonageVoiceModule", "answerCall $callId")
-        scope.launch { promise.tryBlocking { callActionsHandler.answer(callId) } }
+        val normalizedCallId = callId.lowercase()
+        Log.d("VonageVoiceModule", "answerCall $normalizedCallId")
+        scope.launch { callActionsHandler.answer(normalizedCallId) }
     }
 
     @ReactMethod
     fun rejectCall(callId: String, promise: Promise) {
-        Log.d("VonageVoiceModule", "rejectCall $callId")
-        scope.launch { promise.tryBlocking { callActionsHandler.reject(callId) } }
+        val normalizedCallId = callId.lowercase()
+        Log.d("VonageVoiceModule", "rejectCall $normalizedCallId")
+        scope.launch { promise.tryBlocking { callActionsHandler.reject(normalizedCallId) } }
     }
 
     @ReactMethod
     fun hangup(callId: String, promise: Promise) {
-        Log.d("VonageVoiceModule", "hangup $callId")
-        scope.launch { promise.tryBlocking { callActionsHandler.hangup(callId) } }
+        val normalizedCallId = callId.lowercase()
+        Log.d("VonageVoiceModule", "hangup $normalizedCallId")
+        scope.launch { promise.tryBlocking { callActionsHandler.hangup(normalizedCallId) } }
     }
 
     @ReactMethod
@@ -122,29 +121,28 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun reconnectCall(callId: String, promise: Promise) {
-        Log.d("VonageVoiceModule", "reconnectCall $callId")
-
-        scope.launch { promise.tryBlocking { callActionsHandler.reconnectCall(callId) } }
+        val normalizedCallId = callId.lowercase()
+        Log.d("VonageVoiceModule", "reconnectCall $normalizedCallId")
+        scope.launch { promise.tryBlocking { callActionsHandler.reconnectCall(normalizedCallId) } }
     }
 
     @ReactMethod
     fun getAvailableAudioDevices(promise: Promise) {
         Log.d("VonageVoiceModule", "getAvailableAudioDevices")
 
-        getAvailableAudioInputs(context).map {
-            Arguments.createMap().apply { putBoolean("success", true) }
+        try {
+            val inputs = getAvailableAudioInputs(reactApplicationContext)
+            val mapped = inputs.map {
+                mapOf(
+                    "name" to it.name,
+                    "id" to it.id,
+                    "type" to it.type
+                )
+            }
+            promise.resolve(mapped)
+        } catch (e: Exception) {
+            promise.reject("AUDIO_INPUT_ERROR", e.message, e)
         }
-
-        /*
-                let devices = AVAudioSession.sharedInstance().availableInputs
-
-                resolve(devices?.map { device in
-                        return [
-                            "name": device.portName,
-                    "id": device.uid,
-                    "type": device.portType
-                    ]
-                })*/
     }
 
     @ReactMethod
@@ -152,40 +150,6 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         Log.d("VonageVoiceModule", "setAudioDevice $deviceId")
     }
 
-    @ReactMethod
-    fun subscribeToCallEvents() {
-        Log.d("VonageVoiceModule", "subscribeToCallEvents")
-
-        /*
-         callController.calls
-            .flatMap { $0 }
-            .sink { call in
-                let callData: [String: Any] = [
-                    "id": call.id.uuidString,
-                    "status": call.status.description,
-                    "isOutbound": call.isOutbound,
-                    "phoneNumber": call.phoneNumber,
-                    "startedAt": call.startedAt?.timeIntervalSince1970 as Any
-                ]
-
-                EventEmitter.shared.sendEvent(withName: Event.callEvents.rawValue, body: callData)
-            }
-            .store(in: &cancellables)
-
-        NotificationCenter.default.publisher(for: .voipTokenRegistered)
-            .sink { notification in
-                if let token = notification.userInfo?["token"] as? String {
-                    EventEmitter.shared.sendEvent(withName: Event.register.rawValue, body: ["token": token])
-                }
-            }
-            .store(in: &cancellables)
-         */
-    }
-
-    @ReactMethod
-    fun unsubscribeFromCallEvents() {
-        Log.d("VonageVoiceModule", "unsubscribeFromCallEvents")
-    }
 
     @ReactMethod
     fun addListener(eventName: String) {
@@ -199,16 +163,18 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun mute(callId: String, promise: Promise) {
-        Log.d("VonageVoiceModule", "mute $callId")
+        val normalizedCallId = callId.lowercase()
+        Log.d("VonageVoiceModule", "mute $normalizedCallId")
 
-        scope.launch { promise.tryBlocking { callActionsHandler.mute(callId) } }
+        scope.launch { promise.tryBlocking { callActionsHandler.mute(normalizedCallId) } }
     }
 
     @ReactMethod
     fun unmute(callId: String, promise: Promise) {
-        Log.d("VonageVoiceModule", "unmute $callId")
+        val normalizedCallId = callId.lowercase()
+        Log.d("VonageVoiceModule", "unmute $normalizedCallId")
 
-        scope.launch { promise.tryBlocking { callActionsHandler.unmute(callId) } }
+        scope.launch { promise.tryBlocking { callActionsHandler.unmute(normalizedCallId) } }
     }
 
     @ReactMethod
@@ -221,11 +187,6 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     fun disableSpeaker(promise: Promise) {
         Log.d("VonageVoiceModule", "disableSpeaker")
         speakerController.disableSpeaker()
-    }
-
-    @ReactMethod
-    fun subscribeToAudioRouteChange(promise: Promise) {
-        Log.d("VonageVoiceModule", "subscribeToAudioRouteChange")
     }
 
     @ReactMethod
@@ -245,4 +206,28 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         super.invalidate()
         Log.d("VonageVoiceModule", "invalidate")
     }
+
+
+    // delete
+
+
+    @ReactMethod
+    fun subscribeToAudioRouteChange() {
+        Log.d("VonageVoiceModule", "subscribeToAudioRouteChange")
+
+    }
+
+
+    @ReactMethod
+    fun subscribeToCallEvents() {
+        Log.d("VonageVoiceModule", "subscribeToCallEvents")
+
+        // Done in CallActionsHandler::init
+    }
+
+    @ReactMethod
+    fun unsubscribeFromCallEvents() {
+        Log.d("VonageVoiceModule", "unsubscribeFromCallEvents")
+    }
+
 }

@@ -3,6 +3,7 @@ package com.vonagevoice.deprecated
 import android.content.Context
 import android.media.AudioManager
 import android.os.Build
+import com.vonagevoice.speakers.mapDeviceType
 
 data class AudioDevice(
     val name: String,
@@ -18,7 +19,7 @@ fun getAvailableAudioInputs(context: Context): List<AudioDevice> {
         AudioDevice(
             name = device.productName?.toString() ?: "Unknown",
             id = device.id.toString(),
-            type = device.type.toString()
+            type = mapDeviceType(device.type)
         )
     }
 }
