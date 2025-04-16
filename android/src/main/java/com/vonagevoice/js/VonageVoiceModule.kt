@@ -11,8 +11,8 @@ import com.facebook.react.bridge.ReadableMap
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.call.ICallActionsHandler
 import com.vonagevoice.call.VonagePushMessageService
-import com.vonagevoice.deprecated.getAvailableAudioOutputs
-import com.vonagevoice.speakers.SpeakerController
+import com.vonagevoice.audio.SpeakerController
+import com.vonagevoice.audio.getAvailableAudioOutputs
 import com.vonagevoice.storage.VonageStorage
 import com.vonagevoice.utils.tryBlocking
 import kotlinx.coroutines.CoroutineScope
@@ -29,7 +29,8 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     private val callActionsHandler: ICallActionsHandler by inject()
     private val eventEmitter: EventEmitter by inject()
     private val storage: VonageStorage by inject()
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val jsEventSender: JSEventSender by inject()
+    private val scope = CoroutineScope(Dispatchers.IO)
     private val context: Context by inject()
 
     /*
@@ -198,11 +199,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         Log.d("VonageVoiceModule", "registerVoipToken")
 
         scope.launch {
-            val pushToken = VonagePushMessageService.requestToken()
-            eventEmitter.sendEvent(
-                Event.REGISTER,
-                Arguments.createMap().apply { putString("token", pushToken) }
-            )
+            jsEventSender.sendFirebasePushToken(VonagePushMessageService.requestToken())
         }
     }
 

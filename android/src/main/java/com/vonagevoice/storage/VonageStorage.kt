@@ -6,6 +6,12 @@ import android.util.Base64
 import android.util.Log
 import androidx.core.content.edit
 
+/**
+ * A storage class that manages saving, retrieving, and removing user-related data such as region,
+ * push notification tokens, and device ID using Android's SharedPreferences.
+ *
+ * @param context The context to access SharedPreferences.
+ */
 class VonageStorage(context: Context) {
 
     companion object {

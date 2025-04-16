@@ -1,4 +1,4 @@
-package com.vonagevoice.deprecated
+package com.vonagevoice.nativedialer
 
 import android.Manifest
 import android.content.ComponentName
@@ -11,8 +11,6 @@ import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
 import android.util.Log
 import androidx.annotation.RequiresPermission
-import androidx.core.content.ContextCompat.startActivity
-import com.vonagevoice.call.CallConnectionService
 
 
 class TelecomHelper(private val context: Context, private val appName: String) {

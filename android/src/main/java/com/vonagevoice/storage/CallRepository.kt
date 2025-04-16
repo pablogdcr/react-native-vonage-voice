@@ -1,7 +1,8 @@
 package com.vonagevoice.storage
 
-import com.vonagevoice.deprecated.Call
-import com.vonagevoice.deprecated.CallStatus
+import com.vonagevoice.call.Call
+import com.vonagevoice.call.CallStatus
+import com.vonagevoice.utils.nowDate
 
 class CallRepository {
     private val calls: MutableList<Call> = mutableListOf()
@@ -91,7 +92,7 @@ class CallRepository {
     }
 
     fun getCall(callId: String): Call? {
-        return calls.find { it.callId == callId }
+        return calls.find { it.id == callId }
     }
 
     /**
@@ -102,11 +103,6 @@ class CallRepository {
      * @param callId The unique identifier of the call to remove.
      */
     fun removeHangedUpCall(callId: String) {
-        calls.removeAll { it.callId == callId }
+        calls.removeAll { it.id == callId }
     }
-}
-
-fun nowDate(): Long {
-    val nowTimestamp: Long = System.currentTimeMillis()
-    return nowTimestamp
 }

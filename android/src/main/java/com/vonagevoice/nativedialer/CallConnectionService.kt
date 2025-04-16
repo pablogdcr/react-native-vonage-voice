@@ -1,11 +1,19 @@
-package com.vonagevoice.call
+package com.vonagevoice.nativedialer
 
 import android.telecom.*
 import android.util.Log
 import androidx.core.net.toUri
 import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
+/**
+ * Init in manifest with :
+ *
+ *     <service android:name="com.vonagevoice.nativedialer.CallConnectionService" android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE" android:exported="false">
+ *       <intent-filter>
+ *         <action android:name="android.telecom.ConnectionService"/>
+ *       </intent-filter>
+ *     </service>
+ */
 class CallConnectionService : ConnectionService(), KoinComponent {
 
     override fun onCreateIncomingConnection(

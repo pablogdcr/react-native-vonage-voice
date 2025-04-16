@@ -1,4 +1,4 @@
-package com.vonagevoice.speakers
+package com.vonagevoice.audio
 
 import android.content.Context
 import android.media.AudioDeviceInfo
@@ -11,8 +11,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+/**
+ * The SpeakerController class manages the state of the speakerphone on the device.
+ * It provides methods to enable or disable the speakerphone mode and emit events
+ * regarding audio route changes.
+ *
+ * @param context The context used to obtain the AudioManager service.
+ * @param eventEmitter The EventEmitter used to send events related to audio route changes.
+ */
 class SpeakerController(
-    private val context: Context,
+    context: Context,
     private val eventEmitter: EventEmitter
 ) {
 
@@ -25,7 +33,10 @@ class SpeakerController(
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
     }
 
-    // Enable the speaker (speakerphone mode on)
+    /**
+     * Enables the speakerphone (speakerphone mode on).
+     * It changes the audio output to the speaker and sends an event to notify that the speaker has been enabled.
+     */
     fun enableSpeaker() {
         Log.d("SpeakerController", "enableSpeaker")
         // This runs on the main thread, ensure it's run within a coroutine
@@ -47,7 +58,10 @@ class SpeakerController(
         }
     }
 
-    // Disable the speaker (speakerphone mode off)
+    /**
+     * Disables the speakerphone (speakerphone mode off).
+     * It changes the audio output to the default audio path and sends an event to notify that the speaker has been disabled.
+     */
     fun disableSpeaker() {
         Log.d("SpeakerController", "disableSpeaker")
         // This runs on the main thread, ensure it's run within a coroutine
@@ -68,15 +82,4 @@ class SpeakerController(
     }
 
     fun isSpeakerOn(): Boolean = audioManager.isSpeakerphoneOn
-}
-
-fun mapDeviceType(type: Int): String {
-    return when (type) {
-        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Speaker"
-        AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Receiver"
-        AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth"
-        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth"
-        AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Headphones"
-        else -> "UNKNOWN (type: $type)"
-    }
 }

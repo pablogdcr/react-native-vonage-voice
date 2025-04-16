@@ -1,4 +1,4 @@
-package com.vonagevoice.deprecated
+package com.vonagevoice.call
 
 enum class CallStatus {
     RINGING,

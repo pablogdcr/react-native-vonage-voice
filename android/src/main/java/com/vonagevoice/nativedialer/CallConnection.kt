@@ -1,20 +1,18 @@
-package com.vonagevoice.call
+package com.vonagevoice.nativedialer
 
 import android.net.Uri
 import android.os.Bundle
-import android.os.ParcelFileDescriptor
 import android.telecom.CallAudioState
-import android.telecom.Conference
 import android.telecom.Connection
 import android.telecom.DisconnectCause
 import android.telecom.TelecomManager
 import android.util.Log
+import com.vonagevoice.call.ICallActionsHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-
 
 class CallConnection(from: Uri, private val callId: String) : Connection(), KoinComponent {
 
@@ -55,9 +53,7 @@ class CallConnection(from: Uri, private val callId: String) : Connection(), Koin
 
     override fun onReject() {
         Log.d(TAG, "onReject")
-        scope.launch {
-            callActionsHandler.reject(callId)
-        }
+        scope.launch { callActionsHandler.reject(callId) }
     }
 
     override fun onAbort() {
@@ -67,7 +63,6 @@ class CallConnection(from: Uri, private val callId: String) : Connection(), Koin
     override fun onAnswer(videoState: Int) {
         Log.d(TAG, "onAnswer(videoState=$videoState)")
     }
-
 
     override fun onReject(rejectReason: Int) {
         Log.d(TAG, "onReject(rejectReason=$rejectReason)")
