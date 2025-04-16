@@ -4,14 +4,15 @@ import android.content.Context
 import android.util.Log
 import com.facebook.react.bridge.WritableNativeMap
 import com.vonage.clientcore.core.api.LegStatus
+import com.vonage.clientcore.core.api.VoiceInviteCancelReason
 import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.deprecated.Call
+import com.vonagevoice.deprecated.CallStatus
 import com.vonagevoice.deprecated.TelecomHelper
 import com.vonagevoice.js.Event
 import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.storage.CallRepository
-import com.vonagevoice.storage.nowDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -70,6 +71,7 @@ class CallActionsHandler(
     init {
         Log.d("CallActionsHandler", "init")
         observeIncomingCalls()
+        observeCallInviteCancel()
         observeLegStatus()
         observeHangups()
         observeSessionErrors()
@@ -113,7 +115,7 @@ class CallActionsHandler(
 
             val storedCall = callRepository.getCall(callId)
                 ?: throw IllegalStateException("Call $callId does not exist on storage")
-
+            val normalizedCallId = callId.lowercase()
 
             when (status) {
                 LegStatus.completed -> {
@@ -142,16 +144,13 @@ class CallActionsHandler(
 
             scope.launch {
                 val call = callRepository.getCall(callId)
-                    ?: throw IllegalStateException("Call $callId does not exist on storage")
-
-                val normalizedCallId = callId.lowercase()
 
                 val map = WritableNativeMap().apply {
                     putString("id", normalizedCallId)
                     putString("status", status.name)
                     putBoolean("isOutbound", call is Call.Outbound)
-                    putString("phoneNumber", call.phoneNumber)
-                    putDouble("startedAt", (call.sstartedAt?.toDouble() ?: 0.0) / 1000)
+                    putString("phoneNumber", (call ?: storedCall).phoneNumber)
+                    putDouble("startedAt", ((call ?: storedCall).sstartedAt?.toDouble() ?: 0.0) / 1000)
                 }
                 Log.d("CallActionsHandler", "observeLegStatus sendEvent callEvents with $map")
                 eventEmitter.sendEvent(Event.CALL_EVENTS, map)
@@ -161,6 +160,26 @@ class CallActionsHandler(
 
     enum class PhoneType {
         NativePhoneDialerUI, CustomPhoneDialerUI
+    }
+
+    private fun observeCallInviteCancel() {
+        voiceClient.setCallInviteCancelListener { callId, reason: VoiceInviteCancelReason ->
+            val storedCall = callRepository.getCall(callId)
+                ?: throw IllegalStateException("Call $callId does not exist on storage")
+            val normalizedCallId = callId.lowercase()
+
+            callRepository.removeHangedUpCall(normalizedCallId)
+            val map = WritableNativeMap().apply {
+                putString("id", normalizedCallId)
+                putString("status", CallStatus.COMPLETED.toString())
+                putString("phoneNumber", storedCall.phoneNumber)
+                putDouble("startedAt", (storedCall.sstartedAt?.toDouble() ?: 0.0) / 1000)
+            }
+            scope.launch {
+                Log.d("CallActionsHandler", "observeLegStatus sendEvent callEvents with $map")
+                eventEmitter.sendEvent(Event.CALL_EVENTS, map)
+            }
+        }
     }
 
     private fun observeIncomingCalls() {
