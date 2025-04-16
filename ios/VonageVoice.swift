@@ -95,9 +95,8 @@ public class VonageVoice: NSObject {
         NotificationCenter.default.addObserver(self, selector: #selector(handleRouteChange), name: AVAudioSession.routeChangeNotification, object: nil)
     }
 
-    override deinit {
-        super.deinit()
-
+    @objc
+    func invalidate() {
         cancellables.removeAll()
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
     }
