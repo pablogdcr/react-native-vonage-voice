@@ -122,7 +122,7 @@ class CallActionsHandler(
                 val map =
                     WritableNativeMap().apply {
                         putString("id", normalizedCallId)
-                        putString("status", CallStatus.COMPLETED.name)
+                        putString("status", CallStatus.COMPLETED.toString())
                         putBoolean("isOutbound", storedCall is Call.Outbound)
                         putString("phoneNumber", (storedCall)?.phoneNumber)
                         putDouble("startedAt", storedCall?.startedAt ?: 0.0)
@@ -186,7 +186,7 @@ class CallActionsHandler(
                 val map =
                     WritableNativeMap().apply {
                         putString("id", normalizedCallId)
-                        putString("status", status.name)
+                        putString("status", status.toString())
                         putBoolean("isOutbound", storedCall is Call.Outbound)
                         putString("phoneNumber", storedCall.phoneNumber)
                         putDouble("startedAt", storedCall.startedAt ?: 0.0)
@@ -282,7 +282,7 @@ class CallActionsHandler(
             val map =
                 WritableNativeMap().apply {
                     putString("id", normalizedCallId)
-                    putString("status", CallStatus.COMPLETED.name)
+                    putString("status", CallStatus.COMPLETED.toString())
                     putBoolean("isOutbound", storedCall is Call.Outbound)
                     putString("phoneNumber", (storedCall)?.phoneNumber)
                     putDouble("startedAt", storedCall?.startedAt ?: 0.0)
