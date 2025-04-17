@@ -108,12 +108,12 @@ class NotificationManager(private val context: Context, private val appIntent: I
 
 
     fun showInboundCallNotification(
-        callId: String,
         from: String,
-        phoneName: String,
-        language: String,
-        incomingCallImage: String?,
-    ) {
+        callId: String,
+        language: String? = "",
+        phoneName: String? = "",
+        incomingCallImage: String? = null
+    ): NotificationCompat.Builder {
         Log.d("NotificationManager", "showInboundCallNotification callId: $callId, from: $from")
 
         val pendingIntent =
@@ -123,9 +123,9 @@ class NotificationManager(private val context: Context, private val appIntent: I
                 appIntent.getCallActivity(
                     callId = callId,
                     from = from,
-                    phoneName = phoneName,
-                    language = language,
-                    incomingCallImage = incomingCallImage,
+                    phoneName = "",
+                    language = "",
+                    incomingCallImage = null,
                     answerCall = false
                 ),
                 PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -138,9 +138,9 @@ class NotificationManager(private val context: Context, private val appIntent: I
             appIntent.getCallActivity(
                 callId = callId,
                 from = from,
-                phoneName = phoneName,
-                language = language,
-                incomingCallImage = incomingCallImage,
+                phoneName = "",
+                language = "",
+                incomingCallImage = null,
                 answerCall = true
             ),
             PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -157,32 +157,27 @@ class NotificationManager(private val context: Context, private val appIntent: I
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notification =
-            NotificationCompat.Builder(context, "inbound_call_channel")
-                .setContentTitle(context.getString(R.string.notification_incoming_call_title))
-                .setContentText(
-                    if (phoneName.isEmpty()) {
-                        context.getString(R.string.call_from, from)
-                    } else {
-                        context.getString(R.string.call_from, phoneName)
-                    }
-                )
-                .setSmallIcon(R.drawable.ic_incoming_call)
-                .addAction(0, context.getString(R.string.answer), answerPendingIntent)
-                .addAction(0, context.getString(R.string.reject), rejectPendingIntent)
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setCategory(NotificationCompat.CATEGORY_CALL)
-                .setFullScreenIntent(pendingIntent, true)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setChannelId(INCOMING_CALL)
-                .setOngoing(true)
-                .build()
+        val notification = NotificationCompat.Builder(context, "inbound_call_channel")
+            .setContentTitle(context.getString(R.string.notification_incoming_call_title))
+            .setContentText(context.getString(R.string.call_from, from))
+            .setSmallIcon(R.drawable.ic_incoming_call)
+            .addAction(0, context.getString(R.string.answer), answerPendingIntent)
+            .addAction(0, context.getString(R.string.reject), rejectPendingIntent)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setFullScreenIntent(pendingIntent, true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setChannelId(INCOMING_CALL)
+            .setOngoing(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notification)
+        notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notification.build())
+
+        return notification
     }
 
     private fun showInProgressCallNotification(
