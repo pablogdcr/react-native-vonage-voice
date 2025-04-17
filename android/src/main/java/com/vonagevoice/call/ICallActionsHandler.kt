@@ -1,7 +1,9 @@
 package com.vonagevoice.call
 
+import com.vonage.clientcore.core.api.CallId
+
 interface ICallActionsHandler {
-    suspend fun call(to: String)
+    suspend fun call(to: String): CallId
 
     suspend fun answer(callId: String)
 

@@ -2,6 +2,7 @@ package com.vonagevoice.call
 
 import android.util.Log
 import com.facebook.react.bridge.WritableNativeMap
+import com.vonage.voice.api.CallId
 import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IAppAuthProvider
 import com.vonagevoice.auth.IVonageAuthenticationService
@@ -46,8 +47,11 @@ class CallActionsHandler(
      *
      * @param to The phone number to call.
      */
-    override suspend fun call(to: String) {
-        voiceClient.serverCall(mapOf("to" to to))
+    override suspend fun call(to: String): CallId {
+        Log.d("CallActionsHandler", "call to: $to")
+        val callId =  voiceClient.serverCall(mapOf("to" to to))
+        Log.d("CallActionsHandler", "call to: $to, callId: $callId")
+        return callId
     }
 
     /**

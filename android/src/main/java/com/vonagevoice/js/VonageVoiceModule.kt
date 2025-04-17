@@ -12,6 +12,7 @@ import com.vonagevoice.audio.getAvailableAudioOutputs
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.call.ICallActionsHandler
 import com.vonagevoice.call.VonagePushMessageService
+import com.vonagevoice.utils.success
 import com.vonagevoice.utils.tryBlocking
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -103,7 +104,16 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun serverCall(to: String, customData: ReadableMap, promise: Promise) {
         Log.d("VonageVoiceModule", "serverCall to: $to, customData: $customData")
-        scope.launch { promise.tryBlocking { callActionsHandler.call(to) } }
+        scope.launch {
+            try {
+                val callId = callActionsHandler.call(to)
+                promise.resolve(callId)
+            } catch (e: Exception) {
+                promise.reject(e)
+            }
+
+            promise.tryBlocking { }
+        }
     }
 
     @ReactMethod
