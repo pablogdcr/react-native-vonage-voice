@@ -15,7 +15,6 @@ import org.koin.core.component.inject
 class CallActionReceiver : BroadcastReceiver(), KoinComponent {
     private val callHandler: ICallActionsHandler by inject()
     private val notificationManager: NotificationManager by inject()
-    private val appIntent: IAppIntent by inject()
     private val scope = CoroutineScope(Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -27,32 +26,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
             ?: throw IllegalArgumentException("CallActionReceiver notifications call_id is required")
 
         when (intent.action) {
-            "co.themobilefirst.allo.ACTION_ANSWER_CALL" -> {
-                Log.d("CallActionReceiver", "onReceive answer")
-
-                val phoneName = intent.getStringExtra("phone_name")
-                    ?: throw IllegalArgumentException("CallActionReceiver notifications phone_name is required")
-                val from = intent.getStringExtra("from")
-                    ?: throw IllegalArgumentException("CallActionReceiver notifications from is required")
-                val language = intent.getStringExtra("language")
-                    ?: throw IllegalArgumentException("CallActionReceiver notifications language is required")
-                val incoming_call_image = intent.getStringExtra("incoming_call_image")
-
-                notificationManager.cancelInboundNotification()
-                val callActivityIntent =  appIntent.getCallActivity(
-                    callId = callId,
-                    from = from,
-                    phoneName = phoneName,
-                    language = language,
-                    incomingCallImage = incoming_call_image,
-                    answerCall = true
-                )
-
-                context.startActivity(callActivityIntent)
-                Log.d("CallActionReceiver", "onReceive answer done")
-            }
-
-            "co.themobilefirst.allo.ACTION_REJECT_CALL" -> {
+            ACTION_REJECT_CALL-> {
                 Log.d("CallActionReceiver", "onReceive reject")
 
                 scope.launch {
@@ -76,6 +50,9 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
 
 
     companion object {
+        const val ACTION_REJECT_CALL = "com.vonage.ACTION_REJECT_CALL"
+        const val ACTION_HANG_UP = "com.vonage.ACTION_HANG_UP"
+
         fun hangUp(
             context: Context,
             callId: String,
@@ -93,47 +70,6 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
             return hangUpPendingIntent
-        }
-
-        fun reject(context: Context, callId: String): PendingIntent? {
-            Log.d("CallActionReceiver", "pending intent reject")
-            val rejectIntent = Intent(context, CallActionReceiver::class.java).apply {
-                action = "co.themobilefirst.allo.ACTION_REJECT_CALL"
-                putExtra("call_id", callId)
-            }
-            val rejectPendingIntent = PendingIntent.getBroadcast(
-                context,
-                1,
-                rejectIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            return rejectPendingIntent
-        }
-
-        fun answer(
-            context: Context, callId: String,
-            phoneName: String,
-            from: String,
-            language: String,
-            incomingCallImage: String?
-        ): PendingIntent? {
-            Log.d("CallActionReceiver", "pending intent answer")
-            val answerIntent = Intent(context, CallActionReceiver::class.java).apply {
-                action = "co.themobilefirst.allo.ACTION_ANSWER_CALL"
-                putExtra("call_id", callId)
-                putExtra("phone_name", phoneName)
-                putExtra("from", from)
-                putExtra("language", language)
-                putExtra("incoming_call_image", incomingCallImage)
-            }
-
-            val answerPendingIntent = PendingIntent.getBroadcast(
-                context,
-                0,
-                answerIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-            return answerPendingIntent
         }
     }
 }

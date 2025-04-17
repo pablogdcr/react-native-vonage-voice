@@ -1,11 +1,14 @@
 package com.vonagevoice.notifications
 
+import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.vonagevoice.R
@@ -34,6 +37,16 @@ class NotificationManager(private val context: Context, private val appIntent: I
         const val OUTGOING_CALL = "outgoing_call"
         const val ONGOING_CALL = "ongoing_call"
     }
+
+    private val saveRequestOptionsBundle: Bundle?
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ActivityOptions.makeBasic().apply {
+                // Use real caller background activity launch privileges.
+                // Needed to launch the save request intent from the background on Android 14+.
+                pendingIntentBackgroundActivityStartMode =
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            }.toBundle()
+        } else null
 
     init {
         Log.d("NotificationManager", "init")
@@ -93,32 +106,6 @@ class NotificationManager(private val context: Context, private val appIntent: I
         channels.forEach { notificationManager.createNotificationChannel(it) }
     }
 
-    fun createNotification(
-        channelId: String,
-        title: String,
-        text: String,
-        iconResId: Int,
-        intent: Intent,
-        callId: String,
-    ) {
-        Log.d("NotificationManager", "createNotification")
-        val pendingIntent =
-            PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-
-        val notification =
-            NotificationCompat.Builder(context, channelId)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setSmallIcon(iconResId)
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .build()
-
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(callId.hashCode(), notification)
-    }
 
     fun showInboundCallNotification(
         callId: String,
@@ -129,35 +116,46 @@ class NotificationManager(private val context: Context, private val appIntent: I
     ) {
         Log.d("NotificationManager", "showInboundCallNotification callId: $callId, from: $from")
 
-        val fullScreenIntent =
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                0,
+                appIntent.getCallActivity(
+                    callId = callId,
+                    from = from,
+                    phoneName = phoneName,
+                    language = language,
+                    incomingCallImage = incomingCallImage,
+                    answerCall = false
+                ),
+                PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                saveRequestOptionsBundle
+            )
+
+        val answerPendingIntent = PendingIntent.getActivity(
+            context,
+            0,
             appIntent.getCallActivity(
                 callId = callId,
                 from = from,
                 phoneName = phoneName,
                 language = language,
                 incomingCallImage = incomingCallImage,
-                answerCall = false
-            )
+                answerCall = true
+            ),
+            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            saveRequestOptionsBundle
+        )
 
-        val pendingIntent =
-            PendingIntent.getActivity(
-                context,
-                0,
-                fullScreenIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-
-        // Intentions pour Refuser et Répondre
-        val answerPendingIntent =
-            CallActionReceiver.answer(
-                context = context,
-                callId = callId,
-                incomingCallImage = incomingCallImage,
-                language = language,
-                phoneName = phoneName,
-                from = from,
-            )
-        val rejectPendingIntent = CallActionReceiver.reject(context, callId)
+        val rejectPendingIntent = PendingIntent.getBroadcast(
+            context,
+            1,
+            Intent(context, CallActionReceiver::class.java).apply {
+                action = CallActionReceiver.ACTION_REJECT_CALL
+                putExtra("call_id", callId)
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
 
         val notification =
             NotificationCompat.Builder(context, "inbound_call_channel")
@@ -170,12 +168,13 @@ class NotificationManager(private val context: Context, private val appIntent: I
                     }
                 )
                 .setSmallIcon(R.drawable.ic_incoming_call)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_CALL)
                 .addAction(0, context.getString(R.string.answer), answerPendingIntent)
                 .addAction(0, context.getString(R.string.reject), rejectPendingIntent)
-                .setFullScreenIntent(pendingIntent, true)
                 .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setFullScreenIntent(pendingIntent, true)
                 .setChannelId(INCOMING_CALL)
                 .build()
 
@@ -184,7 +183,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
         notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notification)
     }
 
-    fun showInProgressCallNotification(
+    private fun showInProgressCallNotification(
         callId: String,
         from: String,
         phoneName: String,
