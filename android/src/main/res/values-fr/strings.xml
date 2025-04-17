@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="incoming_call">Appel entrant</string>
+    <string name="call_from">Appel de %1$s</string>
+    <string name="answer">Répondre</string>
+    <string name="reject">Refuser</string>
+    <string name="end_to_end_encrypted">Chiffré de bout en bout</string>
+    <string name="minimize">Réduire</string>
+    <string name="mute">Muet</string>
+    <string name="unmute">Activer le micro</string>
+    <string name="speaker_on">Haut-parleur activé</string>
+    <string name="speaker_off">Haut-parleur désactivé</string>
+    <string name="end_call">Terminer l\'appel</string>
+    <string name="call_in_progress">Appel en cours</string>
+    <string name="call_duration">%1$s - %2$s</string>
+    <string name="hang_up">Raccrocher</string>
+</resources> 

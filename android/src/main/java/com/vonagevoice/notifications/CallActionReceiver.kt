@@ -29,29 +29,6 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
             ?: throw IllegalArgumentException("CallActionReceiver notifications call_id is required")
 
         when (intent.action) {
-           /* "co.themobilefirst.allo.ACTION_INCOMING_CALL" -> {
-                Log.d("CallActionReceiver", "onReceive ACTION_INCOMING_CALL starting Activity")
-
-                val phoneName = intent.getStringExtra("phone_name")
-                    ?: throw IllegalArgumentException("CallActionReceiver notifications phone_name is required")
-                val from = intent.getStringExtra("from")
-                    ?: throw IllegalArgumentException("CallActionReceiver notifications from is required")
-                val language = intent.getStringExtra("language")
-                    ?: throw IllegalArgumentException("CallActionReceiver notifications language is required")
-                val incoming_call_image = intent.getStringExtra("incoming_call_image")
-                    ?: throw IllegalArgumentException("CallActionReceiver notifications incoming_call_image is required")
-
-                val startActivityIntent = Intent(context, CallActivity::class.java).apply {
-                    putExtra("call_id", callId)
-                    putExtra("from", from)
-                    putExtra("phone_name", phoneName)
-                    putExtra("language", language)
-                    putExtra("incoming_call_image", incoming_call_image)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                }
-                context.startActivity(startActivityIntent)
-            }*/
-
             "co.themobilefirst.allo.ACTION_ANSWER_CALL" -> {
                 // Gérer l'acceptation de l'appel
                 val phoneName = intent.getStringExtra("phone_name")

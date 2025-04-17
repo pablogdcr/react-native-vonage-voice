@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="incoming_call">Incoming call</string>
+    <string name="call_from">Call from %1$s</string>
+    <string name="answer">Answer</string>
+    <string name="reject">Reject</string>
+    <string name="end_to_end_encrypted">End-to-end encrypted</string>
+    <string name="minimize">Minimize</string>
+    <string name="mute">Mute</string>
+    <string name="unmute">Unmute</string>
+    <string name="speaker_on">Speaker on</string>
+    <string name="speaker_off">Speaker off</string>
+    <string name="end_call">End call</string>
+    <string name="call_in_progress">Call in progress</string>
+    <string name="call_duration">%1$s - %2$s</string>
+    <string name="hang_up">Hang up</string>
+    
+    <!-- Notification strings -->
+    <string name="notification_missed_calls">Missed Calls</string>
+    <string name="notification_missed_calls_desc">Notifications for missed calls</string>
+    <string name="notification_incoming_calls">Incoming Calls</string>
+    <string name="notification_incoming_calls_desc">Notifications for incoming calls</string>
+    <string name="notification_outgoing_calls">Outgoing Calls</string>
+    <string name="notification_outgoing_calls_desc">Notifications for outgoing calls</string>
+    <string name="notification_ongoing_calls">Ongoing Calls</string>
+    <string name="notification_ongoing_calls_desc">Persistent notification for active calls</string>
+    <string name="notification_incoming_call_title">Incoming call</string>
+    <string name="notification_call_with">Call with %1$s</string>
+</resources> 

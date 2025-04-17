@@ -53,34 +53,34 @@ class NotificationManager(private val context: Context, private val appIntent: I
             listOf(
                 NotificationChannel(
                         MISSED_CALL,
-                        "Missed Calls",
+                        context.getString(R.string.notification_missed_calls),
                         NotificationManager.IMPORTANCE_DEFAULT,
                     )
-                    .apply { description = "Notifications for missed calls" },
+                    .apply { description = context.getString(R.string.notification_missed_calls_desc) },
                 NotificationChannel(
                         INCOMING_CALL,
-                        "Incoming Calls",
+                        context.getString(R.string.notification_incoming_calls),
                         NotificationManager.IMPORTANCE_HIGH,
                     )
                     .apply {
-                        description = "Notifications for incoming calls"
+                        description = context.getString(R.string.notification_incoming_calls_desc)
                         enableLights(true)
                         lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                         enableVibration(true)
                     },
                 NotificationChannel(
                         OUTGOING_CALL,
-                        "Outgoing Calls",
+                        context.getString(R.string.notification_outgoing_calls),
                         NotificationManager.IMPORTANCE_LOW,
                     )
-                    .apply { description = "Notifications for outgoing calls" },
+                    .apply { description = context.getString(R.string.notification_outgoing_calls_desc) },
                 NotificationChannel(
                         ONGOING_CALL,
-                        "Ongoing Calls",
+                        context.getString(R.string.notification_ongoing_calls),
                         NotificationManager.IMPORTANCE_MIN,
                     )
                     .apply {
-                        description = "Persistent notification for active calls"
+                        description = context.getString(R.string.notification_ongoing_calls_desc)
                         setSound(null, null)
                     },
             )
@@ -125,57 +125,6 @@ class NotificationManager(private val context: Context, private val appIntent: I
     ) {
         Log.d("NotificationManager", "showInboundCallNotification callId: $callId, from: $from")
 
-        /*  val intent =
-             appIntent.getCallActivity(
-                 callId = callId,
-                 from = from,
-                 phoneName = phoneName,
-                 language = language,
-                 incomingCallImage = incomingCallImage,
-             )
-
-         val pendingIntent =
-             PendingIntent.getActivity(
-                 context,
-                 0,
-                 intent,
-                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-             )
-
-         // Intentions pour Refuser et Répondre
-         val answerPendingIntent =
-             CallActionReceiver.answer(
-                 context = context,
-                 callId = callId,
-                 incomingCallImage = incomingCallImage,
-                 language = language,
-                 phoneName = phoneName,
-                 from = from,
-             )
-         val rejectPendingIntent = CallActionReceiver.reject(context, callId)
-
-         val notification =
-             NotificationCompat.Builder(context, "inbound_call_channel")
-                 .setContentTitle("Appel entrant")
-                 .setContentText("Appel de $phoneName")
-                 .setSmallIcon(R.drawable.ic_incoming_call) // Icône pour appel entrant
-                 .addAction(0, "Répondre", answerPendingIntent) // No icon for "Répondre"
-                 .addAction(0, "Refuser", rejectPendingIntent) // No icon for "Refuser"
-                 .setPriority(NotificationCompat.PRIORITY_HIGH)
-                 .setCategory(NotificationCompat.CATEGORY_CALL)
-                 .setFullScreenIntent(pendingIntent, true)
-                 .build()
-
-         val notificationManager =
-             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-         notificationManager.notify(
-             CALL_INBOUND_NOTIFICATION_ID,
-             notification,
-         ) // ID unique pour inbound
-
-
-        */
-
         val fullScreenIntent =
             appIntent.getCallActivity(
                 callId = callId,
@@ -207,13 +156,13 @@ class NotificationManager(private val context: Context, private val appIntent: I
 
         val notification =
             NotificationCompat.Builder(context, "inbound_call_channel")
-                .setContentTitle("Appel entrant")
-                .setContentText("Appel de ${phoneName}")
+                .setContentTitle(context.getString(R.string.notification_incoming_call_title))
+                .setContentText(context.getString(R.string.call_from, phoneName))
                 .setSmallIcon(R.drawable.ic_incoming_call)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
-                .addAction(0, "Répondre", answerPendingIntent)
-                .addAction(0, "Refuser", rejectPendingIntent)
+                .addAction(0, context.getString(R.string.answer), answerPendingIntent)
+                .addAction(0, context.getString(R.string.reject), rejectPendingIntent)
                 .setFullScreenIntent(pendingIntent, true)
                 .setAutoCancel(true)
                 .setChannelId(INCOMING_CALL)
@@ -260,15 +209,15 @@ class NotificationManager(private val context: Context, private val appIntent: I
 
         val notification =
             NotificationCompat.Builder(context, "inprogress_call_channel")
-                .setContentTitle("Appel en cours")
-                .setContentText("$phoneName - $time")
+                .setContentTitle(context.getString(R.string.call_in_progress))
+                .setContentText(context.getString(R.string.call_duration, phoneName, time))
                 .setSilent(true)
                 .setSmallIcon(R.drawable.ic_call)
-                .addAction(0, "Raccrocher", hangUpPendingIntent)
+                .addAction(0, context.getString(R.string.hang_up), hangUpPendingIntent)
                 .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_MIN) // Priorité minimale
+                .setPriority(NotificationCompat.PRIORITY_MIN)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
-                .setOngoing(true) // Notification persistante
+                .setOngoing(true)
                 .setSound(null)
                 .setVibrate(null)
                 .setVisibility(NotificationCompat.VISIBILITY_SECRET)
@@ -277,10 +226,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
 
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(
-            CALL_IN_PROGRESS_NOTIFICATION_ID,
-            notification,
-        ) // ID unique pour in progress
+        notificationManager.notify(CALL_IN_PROGRESS_NOTIFICATION_ID, notification)
     }
 
     fun showMissedCallNotification(callId: String, from: String) {
@@ -333,21 +279,18 @@ class NotificationManager(private val context: Context, private val appIntent: I
 
         val notification =
             NotificationCompat.Builder(context, "outbound_call_channel")
-                .setContentTitle("Appel en cours")
-                .setContentText("Appel avec $from")
-                .setSmallIcon(R.drawable.ic_outgoing_call) // Icône pour appel sortant
+                .setContentTitle(context.getString(R.string.call_in_progress))
+                .setContentText(context.getString(R.string.notification_call_with, from))
+                .setSmallIcon(R.drawable.ic_outgoing_call)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pendingIntent)
-                .setOngoing(true) // Rendre la notification persistante
+                .setOngoing(true)
                 .setChannelId(OUTGOING_CALL)
                 .build()
 
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(
-            CALL_OUTBOUND_NOTIFICATION_ID,
-            notification,
-        ) // ID unique pour outbound
+        notificationManager.notify(CALL_OUTBOUND_NOTIFICATION_ID, notification)
     }
 
     fun cancelInProgressNotification() {
