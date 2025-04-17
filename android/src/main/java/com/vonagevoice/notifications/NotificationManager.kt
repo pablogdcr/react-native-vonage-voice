@@ -52,16 +52,18 @@ class NotificationManager(private val context: Context, private val appIntent: I
         val channels =
             listOf(
                 NotificationChannel(
-                        MISSED_CALL,
-                        context.getString(R.string.notification_missed_calls),
-                        NotificationManager.IMPORTANCE_DEFAULT,
-                    )
-                    .apply { description = context.getString(R.string.notification_missed_calls_desc) },
+                    MISSED_CALL,
+                    context.getString(R.string.notification_missed_calls),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                )
+                    .apply {
+                        description = context.getString(R.string.notification_missed_calls_desc)
+                    },
                 NotificationChannel(
-                        INCOMING_CALL,
-                        context.getString(R.string.notification_incoming_calls),
-                        NotificationManager.IMPORTANCE_HIGH,
-                    )
+                    INCOMING_CALL,
+                    context.getString(R.string.notification_incoming_calls),
+                    NotificationManager.IMPORTANCE_HIGH,
+                )
                     .apply {
                         description = context.getString(R.string.notification_incoming_calls_desc)
                         enableLights(true)
@@ -69,16 +71,18 @@ class NotificationManager(private val context: Context, private val appIntent: I
                         enableVibration(true)
                     },
                 NotificationChannel(
-                        OUTGOING_CALL,
-                        context.getString(R.string.notification_outgoing_calls),
-                        NotificationManager.IMPORTANCE_LOW,
-                    )
-                    .apply { description = context.getString(R.string.notification_outgoing_calls_desc) },
+                    OUTGOING_CALL,
+                    context.getString(R.string.notification_outgoing_calls),
+                    NotificationManager.IMPORTANCE_LOW,
+                )
+                    .apply {
+                        description = context.getString(R.string.notification_outgoing_calls_desc)
+                    },
                 NotificationChannel(
-                        ONGOING_CALL,
-                        context.getString(R.string.notification_ongoing_calls),
-                        NotificationManager.IMPORTANCE_MIN,
-                    )
+                    ONGOING_CALL,
+                    context.getString(R.string.notification_ongoing_calls),
+                    NotificationManager.IMPORTANCE_MIN,
+                )
                     .apply {
                         description = context.getString(R.string.notification_ongoing_calls_desc)
                         setSound(null, null)
@@ -157,7 +161,13 @@ class NotificationManager(private val context: Context, private val appIntent: I
         val notification =
             NotificationCompat.Builder(context, "inbound_call_channel")
                 .setContentTitle(context.getString(R.string.notification_incoming_call_title))
-                .setContentText(context.getString(R.string.call_from, phoneName))
+                .setContentText(
+                    if (phoneName.isEmpty()) {
+                        context.getString(R.string.call_from, from)
+                    } else {
+                        context.getString(R.string.call_from, phoneName)
+                    }
+                )
                 .setSmallIcon(R.drawable.ic_incoming_call)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_CALL)

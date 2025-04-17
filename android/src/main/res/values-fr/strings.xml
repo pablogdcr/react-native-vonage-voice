@@ -7,11 +7,25 @@
     <string name="end_to_end_encrypted">Chiffré de bout en bout</string>
     <string name="minimize">Réduire</string>
     <string name="mute">Muet</string>
-    <string name="unmute">Activer le micro</string>
+    <string name="unmute">Son activé</string>
     <string name="speaker_on">Haut-parleur activé</string>
     <string name="speaker_off">Haut-parleur désactivé</string>
     <string name="end_call">Terminer l\'appel</string>
     <string name="call_in_progress">Appel en cours</string>
     <string name="call_duration">%1$s - %2$s</string>
     <string name="hang_up">Raccrocher</string>
-</resources> 
+
+    <!-- Notification strings -->
+    <string name="notification_missed_calls">Appels manqués</string>
+    <string name="notification_missed_calls_desc">Notifications pour les appels manqués</string>
+    <string name="notification_incoming_calls">Appels entrants</string>
+    <string name="notification_incoming_calls_desc">Notifications pour les appels entrants</string>
+    <string name="notification_outgoing_calls">Appels sortants</string>
+    <string name="notification_outgoing_calls_desc">Notifications pour les appels sortants</string>
+    <string name="notification_ongoing_calls">Appels en cours</string>
+    <string name="notification_ongoing_calls_desc">Notification persistante pour les appels actifs</string>
+    <string name="notification_incoming_call_title">Appel entrant</string>
+    <string name="notification_call_with">Appel avec %1$s</string>
+
+</resources>
+
