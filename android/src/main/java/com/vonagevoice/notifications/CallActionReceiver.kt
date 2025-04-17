@@ -18,19 +18,18 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
     private val appIntent: IAppIntent by inject()
     private val scope = CoroutineScope(Dispatchers.IO)
 
-
     override fun onReceive(context: Context, intent: Intent) {
         Log.d(
             "CallActionReceiver",
-            "onReceive (launched from OpenCustomAlloPhoneDialerUI) intent action : ${intent.action}"
+            "onReceive intent: $intent"
         )
-
         val callId = intent.getStringExtra("call_id")
             ?: throw IllegalArgumentException("CallActionReceiver notifications call_id is required")
 
         when (intent.action) {
             "co.themobilefirst.allo.ACTION_ANSWER_CALL" -> {
-                // Gérer l'acceptation de l'appel
+                Log.d("CallActionReceiver", "onReceive answer")
+
                 val phoneName = intent.getStringExtra("phone_name")
                     ?: throw IllegalArgumentException("CallActionReceiver notifications phone_name is required")
                 val from = intent.getStringExtra("from")
@@ -38,7 +37,6 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                 val language = intent.getStringExtra("language")
                     ?: throw IllegalArgumentException("CallActionReceiver notifications language is required")
                 val incoming_call_image = intent.getStringExtra("incoming_call_image")
-                    ?: throw IllegalArgumentException("CallActionReceiver notifications incoming_call_image is required")
 
                 notificationManager.cancelInboundNotification()
                 val callActivityIntent =  appIntent.getCallActivity(
@@ -47,29 +45,31 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                     phoneName = phoneName,
                     language = language,
                     incomingCallImage = incoming_call_image,
+                    answerCall = true
                 )
 
                 context.startActivity(callActivityIntent)
-                Log.d("CallActionReceiver", "onReceive answer")
+                Log.d("CallActionReceiver", "onReceive answer done")
             }
 
             "co.themobilefirst.allo.ACTION_REJECT_CALL" -> {
+                Log.d("CallActionReceiver", "onReceive reject")
+
                 scope.launch {
                     callHandler.reject(callId)
+                    notificationManager.cancelInboundNotification()
                     Log.d("CallActionReceiver", "onReceive reject done")
                 }
-                notificationManager.cancelInboundNotification()
             }
 
             "co.themobilefirst.allo.ACTION_HANG_UP" -> {
-                // Gérer la fin de l'appel
                 Log.d("CallActionReceiver", "onReceive hangup")
 
                 scope.launch {
                     callHandler.hangup(callId)
-                    Log.d("CallActionReceiver", "onReceive reject done")
+                    notificationManager.cancelInProgressNotification()
+                    Log.d("CallActionReceiver", "onReceive hangup done")
                 }
-                notificationManager.cancelInProgressNotification()
             }
         }
     }
@@ -80,6 +80,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
             context: Context,
             callId: String,
         ): PendingIntent {
+            Log.d("CallActionReceiver", "pending intent hangup")
             val intent = Intent(context, CallActionReceiver::class.java).apply {
                 action = "co.themobilefirst.allo.ACTION_HANG_UP"
                 putExtra("call_id", callId)
@@ -95,6 +96,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
         }
 
         fun reject(context: Context, callId: String): PendingIntent? {
+            Log.d("CallActionReceiver", "pending intent reject")
             val rejectIntent = Intent(context, CallActionReceiver::class.java).apply {
                 action = "co.themobilefirst.allo.ACTION_REJECT_CALL"
                 putExtra("call_id", callId)
@@ -115,6 +117,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
             language: String,
             incomingCallImage: String?
         ): PendingIntent? {
+            Log.d("CallActionReceiver", "pending intent answer")
             val answerIntent = Intent(context, CallActionReceiver::class.java).apply {
                 action = "co.themobilefirst.allo.ACTION_ANSWER_CALL"
                 putExtra("call_id", callId)
@@ -124,7 +127,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                 putExtra("incoming_call_image", incomingCallImage)
             }
 
-            val answerPendingIntent = PendingIntent.getActivity(
+            val answerPendingIntent = PendingIntent.getBroadcast(
                 context,
                 0,
                 answerIntent,

@@ -9,6 +9,7 @@ interface IAppIntent {
         phoneName: String,
         language: String,
         incomingCallImage: String?,
+        answerCall: Boolean,
     ): Intent
 
     fun getMainActivity(): Intent

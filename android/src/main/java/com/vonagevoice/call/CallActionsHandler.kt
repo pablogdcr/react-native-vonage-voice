@@ -212,7 +212,12 @@ class CallActionsHandler(
 
             val normalizedCallId = callId.lowercase()
 
-            when (status) {
+            scope.launch {
+                val storedCall =
+                    callRepository.getCall(callId)
+                        ?: throw IllegalStateException("Call $callId does not exist on storage")
+
+                when (status) {
                 LegStatus.completed -> {
                     Log.d("CallActionsHandler", "observeLegStatus completed")
                     notificationManager.cancelInProgressNotification()
@@ -233,11 +238,6 @@ class CallActionsHandler(
                     notificationManager.cancelInboundNotification()
                 }
             }
-
-            scope.launch {
-                val storedCall =
-                    callRepository.getCall(callId)
-                        ?: throw IllegalStateException("Call $callId does not exist on storage")
 
                 val map =
                     WritableNativeMap().apply {

@@ -65,9 +65,9 @@ class EventEmitter(
         val startTime = System.currentTimeMillis()
 
         while (reactContext == null) {
-            delay(200)
+            delay(500)
             val waited = System.currentTimeMillis() - startTime
-            Log.d("EventEmitter", "waitForReactContext delay 200 — waited ${waited}ms")
+            Log.d("EventEmitter", "waitForReactContext delay 500 — waited ${waited}ms")
         }
 
         val totalWaited = System.currentTimeMillis() - startTime

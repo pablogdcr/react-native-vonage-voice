@@ -136,6 +136,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
                 phoneName = phoneName,
                 language = language,
                 incomingCallImage = incomingCallImage,
+                answerCall = false
             )
 
         val pendingIntent =
@@ -199,6 +200,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
                 phoneName = phoneName,
                 language = language,
                 incomingCallImage = incomingCallImage,
+                answerCall = false
             )
 
         val pendingIntent =
