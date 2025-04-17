@@ -8,7 +8,7 @@ interface IAppIntent {
         from: String,
         phoneName: String,
         language: String,
-        incomingCallImage: String,
+        incomingCallImage: String?,
     ): Intent
 
     fun getMainActivity(): Intent

@@ -23,8 +23,7 @@ class SpeakerController(
     context: Context,
     private val eventEmitter: EventEmitter
 ) {
-
-    private val audioManager: AudioManager =
+    val audioManager: AudioManager =
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     private val scope = CoroutineScope(Dispatchers.IO)

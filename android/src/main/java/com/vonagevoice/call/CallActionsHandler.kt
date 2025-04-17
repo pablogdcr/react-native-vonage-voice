@@ -1,5 +1,6 @@
 package com.vonagevoice.call
 
+import android.media.AudioManager
 import android.util.Log
 import com.facebook.react.bridge.WritableNativeMap
 import com.vonage.clientcore.core.api.LegStatus
@@ -14,7 +15,15 @@ import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.nowDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.content.Context
+import com.vonagevoice.audio.SpeakerController
+import com.vonagevoice.audio.mapDeviceType
+import android.media.AudioDeviceInfo
+import android.os.Handler
+import android.os.Looper
+import android.media.AudioDeviceCallback
 
 /**
  * Handles various call actions such as answering, rejecting, muting, and processing incoming call
@@ -36,6 +45,8 @@ class CallActionsHandler(
     private val callRepository: CallRepository,
     private val voiceClient: VoiceClient,
     private val notificationManager: NotificationManager,
+    private val speakerController: SpeakerController,
+    private val context: Context
 ) : ICallActionsHandler {
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -47,7 +58,47 @@ class CallActionsHandler(
         observeSessionErrors()
         observeCallInviteCancel()
         observeMute()
+        // observeAudioRoute()
     }
+
+    /**
+     * Observes and handles audio route changes.
+     * Uses the system's audio focus listener to detect route changes.
+     */
+    // private fun observeAudioRoute() {
+    //     Log.d("CallActionsHandler", "observeAudioRoute")
+    //     val audioDeviceCallback = object : AudioDeviceCallback() {
+    //         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
+    //             super.onAudioDevicesAdded(addedDevices)
+    //             Log.d("AudioOutputObserver", "Devices added: ${addedDevices.joinToString { it.productName.toString() }}")
+    //             emitCurrentAudioRoute()
+    //         }
+    
+    //         override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
+    //             super.onAudioDevicesRemoved(removedDevices)
+    //             Log.d("AudioOutputObserver", "Devices removed: ${removedDevices.joinToString { it.productName.toString() }}")
+    //             emitCurrentAudioRoute()
+    //         }
+    //     }
+    //     speakerController.audioManager.registerAudioDeviceCallback(audioDeviceCallback, Handler(Looper.getMainLooper()))    }
+
+    // private fun emitCurrentAudioRoute() {
+    //     val isSpeakerOn = speakerController.isSpeakerOn()
+    //     val currentRoute = if (isSpeakerOn) "Speaker" else "Receiver"
+        
+    //     val map = WritableNativeMap().apply {
+    //         putMap("device", WritableNativeMap().apply {
+    //             putString("name", currentRoute)
+    //             putString("id", "default")
+    //             putString("type", currentRoute)
+    //         })
+    //     }
+
+    //     Log.d("CallActionsHandler", "Current audio route: $currentRoute")
+    //     scope.launch {
+    //         eventEmitter.sendEvent(Event.AUDIO_ROUTE_CHANGED, map)
+    //     }
+    // }
 
     /**
      * Observes and handles mute actions on the voice client.
@@ -57,6 +108,10 @@ class CallActionsHandler(
     private fun observeMute() {
         voiceClient.setOnMutedListener { callId, legId, isMuted ->
             Log.d("CallActionsHandler", "setOnMutedListener callId: $callId, isMuted: $isMuted")
+            val param = WritableNativeMap().apply { putBoolean("muted", isMuted) }
+            scope.launch {
+                eventEmitter.sendEvent(Event.MUTE_CHANGED, param)
+            }
         }
     }
 
@@ -173,6 +228,7 @@ class CallActionsHandler(
                     // update status
                     // when status change
                     // and update startedAt when answered for inbound
+                    speakerController.disableSpeaker()
                     callRepository.answerInboundCall(normalizedCallId)
                     notificationManager.cancelInboundNotification()
                 }
@@ -313,8 +369,6 @@ class CallActionsHandler(
     override suspend fun mute(callId: String) {
         Log.d("CallActionsHandler", "mute $callId")
         voiceClient.mute(callId)
-        val param = WritableNativeMap().apply { putBoolean("muted", true) }
-        eventEmitter.sendEvent(Event.MUTE_CHANGED, param)
     }
 
     /**
@@ -325,8 +379,6 @@ class CallActionsHandler(
     override suspend fun unmute(callId: String) {
         Log.d("CallActionsHandler", "unmute $callId")
         voiceClient.unmute(callId)
-        val param = WritableNativeMap().apply { putBoolean("muted", false) }
-        eventEmitter.sendEvent(Event.MUTE_CHANGED, param)
     }
 
     override suspend fun reconnectCall(legId: String) {

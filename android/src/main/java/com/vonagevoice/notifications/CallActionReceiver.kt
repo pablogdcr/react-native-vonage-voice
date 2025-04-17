@@ -50,7 +50,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                 )
 
                 context.startActivity(callActivityIntent)
-                Log.d("CallActionReceiver", "onReceive hangup")
+                Log.d("CallActionReceiver", "onReceive answer")
             }
 
             "co.themobilefirst.allo.ACTION_REJECT_CALL" -> {
@@ -113,7 +113,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
             phoneName: String,
             from: String,
             language: String,
-            incomingCallImage: String
+            incomingCallImage: String?
         ): PendingIntent? {
             val answerIntent = Intent(context, CallActionReceiver::class.java).apply {
                 action = "co.themobilefirst.allo.ACTION_ANSWER_CALL"
@@ -124,7 +124,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                 putExtra("incoming_call_image", incomingCallImage)
             }
 
-            val answerPendingIntent = PendingIntent.getBroadcast(
+            val answerPendingIntent = PendingIntent.getActivity(
                 context,
                 0,
                 answerIntent,

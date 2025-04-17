@@ -121,7 +121,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
         from: String,
         phoneName: String,
         language: String,
-        incomingCallImage: String,
+        incomingCallImage: String?,
     ) {
         Log.d("NotificationManager", "showInboundCallNotification callId: $callId, from: $from")
 
@@ -178,7 +178,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
         from: String,
         phoneName: String,
         language: String,
-        incomingCallImage: String,
+        incomingCallImage: String?,
         elapsedTime: Long,
     ) {
         Log.d("NotificationManager", "showInProgressCallNotification callId: $callId, from: $from")
@@ -242,7 +242,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
         from: String,
         phoneName: String,
         language: String,
-        incoming_call_image: String,
+        incoming_call_image: String?,
     ): Job {
         Log.d(
             "NotificationManager",
