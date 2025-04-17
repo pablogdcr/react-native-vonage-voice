@@ -9,6 +9,7 @@ import com.vonagevoice.call.CallActionsHandler
 import com.vonagevoice.call.ICallActionsHandler
 import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.audio.SpeakerController
+import com.vonagevoice.call.VonageEventsObserver
 import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.notifications.NotificationManager
 import com.vonagevoice.storage.CallRepository
@@ -32,6 +33,7 @@ val vonageModule = module {
     singleOf(::JSEventSender)
     singleOf(::VonageAuthenticationService) bind IVonageAuthenticationService::class
     singleOf(::CallActionsHandler) bind ICallActionsHandler::class
+    singleOf(::VonageEventsObserver)
     singleOf(::EventEmitter)
     singleOf(::VonageStorage)
     singleOf(::CallRepository)
