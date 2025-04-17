@@ -172,10 +172,12 @@ class NotificationManager(private val context: Context, private val appIntent: I
                 .addAction(0, context.getString(R.string.reject), rejectPendingIntent)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setFullScreenIntent(pendingIntent, true)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setChannelId(INCOMING_CALL)
+                .setOngoing(true)
                 .build()
 
         val notificationManager =
