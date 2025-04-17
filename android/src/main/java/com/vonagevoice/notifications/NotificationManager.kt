@@ -1,11 +1,14 @@
 package com.vonagevoice.notifications
 
+import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.vonagevoice.R
@@ -34,6 +37,15 @@ class NotificationManager(private val context: Context, private val appIntent: I
         const val OUTGOING_CALL = "outgoing_call"
         const val ONGOING_CALL = "ongoing_call"
     }
+
+    private val saveRequestOptionsBundle: Bundle?
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ActivityOptions.makeBasic().apply {
+                // Use real caller background activity launch privileges.
+                // Needed to launch the save request intent from the background on Android 14+.
+                pendingIntentBackgroundActivityStartMode = ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            }.toBundle()
+        } else null
 
     init {
         Log.d("NotificationManager", "init")
@@ -93,33 +105,6 @@ class NotificationManager(private val context: Context, private val appIntent: I
         channels.forEach { notificationManager.createNotificationChannel(it) }
     }
 
-    fun createNotification(
-        channelId: String,
-        title: String,
-        text: String,
-        iconResId: Int,
-        intent: Intent,
-        callId: String,
-    ) {
-        Log.d("NotificationManager", "createNotification")
-        val pendingIntent =
-            PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-
-        val notification =
-            NotificationCompat.Builder(context, channelId)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setSmallIcon(iconResId)
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .build()
-
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(callId.hashCode(), notification)
-    }
-
     fun showInboundCallNotification(
         callId: String,
         from: String,
@@ -144,7 +129,8 @@ class NotificationManager(private val context: Context, private val appIntent: I
                 context,
                 0,
                 fullScreenIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT,
+                saveRequestOptionsBundle
             )
 
         // Intentions pour Refuser et Répondre
@@ -208,7 +194,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
                 context,
                 0,
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
         // Intent pour raccrocher
@@ -286,7 +272,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
                 context,
                 0,
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
         val notification =

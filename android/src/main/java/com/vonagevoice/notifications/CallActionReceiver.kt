@@ -1,9 +1,12 @@
 package com.vonagevoice.notifications
 
+import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import com.vonagevoice.call.ICallActionsHandler
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +30,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
             ?: throw IllegalArgumentException("CallActionReceiver notifications call_id is required")
 
         when (intent.action) {
-            "co.themobilefirst.allo.ACTION_ANSWER_CALL" -> {
+            "com.vonagevoice.ACTION_ANSWER_CALL" -> {
                 Log.d("CallActionReceiver", "onReceive answer")
 
                 val phoneName = intent.getStringExtra("phone_name")
@@ -48,11 +51,19 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                     answerCall = true
                 )
 
-                context.startActivity(callActivityIntent)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    callActivityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    context.startActivity(callActivityIntent, ActivityOptions.makeBasic().apply {
+                        pendingIntentBackgroundActivityStartMode = ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    }.toBundle())
+                } else {
+                    callActivityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(callActivityIntent)
+                }
                 Log.d("CallActionReceiver", "onReceive answer done")
             }
 
-            "co.themobilefirst.allo.ACTION_REJECT_CALL" -> {
+            "com.vonagevoice.ACTION_REJECT_CALL" -> {
                 Log.d("CallActionReceiver", "onReceive reject")
 
                 scope.launch {
@@ -62,7 +73,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                 }
             }
 
-            "co.themobilefirst.allo.ACTION_HANG_UP" -> {
+            "com.vonagevoice.ACTION_HANG_UP" -> {
                 Log.d("CallActionReceiver", "onReceive hangup")
 
                 scope.launch {
@@ -98,7 +109,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
         fun reject(context: Context, callId: String): PendingIntent? {
             Log.d("CallActionReceiver", "pending intent reject")
             val rejectIntent = Intent(context, CallActionReceiver::class.java).apply {
-                action = "co.themobilefirst.allo.ACTION_REJECT_CALL"
+                action = "com.vonagevoice.ACTION_REJECT_CALL"
                 putExtra("call_id", callId)
             }
             val rejectPendingIntent = PendingIntent.getBroadcast(
@@ -119,7 +130,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
         ): PendingIntent? {
             Log.d("CallActionReceiver", "pending intent answer")
             val answerIntent = Intent(context, CallActionReceiver::class.java).apply {
-                action = "co.themobilefirst.allo.ACTION_ANSWER_CALL"
+                action = "com.vonagevoice.ACTION_ANSWER_CALL"
                 putExtra("call_id", callId)
                 putExtra("phone_name", phoneName)
                 putExtra("from", from)
@@ -131,7 +142,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                 context,
                 0,
                 answerIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_CANCEL_CURRENT,
             )
             return answerPendingIntent
         }
