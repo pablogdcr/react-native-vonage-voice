@@ -1,5 +1,6 @@
 package com.vonagevoice.notifications
 
+import android.app.Activity
 import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
@@ -10,6 +11,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import com.vonagevoice.R
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +20,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+
 
 /**
  * Be sure to add this in manifest :
@@ -82,6 +85,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
                         enableLights(true)
                         lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                         enableVibration(true)
+                        importance = NotificationManager.IMPORTANCE_HIGH
                     },
                 NotificationChannel(
                     OUTGOING_CALL,
@@ -115,36 +119,36 @@ class NotificationManager(private val context: Context, private val appIntent: I
         incomingCallImage: String? = null
     ): NotificationCompat.Builder {
         Log.d("NotificationManager", "showInboundCallNotification callId: $callId, from: $from")
+        val callActivityIntent = appIntent.getCallActivity(
+            callId = callId,
+            from = from,
+            phoneName = "",
+            language = "",
+            incomingCallImage = null,
+            answerCall = false
+        )
 
-        val pendingIntent =
-            PendingIntent.getActivity(
-                context,
-                0,
-                appIntent.getCallActivity(
-                    callId = callId,
-                    from = from,
-                    phoneName = "",
-                    language = "",
-                    incomingCallImage = null,
-                    answerCall = false
-                ),
-                PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                saveRequestOptionsBundle
-            )
-
-        val answerPendingIntent = PendingIntent.getActivity(
+        val pendingIntent = PendingIntent.getActivity(
             context,
             0,
-            appIntent.getCallActivity(
-                callId = callId,
-                from = from,
-                phoneName = "",
-                language = "",
-                incomingCallImage = null,
-                answerCall = true
-            ),
-            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            saveRequestOptionsBundle
+            callActivityIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val answerActivityIntent = appIntent.getCallActivity(
+            callId = callId,
+            from = from,
+            phoneName = "",
+            language = "",
+            incomingCallImage = null,
+            answerCall = true
+        )
+
+        val answerPendingIntent = PendingIntent.getBroadcast(
+            context,
+            0,
+            answerActivityIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         val rejectPendingIntent = PendingIntent.getBroadcast(
@@ -164,14 +168,12 @@ class NotificationManager(private val context: Context, private val appIntent: I
             .addAction(0, context.getString(R.string.answer), answerPendingIntent)
             .addAction(0, context.getString(R.string.reject), rejectPendingIntent)
             .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setFullScreenIntent(pendingIntent, true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setChannelId(INCOMING_CALL)
             .setOngoing(true)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
