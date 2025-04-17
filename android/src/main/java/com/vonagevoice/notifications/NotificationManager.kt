@@ -1,5 +1,6 @@
 package com.vonagevoice.notifications
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -64,6 +65,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
                     .apply {
                         description = "Notifications for incoming calls"
                         enableLights(true)
+                        lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                         enableVibration(true)
                     },
                 NotificationChannel(
@@ -214,6 +216,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
                 .addAction(0, "Refuser", rejectPendingIntent)
                 .setFullScreenIntent(pendingIntent, true)
                 .setAutoCancel(true)
+                .setChannelId(INCOMING_CALL)
                 .build()
 
         val notificationManager =
@@ -269,6 +272,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
                 .setSound(null)
                 .setVibrate(null)
                 .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+                .setChannelId(ONGOING_CALL)
                 .build()
 
         val notificationManager =
@@ -294,7 +298,10 @@ class NotificationManager(private val context: Context, private val appIntent: I
         language: String,
         incoming_call_image: String,
     ): Job {
-        Log.d("NotificationManager", "showNotificationAndStartCallTimer callId: $callId, from: $from")
+        Log.d(
+            "NotificationManager",
+            "showNotificationAndStartCallTimer callId: $callId, from: $from",
+        )
         return GlobalScope.launch(Dispatchers.Main) {
             var elapsedTime = 0L
             while (isActive) {
@@ -332,6 +339,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true) // Rendre la notification persistante
+                .setChannelId(OUTGOING_CALL)
                 .build()
 
         val notificationManager =
