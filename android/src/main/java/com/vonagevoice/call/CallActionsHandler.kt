@@ -49,7 +49,9 @@ class CallActionsHandler(
      */
     override suspend fun call(to: String): CallId {
         Log.d("CallActionsHandler", "call to: $to")
-        val callId =  voiceClient.serverCall(mapOf("to" to to))
+        val clientAppJwtToken: String = appAuthProvider.getJwtToken()
+        vonageAuthenticationService.login(clientAppJwtToken)
+        val callId = voiceClient.serverCall(mapOf("to" to to))
         Log.d("CallActionsHandler", "call to: $to, callId: $callId")
         return callId
     }
@@ -152,5 +154,11 @@ class CallActionsHandler(
         // This voiceClient::processPushCallInvite call triggers
         // CallActionsHandler::observeIncomingCalls
         voiceClient.processPushCallInvite(remoteMessageStr)
+    }
+
+    override suspend fun sendDTMF(dtmf: String) {
+        val call = callRepository.getActiveCall()
+            ?: throw IllegalStateException("sendDTMF called while no active call found")
+        voiceClient.sendDTMF(callId = call.id, digits = dtmf)
     }
 }

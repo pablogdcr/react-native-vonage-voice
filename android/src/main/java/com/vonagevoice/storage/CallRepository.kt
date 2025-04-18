@@ -103,4 +103,8 @@ class CallRepository {
     fun removeHangedUpCall(callId: String) {
         calls.removeAll { it.id == callId }
     }
+
+    fun getActiveCall(): Call? {
+        return calls.find { it.status == CallStatus.ANSWERED }
+    }
 }

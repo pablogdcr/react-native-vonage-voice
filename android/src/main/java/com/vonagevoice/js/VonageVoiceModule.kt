@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -32,6 +34,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     private val callActionsHandler: ICallActionsHandler by inject()
     private val jsEventSender: JSEventSender by inject()
     private val scope = CoroutineScope(Dispatchers.IO)
+    private var toneGenerator: ToneGenerator? = null
 
     override fun getName(): String {
         return "VonageVoiceModule"
@@ -126,8 +129,10 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         scope.launch {
             try {
                 val callId = callActionsHandler.call(to)
+                Log.d("VonageVoiceModule", "serverCall callId: $callId")
                 promise.resolve(callId)
             } catch (e: Exception) {
+                Log.d("VonageVoiceModule", "serverCall error $e")
                 promise.reject(e)
             }
 
@@ -138,6 +143,11 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun sendDTMF(dtmf: String, promise: Promise) {
         Log.d("VonageVoiceModule", "sendDTMF $dtmf")
+        scope.launch {
+            promise.tryBlocking {
+                callActionsHandler.sendDTMF(dtmf)
+            }
+        }
     }
 
     @ReactMethod
@@ -251,4 +261,57 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         Log.d("VonageVoiceModule", "unsubscribeFromCallEvents")
     }
 
+    @ReactMethod
+    fun playDTMFTone(key: String, promise: Promise) {
+        Log.d("VonageVoiceModule", "playDTMFTone called with key: $key")
+
+        val tone = when (key) {
+            "0" -> ToneGenerator.TONE_DTMF_0
+            "1" -> ToneGenerator.TONE_DTMF_1
+            "2" -> ToneGenerator.TONE_DTMF_2
+            "3" -> ToneGenerator.TONE_DTMF_3
+            "4" -> ToneGenerator.TONE_DTMF_4
+            "5" -> ToneGenerator.TONE_DTMF_5
+            "6" -> ToneGenerator.TONE_DTMF_6
+            "7" -> ToneGenerator.TONE_DTMF_7
+            "8" -> ToneGenerator.TONE_DTMF_8
+            "9" -> ToneGenerator.TONE_DTMF_9
+            "*" -> ToneGenerator.TONE_DTMF_S
+            "#" -> ToneGenerator.TONE_DTMF_P
+            else -> {
+                promise.reject("INVALID_KEY", "Invalid DTMF key: $key")
+                return
+            }
+        }
+
+        // Stop any existing tone
+        toneGenerator?.stopTone()
+        toneGenerator?.release()
+
+        try {
+            //toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+            toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 100)
+            toneGenerator?.startTone(tone, 3000) // play for 3 seconds
+            Log.d("VonageVoiceModule", "Started DTMF tone for key: $key")
+            promise.resolve(mapOf("success" to true))
+        } catch (e: Exception) {
+            Log.e("VonageVoiceModule", "Failed to play tone: ${e.message}", e)
+            promise.reject("TONE_ERROR", "Failed to play tone", e)
+        }
+    }
+
+    @ReactMethod
+    fun stopDTMFTone(promise: Promise) {
+        Log.d("VonageVoiceModule", "stopDTMFTone called")
+
+        try {
+            toneGenerator?.stopTone()
+            toneGenerator?.release()
+            toneGenerator = null
+            promise.success()
+        } catch (e: Exception) {
+            Log.e("VonageVoiceModule", "Failed to stop tone: ${e.message}", e)
+            promise.reject("TONE_STOP_ERROR", "Failed to stop tone", e)
+        }
+    }
 }

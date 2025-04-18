@@ -22,5 +22,7 @@ interface ICallActionsHandler {
     suspend fun disableNoiseSuppression(callId: String)
 
     suspend fun processPushCallInvite(remoteMessageStr: String)
+
+    suspend fun sendDTMF(dtmf: String)
 }
 
