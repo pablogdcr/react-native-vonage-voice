@@ -129,6 +129,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         scope.launch {
             try {
                 val callId = callActionsHandler.call(to)
+                val callId = callActionsHandler.call(to, customData)
                 Log.d("VonageVoiceModule", "serverCall callId: $callId")
                 promise.resolve(callId)
             } catch (e: Exception) {
@@ -146,6 +147,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         scope.launch {
             promise.tryBlocking {
                 callActionsHandler.sendDTMF(dtmf)
+                Log.d("VonageVoiceModule", "sendDTMF $dtmf done")
             }
         }
     }

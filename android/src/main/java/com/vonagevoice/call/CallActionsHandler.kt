@@ -1,6 +1,9 @@
 package com.vonagevoice.call
 
 import android.util.Log
+import com.facebook.react.bridge.Dynamic
+import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.ReadableType
 import com.facebook.react.bridge.WritableNativeMap
 import com.vonage.voice.api.CallId
 import com.vonage.voice.api.VoiceClient
@@ -9,6 +12,7 @@ import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.js.Event
 import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.storage.CallRepository
+import com.vonagevoice.utils.retryWithExponentialBackoff
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -35,6 +39,7 @@ class CallActionsHandler(
 ) : ICallActionsHandler {
 
 
+    private var processingServerCall = false
     private val scope = CoroutineScope(Dispatchers.IO)
 
     init {
@@ -47,13 +52,44 @@ class CallActionsHandler(
      *
      * @param to The phone number to call.
      */
-    override suspend fun call(to: String): CallId {
+    override suspend fun call(to: String, customData: ReadableMap): CallId {
         Log.d("CallActionsHandler", "call to: $to")
-        val clientAppJwtToken: String = appAuthProvider.getJwtToken()
-        vonageAuthenticationService.login(clientAppJwtToken)
-        val callId = voiceClient.serverCall(mapOf("to" to to))
-        Log.d("CallActionsHandler", "call to: $to, callId: $callId")
-        return callId
+
+        if (processingServerCall) {
+            throw IllegalStateException("A server call is already being processed")
+        }
+
+        processingServerCall = true
+
+        val callData = mutableMapOf<String, String>("to" to to)
+
+        customData.let {
+            val iterator = it.keySetIterator()
+            while (iterator.hasNextKey()) {
+                val key = iterator.nextKey()
+                when (val value = it.getDynamic(key)) {
+                    is Dynamic -> {
+                        when (value.type) {
+                            ReadableType.String -> callData[key] = value.asString()
+                            ReadableType.Number -> callData[key] = value.asDouble().toString()
+                            ReadableType.Boolean -> callData[key] = value.asBoolean().toString()
+                            // Add support for maps/arrays if needed
+                            else -> {} // unsupported types can be skipped or handled
+                        }
+                    }
+                }
+            }
+        }
+
+        return retryWithExponentialBackoff {
+            val clientAppJwtToken: String = appAuthProvider.getJwtToken()
+            vonageAuthenticationService.login(clientAppJwtToken)
+            val callId = voiceClient.serverCall(callData)
+            processingServerCall = false
+            callRepository.newOutbound(callId = callId, phoneNumber = to)
+            Log.d("CallActionsHandler", "call to: $to, callId: $callId")
+              callId
+        }
     }
 
     /**

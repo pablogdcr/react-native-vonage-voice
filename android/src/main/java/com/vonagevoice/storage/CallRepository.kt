@@ -24,7 +24,7 @@ class CallRepository {
             Call.Outbound(
                 id = callId,
                 to = phoneNumber,
-                status = CallStatus.RINGING,
+                status = CallStatus.ANSWERED,
                 startedAt = nowDate(),
             )
         )
