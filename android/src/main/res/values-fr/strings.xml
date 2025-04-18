@@ -14,6 +14,7 @@
     <string name="call_in_progress">Appel en cours</string>
     <string name="call_duration">%1$s - %2$s</string>
     <string name="hang_up">Raccrocher</string>
+    <string name="swipe_to_answer">Glissez pour répondre</string>
 
     <!-- Notification strings -->
     <string name="notification_missed_calls">Appels manqués</string>
