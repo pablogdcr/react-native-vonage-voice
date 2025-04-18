@@ -128,7 +128,6 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         Log.d("VonageVoiceModule", "serverCall to: $to, customData: $customData")
         scope.launch {
             try {
-                val callId = callActionsHandler.call(to)
                 val callId = callActionsHandler.call(to, customData)
                 Log.d("VonageVoiceModule", "serverCall callId: $callId")
                 promise.resolve(callId)
