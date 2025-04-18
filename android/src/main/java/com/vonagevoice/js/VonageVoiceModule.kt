@@ -143,17 +143,17 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     fun serverCall(to: String, customData: ReadableMap, promise: Promise) {
         Log.d("VonageVoiceModule", "serverCall to: $to, customData: $customData")
         scope.launch {
-            try {
-                val callId = callActionsHandler.call(to, customData)
-                Log.d("VonageVoiceModule", "serverCall callId: $callId")
-                speakerController.disableSpeaker()
-                promise.resolve(callId)
-            } catch (e: Exception) {
-                Log.d("VonageVoiceModule", "serverCall error $e")
-                promise.reject(e)
+            promise.tryBlocking {
+                try {
+                    val callId = callActionsHandler.call(to, customData)
+                    Log.d("VonageVoiceModule", "serverCall callId: $callId")
+                    speakerController.disableSpeaker()
+                    promise.resolve(callId)
+                } catch (e: Exception) {
+                    Log.d("VonageVoiceModule", "serverCall error $e")
+                    promise.reject(e)
+                }
             }
-
-            promise.tryBlocking { }
         }
       }
     }
