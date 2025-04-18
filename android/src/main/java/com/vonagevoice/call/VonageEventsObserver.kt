@@ -219,9 +219,11 @@ class VonageEventsObserver(
                         // update status
                         // when status change
                         // and update startedAt when answered for inbound
-                        speakerController.disableSpeaker()
-                        callRepository.answerInboundCall(normalizedCallId)
-                        notificationManager.cancelInboundNotification()
+                        if (!storedCall.isOutbound) {
+                            speakerController.disableSpeaker()
+                            callRepository.answerInboundCall(normalizedCallId)
+                            notificationManager.cancelInboundNotification()
+                        }
                     }
                 }
 

@@ -130,6 +130,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
             try {
                 val callId = callActionsHandler.call(to, customData)
                 Log.d("VonageVoiceModule", "serverCall callId: $callId")
+                speakerController.disableSpeaker()
                 promise.resolve(callId)
             } catch (e: Exception) {
                 Log.d("VonageVoiceModule", "serverCall error $e")
@@ -285,16 +286,22 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
             }
         }
 
-        // Stop any existing tone
-        toneGenerator?.stopTone()
-        toneGenerator?.release()
-
         try {
-            //toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-            toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 100)
+            // Stop any existing tone
+            toneGenerator?.stopTone()
+            toneGenerator?.release()
+
+            // Create new tone generator with lower volume
+            toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 5) // 50% volume
+
+            // Start the tone
             toneGenerator?.startTone(tone, 3000) // play for 3 seconds
+
             Log.d("VonageVoiceModule", "Started DTMF tone for key: $key")
-            promise.resolve(mapOf("success" to true))
+            val resultMap = Arguments.createMap().apply {
+                putBoolean("success", true)
+            }
+            promise.resolve(resultMap)
         } catch (e: Exception) {
             Log.e("VonageVoiceModule", "Failed to play tone: ${e.message}", e)
             promise.reject("TONE_ERROR", "Failed to play tone", e)
@@ -309,7 +316,10 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
             toneGenerator?.stopTone()
             toneGenerator?.release()
             toneGenerator = null
-            promise.success()
+            val resultMap = Arguments.createMap().apply {
+                putBoolean("success", true)
+            }
+            promise.resolve(resultMap)
         } catch (e: Exception) {
             Log.e("VonageVoiceModule", "Failed to stop tone: ${e.message}", e)
             promise.reject("TONE_STOP_ERROR", "Failed to stop tone", e)
