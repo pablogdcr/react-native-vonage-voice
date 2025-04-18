@@ -54,6 +54,7 @@ interface RNVonageVoiceCallModuleInterface {
   setAudioDevice(deviceId: string): Promise<{ success: true } | null>;
   playDTMFTone(key: string): Promise<{ success: true }>;
   stopDTMFTone(): Promise<{ success: true }>;
+  requestFullIntentPermission(): Promise<{ success: true }>;
 }
 
 // Create event emitter instance
@@ -194,6 +195,14 @@ class RNVonageVoiceCall {
 
   static stopDTMFTone() {
     return VonageVoice!.stopDTMFTone();
+  }
+
+  static requestFullIntentPermission() {
+    if (Platform.OS === 'android') {
+      return VonageVoice!.requestFullIntentPermission();
+    } else {
+      throw new Error('requestFullIntentPermission is not supported on iOS');
+    }
   }
 }
 

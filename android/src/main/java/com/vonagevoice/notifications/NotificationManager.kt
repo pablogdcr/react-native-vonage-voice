@@ -1,17 +1,12 @@
 package com.vonagevoice.notifications
 
-import android.app.Activity
-import android.app.ActivityOptions
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
-import android.os.Bundle
 import android.util.Log
-import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import com.vonagevoice.R
 import kotlinx.coroutines.Dispatchers
@@ -40,16 +35,6 @@ class NotificationManager(private val context: Context, private val appIntent: I
         const val OUTGOING_CALL = "outgoing_call"
         const val ONGOING_CALL = "ongoing_call"
     }
-
-    private val saveRequestOptionsBundle: Bundle?
-        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            ActivityOptions.makeBasic().apply {
-                // Use real caller background activity launch privileges.
-                // Needed to launch the save request intent from the background on Android 14+.
-                pendingIntentBackgroundActivityStartMode =
-                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-            }.toBundle()
-        } else null
 
     init {
         Log.d("NotificationManager", "init")
@@ -109,7 +94,6 @@ class NotificationManager(private val context: Context, private val appIntent: I
         val notificationManager = context.getSystemService(NotificationManager::class.java)
         channels.forEach { notificationManager.createNotificationChannel(it) }
     }
-
 
     fun showInboundCallNotification(
         from: String,

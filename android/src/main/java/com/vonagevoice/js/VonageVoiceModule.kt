@@ -1,5 +1,9 @@
 package com.vonagevoice.js
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -78,6 +82,16 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun unregisterDeviceTokens(deviceId: String, promise: Promise) {
         Log.d("VonageVoiceModule", "unregisterDeviceTokens $deviceId")
+    }
+
+    @ReactMethod
+    fun requestFullIntentPermission() {
+        if (Build.VERSION.SDK_INT > 33) {
+            val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                data = Uri.fromParts("package", reactApplicationContext.packageName, null)
+            }
+            reactApplicationContext.startActivity(intent)
+        }
     }
 
     @ReactMethod
