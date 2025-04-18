@@ -16,14 +16,13 @@ import kotlinx.coroutines.launch
  * It provides methods to enable or disable the speakerphone mode and emit events
  * regarding audio route changes.
  *
- * @param context The context used to obtain the AudioManager service.
+ * @param audioManager The AudioManager service.
  * @param eventEmitter The EventEmitter used to send events related to audio route changes.
  */
 class SpeakerController(
     private val audioManager: AudioManager,
     private val eventEmitter: EventEmitter
 ) {
-
     private val scope = CoroutineScope(Dispatchers.IO)
 
     init {

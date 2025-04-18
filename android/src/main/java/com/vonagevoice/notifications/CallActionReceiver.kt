@@ -36,7 +36,17 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                 }
             }
 
-            "co.themobilefirst.allo.ACTION_HANG_UP" -> {
+            ACTION_ANSWER_CALL-> {
+                Log.d("CallActionReceiver", "onReceive answer")
+
+                scope.launch {
+                    callHandler.answer(callId)
+                    notificationManager.cancelInboundNotification()
+                    Log.d("CallActionReceiver", "onReceive answer done")
+                }
+            }
+
+            ACTION_HANG_UP -> {
                 Log.d("CallActionReceiver", "onReceive hangup")
 
                 scope.launch {
@@ -51,6 +61,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
 
     companion object {
         const val ACTION_REJECT_CALL = "com.vonage.ACTION_REJECT_CALL"
+        const val ACTION_ANSWER_CALL = "com.vonage.ACTION_ANSWER_CALL"
         const val ACTION_HANG_UP = "com.vonage.ACTION_HANG_UP"
 
         fun hangUp(
@@ -59,7 +70,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
         ): PendingIntent {
             Log.d("CallActionReceiver", "pending intent hangup")
             val intent = Intent(context, CallActionReceiver::class.java).apply {
-                action = "co.themobilefirst.allo.ACTION_HANG_UP"
+                action = ACTION_HANG_UP
                 putExtra("call_id", callId)
             }
             val hangUpPendingIntent =

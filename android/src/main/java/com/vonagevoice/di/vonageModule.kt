@@ -41,8 +41,6 @@ val vonageModule = module {
     singleOf(::VonageStorage)
     singleOf(::CallRepository)
     singleOf(::NotificationManager)
-    single {
-        get<Context>().getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    }
+    single { get<Context>().getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     singleOf(::DeviceManager)
 }

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.vonagevoice.R
@@ -116,22 +117,16 @@ class NotificationManager(private val context: Context, private val appIntent: I
             context,
             0,
             callActivityIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val answerActivityIntent = appIntent.getCallActivity(
-            callId = callId,
-            from = from,
-            phoneName = "",
-            language = "",
-            incomingCallImage = null,
-            answerCall = true
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_CANCEL_CURRENT
         )
 
         val answerPendingIntent = PendingIntent.getBroadcast(
             context,
             0,
-            answerActivityIntent,
+            Intent(context, CallActionReceiver::class.java).apply {
+                action = CallActionReceiver.ACTION_ANSWER_CALL
+                putExtra("call_id", callId)
+            },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -158,6 +153,10 @@ class NotificationManager(private val context: Context, private val appIntent: I
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setChannelId(INCOMING_CALL)
             .setOngoing(true)
+            .setVibrate(longArrayOf(0, 1000, 500, 1000))
+            .setLights(Color.YELLOW, 2000, 1000)
+            .setColorized(true)
+            .setColor(0x0B2120)
 
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

@@ -99,7 +99,9 @@ class CallActionsHandler(
      */
     override suspend fun answer(callId: String) {
         Log.d("CallActionsHandler", "answer $callId")
-        voiceClient.answer(callId)
+        val normalizedCallId = callId.lowercase()
+
+        voiceClient.answer(normalizedCallId)
     }
 
     /**
@@ -110,8 +112,8 @@ class CallActionsHandler(
     override suspend fun reject(callId: String) {
         Log.d("CallActionsHandler", "reject $callId")
         val normalizedCallId = callId.lowercase()
-        voiceClient.reject(callId)
 
+        voiceClient.reject(normalizedCallId)
         scope.launch {
             val storedCall = callRepository.getCall(callId)
             val map =
