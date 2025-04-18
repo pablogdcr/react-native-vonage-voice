@@ -85,12 +85,17 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun requestFullIntentPermission() {
-        if (Build.VERSION.SDK_INT > 33) {
-            val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
-                data = Uri.fromParts("package", reactApplicationContext.packageName, null)
+    fun requestFullIntentPermission(promise: Promise) {
+        Log.d("VonageVoiceModule", "requestFullIntentPermission")
+        scope.launch {
+            promise.tryBlocking {
+                if (Build.VERSION.SDK_INT > 33) {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                        data = Uri.fromParts("package", reactApplicationContext.packageName, null)
+                    }
+                    reactApplicationContext.startActivity(intent)
+                }
             }
-            reactApplicationContext.startActivity(intent)
         }
     }
 
