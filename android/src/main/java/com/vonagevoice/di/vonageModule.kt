@@ -1,8 +1,11 @@
 package com.vonagevoice.di
 
+import android.content.Context
+import android.media.AudioManager
 import com.vonage.android_core.VGClientInitConfig
 import com.vonage.clientcore.core.api.LoggingLevel
 import com.vonage.voice.api.VoiceClient
+import com.vonagevoice.audio.DeviceManager
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.auth.VonageAuthenticationService
 import com.vonagevoice.call.CallActionsHandler
@@ -38,4 +41,8 @@ val vonageModule = module {
     singleOf(::VonageStorage)
     singleOf(::CallRepository)
     singleOf(::NotificationManager)
+    single {
+        get<Context>().getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
+    singleOf(::DeviceManager)
 }

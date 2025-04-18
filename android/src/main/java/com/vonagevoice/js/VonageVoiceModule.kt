@@ -13,6 +13,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
+import com.vonagevoice.audio.DeviceManager
 import com.vonagevoice.audio.SpeakerController
 import com.vonagevoice.audio.getAvailableAudioOutputs
 import com.vonagevoice.auth.IVonageAuthenticationService
@@ -33,6 +34,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     private val speakerController: SpeakerController by inject()
     private val callActionsHandler: ICallActionsHandler by inject()
     private val jsEventSender: JSEventSender by inject()
+    private val deviceManager: DeviceManager by inject()
     private val scope = CoroutineScope(Dispatchers.IO)
     private var toneGenerator: ToneGenerator? = null
 
@@ -164,7 +166,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         Log.d("VonageVoiceModule", "getAvailableAudioDevices")
 
         try {
-            val inputs = getAvailableAudioOutputs(reactApplicationContext)
+            val inputs = deviceManager.getAvailableAudioOutputs(reactApplicationContext)
             val array = Arguments.createArray()
 
             inputs.forEach { input ->
@@ -185,6 +187,10 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun setAudioDevice(deviceId: String, promise: Promise) {
         Log.d("VonageVoiceModule", "setAudioDevice $deviceId")
+
+        promise.tryNotBlocking {
+            deviceManager.setAudioDevice(deviceId.toIntOrNull() ?: throw IllegalStateException("Device id not supported $deviceId"))
+        }
     }
 
 

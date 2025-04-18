@@ -20,11 +20,9 @@ import kotlinx.coroutines.launch
  * @param eventEmitter The EventEmitter used to send events related to audio route changes.
  */
 class SpeakerController(
-    context: Context,
+    private val audioManager: AudioManager,
     private val eventEmitter: EventEmitter
 ) {
-    val audioManager: AudioManager =
-        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     private val scope = CoroutineScope(Dispatchers.IO)
 
