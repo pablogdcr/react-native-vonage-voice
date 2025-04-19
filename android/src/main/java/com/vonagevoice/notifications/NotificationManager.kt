@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -18,6 +17,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import android.app.KeyguardManager
+import android.media.AudioAttributes
+import android.media.AudioManager
 
 /**
  * Be sure to add this in manifest :
@@ -72,7 +73,13 @@ class NotificationManager(private val context: Context, private val appIntent: I
                         enableLights(true)
                         lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                         enableVibration(true)
-                        vibrationPattern = longArrayOf(0, 1000, 500, 1000)
+                        setSound(
+                            Settings.System.DEFAULT_RINGTONE_URI,
+                            AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .setLegacyStreamType(AudioManager.STREAM_RING)
+                                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).build(),
+                        )
                         importance = NotificationManager.IMPORTANCE_HIGH
                     },
                 NotificationChannel(
@@ -101,9 +108,6 @@ class NotificationManager(private val context: Context, private val appIntent: I
     fun showInboundCallNotification(
         from: String,
         callId: String,
-        language: String? = "",
-        phoneName: String? = "",
-        incomingCallImage: String? = null
     ): NotificationCompat.Builder {
         Log.d("NotificationManager", "showInboundCallNotification callId: $callId, from: $from")
         val callActivityIntent = appIntent.getCallActivity(
@@ -174,17 +178,25 @@ class NotificationManager(private val context: Context, private val appIntent: I
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setChannelId(INCOMING_CALL)
             .setOngoing(true)
-            .setVibrate(longArrayOf(0, 1000, 500, 1000))
-            .setLights(Color.YELLOW, 2000, 1000)
             .setColorized(true)
             .setColor(0x0B2120)
-            .setSound(Settings.System.DEFAULT_RINGTONE_URI)
 
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notification.build())
 
         return notification
+    }
+
+    fun updateInboundCallNotification(
+        notification: NotificationCompat.Builder,
+        phoneName: String
+    ) {
+        notification.setContentText(context.getString(R.string.call_from, phoneName))
+
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notification.build())
     }
 
     private fun showInProgressCallNotification(
