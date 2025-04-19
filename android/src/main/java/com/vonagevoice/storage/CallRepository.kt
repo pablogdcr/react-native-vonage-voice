@@ -64,11 +64,15 @@ class CallRepository {
      * @param callId The unique identifier of the inbound call to update.
      */
     fun answerInboundCall(callId: String) {
+        Log.d("CallRepository", "answerInboundCall callId: $callId")
         val index = calls.indexOfFirst { it is Call.Inbound && it.id == callId }
         if (index != -1) {
             val inboundCall = calls[index] as Call.Inbound
             val updatedCall = inboundCall.copy(status = CallStatus.ANSWERED, startedAt = nowDate())
             calls[index] = updatedCall
+            Log.d("CallRepository", "answerInboundCall callId: $callId")
+        } else {
+            throw IllegalStateException("answerInboundCall can't find call $callId. Cannot update status and startedAt")
         }
     }
 

@@ -19,13 +19,17 @@ import kotlinx.coroutines.launch
 import android.app.KeyguardManager
 import android.media.AudioAttributes
 import android.media.AudioManager
+import android.os.Build
 
 /**
  * Be sure to add this in manifest :
  *
  * <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
  */
-class NotificationManager(private val context: Context, private val appIntent: IAppIntent) {
+class NotificationManager(
+    private val context: Context,
+    private val appIntent: IAppIntent
+) {
 
     companion object {
         private const val CALL_OUTBOUND_NOTIFICATION_ID = 1
@@ -171,6 +175,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
             .setSmallIcon(R.drawable.ic_incoming_call)
             .addAction(0, context.getString(R.string.answer), answerPendingIntent)
             .addAction(0, context.getString(R.string.reject), rejectPendingIntent)
+            .setOnlyAlertOnce(true)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
@@ -192,11 +197,14 @@ class NotificationManager(private val context: Context, private val appIntent: I
         notification: NotificationCompat.Builder,
         phoneName: String
     ) {
-        notification.setContentText(context.getString(R.string.call_from, phoneName))
+        // Only update if present
+        if (isNotificationDisplayed(notificationId = CALL_INBOUND_NOTIFICATION_ID)) {
+            notification.setContentText(context.getString(R.string.call_from, phoneName))
 
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notification.build())
+            val notificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notification.build())
+        }
     }
 
     private fun showInProgressCallNotification(
@@ -256,12 +264,31 @@ class NotificationManager(private val context: Context, private val appIntent: I
         notificationManager.notify(CALL_IN_PROGRESS_NOTIFICATION_ID, notification)
     }
 
-    fun showMissedCallNotification(callId: String, from: String) {
-        Log.d("NotificationManager", "showMissedCallNotification callId: $callId, from: $from")
-        val notification = TODO()
+    fun showMissedCallNotification(from: String) {
+        Log.d("NotificationManager", "showMissedCallNotification from: $from")
+        val intent = appIntent.getMainActivity()
+
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val notification =
+            NotificationCompat.Builder(context, MISSED_CALL)
+                .setContentTitle(context.getString(R.string.notification_missed_calls))
+                .setContentText(context.getString(R.string.notification_missed_calls_desc, from))
+                .setSmallIcon(R.drawable.ic_missed_call)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setContentIntent(pendingIntent)
+                .setChannelId(OUTGOING_CALL)
+                .build()
+
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(CALL_MISSED_NOTIFICATION_ID, notification)
+        notificationManager.notify(CALL_OUTBOUND_NOTIFICATION_ID, notification)
     }
 
     fun showNotificationAndStartCallTimer(
@@ -338,5 +365,15 @@ class NotificationManager(private val context: Context, private val appIntent: I
     fun cancelOutboundNotification() {
         Log.d("NotificationManager", "cancelOutboundNotification")
         cancelCallNotification(CALL_OUTBOUND_NOTIFICATION_ID)
+    }
+
+    fun isNotificationDisplayed(notificationId: Int): Boolean {
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val activeNotifications = notificationManager.activeNotifications
+
+        val isNotificationVisible = activeNotifications.any { it.id == notificationId }
+        Log.d("NotificationStatus", "isNotificationDisplayed? $isNotificationVisible")
+        return isNotificationVisible
     }
 }

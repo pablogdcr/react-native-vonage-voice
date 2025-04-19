@@ -1,5 +1,7 @@
 package com.vonagevoice.call
 
+import android.content.Context
+import android.provider.CallLog.Calls
 import android.util.Log
 import com.facebook.react.bridge.WritableNativeMap
 import com.vonage.clientcore.core.api.LegStatus
@@ -8,9 +10,12 @@ import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.audio.SpeakerController
 import com.vonagevoice.js.Event
 import com.vonagevoice.js.EventEmitter
+import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.notifications.NotificationManager
 import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.nowDate
+import com.vonagevoice.utils.startRingtone
+import com.vonagevoice.utils.stopRingtone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,6 +27,8 @@ class VonageEventsObserver(
     private val voiceClient: VoiceClient,
     private val notificationManager: NotificationManager,
     private val speakerController: SpeakerController,
+    private val jsEventSender: JSEventSender,
+    private val context: Context,
 ) {
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -88,9 +95,8 @@ class VonageEventsObserver(
     private fun observeMute() {
         voiceClient.setOnMutedListener { callId, legId, isMuted ->
             Log.d("VonageEventsObserver", "setOnMutedListener callId: $callId, isMuted: $isMuted")
-            val param = WritableNativeMap().apply { putBoolean("muted", isMuted) }
             scope.launch {
-                eventEmitter.sendEvent(Event.MUTE_CHANGED, param)
+                jsEventSender.sendMuteChanged(isMuted)
             }
         }
     }
@@ -107,25 +113,26 @@ class VonageEventsObserver(
                 "setCallInviteCancelListener callId: $callId, reason: $reason"
             )
             notificationManager.cancelInboundNotification()
+            stopRingtone()
             val storedCall = callRepository.getCall(callId)
                 ?: throw IllegalStateException("Call $callId does not exist on storage")
+            Log.d("VonageEventsObserver", "observeCallInviteCancel storedCall: $storedCall")
+
             val normalizedCallId = callId.lowercase()
 
             callRepository.removeHangedUpCall(normalizedCallId)
-            val map = WritableNativeMap().apply {
-                putString("id", normalizedCallId)
-                putString("status", CallStatus.COMPLETED.toString())
-                putString("phoneNumber", storedCall.phoneNumber)
-                putDouble("startedAt", storedCall.startedAt ?: 0.0)
-            }
+
             scope.launch {
-                Log.d(
-                    "VonageEventsObserver",
-                    "observeCallInviteCancel sendEvent callEvents with $map"
+                jsEventSender.sendCallEvent(
+                    callId = normalizedCallId,
+                    status = CallStatus.COMPLETED,
+                    phoneNumber = storedCall.phoneNumber,
+                    startedAt = storedCall.startedAt,
+                    outbound = storedCall is Call.Outbound
                 )
-                eventEmitter.sendEvent(Event.CALL_EVENTS, map)
             }
             notificationManager.cancelInProgressNotification()
+            notificationManager.showMissedCallNotification(from = storedCall.phoneNumber)
             CallLifecycleManager.callback?.onCallEnded()
         }
     }
@@ -160,16 +167,16 @@ class VonageEventsObserver(
             scope.launch {
                 val storedCall = callRepository.getCall(callId)
 
-                val map =
-                    WritableNativeMap().apply {
-                        putString("id", normalizedCallId)
-                        putString("status", CallStatus.COMPLETED.toString())
-                        putBoolean("isOutbound", storedCall is Call.Outbound)
-                        putString("phoneNumber", (storedCall)?.phoneNumber)
-                        putDouble("startedAt", storedCall?.startedAt ?: 0.0)
-                    }
-                Log.d("VonageEventsObserver", "observeHangups sendEvent callEvents with $map")
-                eventEmitter.sendEvent(Event.CALL_EVENTS, map)
+                Log.d("VonageEventsObserver", "observeHangups storedCall: $storedCall")
+                Log.d("VonageEventsObserver", "observeHangups startedAt: ${storedCall?.startedAt}")
+
+                jsEventSender.sendCallEvent(
+                    callId = normalizedCallId,
+                    status = CallStatus.COMPLETED,
+                    phoneNumber = storedCall?.phoneNumber,
+                    startedAt = storedCall?.startedAt,
+                    outbound = storedCall is Call.Outbound
+                )
 
                 callRepository.removeHangedUpCall(callId)
             }
@@ -190,6 +197,13 @@ class VonageEventsObserver(
     private fun observeLegStatus() {
         Log.d("VonageEventsObserver", "callLegUpdates")
         voiceClient.setOnLegStatusUpdate { callId, legId, status ->
+
+            if (status == LegStatus.ringing) {
+                startRingtone(context)
+            } else {
+                stopRingtone()
+            }
+
             // Call leg updates
             Log.d(
                 "VonageEventsObserver",
@@ -227,16 +241,21 @@ class VonageEventsObserver(
                     }
                 }
 
-                val map =
-                    WritableNativeMap().apply {
-                        putString("id", normalizedCallId)
-                        putString("status", status.toString())
-                        putBoolean("isOutbound", storedCall is Call.Outbound)
-                        putString("phoneNumber", storedCall.phoneNumber)
-                        putDouble("startedAt", storedCall.startedAt ?: 0.0)
-                    }
-                Log.d("VonageEventsObserver", "observeLegStatus sendEvent callEvents with $map")
-                eventEmitter.sendEvent(Event.CALL_EVENTS, map)
+                // updated variable because when answering call repository changes status and startedAt
+                val updatedStoredCall =
+                    callRepository.getCall(callId)
+                        ?: throw IllegalStateException("Call $callId does not exist on storage")
+
+                Log.d("VonageEventsObserver", "observeLegStatus updatedStoredCall: $updatedStoredCall")
+                Log.d("VonageEventsObserver", "observeLegStatus startedAt: ${updatedStoredCall.startedAt}")
+
+                jsEventSender.sendCallEvent(
+                    callId = normalizedCallId,
+                    status = CallStatus.fromString(status.toString()),
+                    phoneNumber = updatedStoredCall.phoneNumber,
+                    startedAt = updatedStoredCall.startedAt,
+                    outbound = updatedStoredCall is Call.Outbound
+                )
             }
         }
     }
@@ -259,21 +278,20 @@ class VonageEventsObserver(
                 "observeIncomingCalls setCallInviteListener callId: $callId, from: $from, channelType: $channelType",
             )
 
+            startRingtone(context)
+
             callRepository.newInbound(callId, from)
 
             val normalizedCallId = callId.lowercase()
-            scope.launch {
-                val map =
-                    WritableNativeMap().apply {
-                        putString("id", normalizedCallId)
-                        putString("status", "ringing")
-                        putBoolean("isOutbound", false)
-                        putString("phoneNumber", from)
-                        putDouble("startedAt", nowDate())
-                    }
 
-                Log.d("VonageEventsObserver", "observeLegStatus sendEvent callEvents with $map")
-                eventEmitter.sendEvent(Event.CALL_EVENTS, map)
+            scope.launch {
+                jsEventSender.sendCallEvent(
+                    callId = normalizedCallId,
+                    status = CallStatus.RINGING,
+                    phoneNumber = from,
+                    startedAt = nowDate(),
+                    outbound = false
+                )
             }
 
             val phoneType: PhoneType = PhoneType.CustomPhoneDialerUI

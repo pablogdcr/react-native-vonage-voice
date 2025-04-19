@@ -18,7 +18,7 @@
     
     <!-- Notification strings -->
     <string name="notification_missed_calls">Missed Calls</string>
-    <string name="notification_missed_calls_desc">Notifications for missed calls</string>
+    <string name="notification_missed_calls_desc">From %1$s</string>
     <string name="notification_incoming_calls">Incoming Calls</string>
     <string name="notification_incoming_calls_desc">Notifications for incoming calls</string>
     <string name="notification_outgoing_calls">Outgoing Calls</string>

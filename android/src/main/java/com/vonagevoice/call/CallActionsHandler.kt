@@ -11,6 +11,7 @@ import com.vonagevoice.auth.IAppAuthProvider
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.js.Event
 import com.vonagevoice.js.EventEmitter
+import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.retryWithExponentialBackoff
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +36,7 @@ class CallActionsHandler(
     private val eventEmitter: EventEmitter,
     private val callRepository: CallRepository,
     private val voiceClient: VoiceClient,
+    private val jsEventSender: JSEventSender,
     vonageEventsObserver: VonageEventsObserver
 ) : ICallActionsHandler {
 
@@ -88,7 +90,7 @@ class CallActionsHandler(
             processingServerCall = false
             callRepository.newOutbound(callId = callId, phoneNumber = to)
             Log.d("CallActionsHandler", "call to: $to, callId: $callId")
-              callId
+            callId
         }
     }
 
@@ -114,18 +116,16 @@ class CallActionsHandler(
         val normalizedCallId = callId.lowercase()
 
         voiceClient.reject(normalizedCallId)
+
         scope.launch {
             val storedCall = callRepository.getCall(callId)
-            val map =
-                WritableNativeMap().apply {
-                    putString("id", normalizedCallId)
-                    putString("status", CallStatus.COMPLETED.toString())
-                    putBoolean("isOutbound", storedCall is Call.Outbound)
-                    putString("phoneNumber", (storedCall)?.phoneNumber)
-                    putDouble("startedAt", storedCall?.startedAt ?: 0.0)
-                }
-            Log.d("CallActionsHandler", "reject sendEvent callEvents with $map")
-            eventEmitter.sendEvent(Event.CALL_EVENTS, map)
+            jsEventSender.sendCallEvent(
+                callId = normalizedCallId,
+                status = CallStatus.COMPLETED,
+                phoneNumber = storedCall?.phoneNumber,
+                startedAt = storedCall?.startedAt,
+                outbound = storedCall is Call.Outbound
+            )
             callRepository.removeHangedUpCall(callId)
         }
         CallLifecycleManager.callback?.onCallEnded()
@@ -138,7 +138,6 @@ class CallActionsHandler(
      */
     override suspend fun hangup(callId: String) {
         Log.d("CallActionsHandler", "hangup $callId")
-
         voiceClient.hangup(callId)
     }
 

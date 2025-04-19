@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.vonagevoice.call.ICallActionsHandler
+import com.vonagevoice.utils.stopRingtone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,6 +33,7 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
                 scope.launch {
                     callHandler.reject(callId)
                     notificationManager.cancelInboundNotification()
+                    stopRingtone()
                     Log.d("CallActionReceiver", "onReceive reject done")
                 }
             }

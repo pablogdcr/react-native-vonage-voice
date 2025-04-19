@@ -18,7 +18,7 @@
 
     <!-- Notification strings -->
     <string name="notification_missed_calls">Appels manqués</string>
-    <string name="notification_missed_calls_desc">Notifications pour les appels manqués</string>
+    <string name="notification_missed_calls_desc">De %1$s</string>
     <string name="notification_incoming_calls">Appels entrants</string>
     <string name="notification_incoming_calls_desc">Notifications pour les appels entrants</string>
     <string name="notification_outgoing_calls">Appels sortants</string>
