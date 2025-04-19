@@ -153,8 +153,6 @@ class VonageEventsObserver(
     private fun observeHangups() {
         Log.d("VonageEventsObserver", "observeHangups")
         voiceClient.setOnCallHangupListener { callId, callQuality, reason ->
-            // Handle hangups
-
             val normalizedCallId = callId.lowercase()
 
             Log.d(
@@ -248,6 +246,7 @@ class VonageEventsObserver(
 
                 Log.d("VonageEventsObserver", "observeLegStatus updatedStoredCall: $updatedStoredCall")
                 Log.d("VonageEventsObserver", "observeLegStatus startedAt: ${updatedStoredCall.startedAt}")
+                Log.d("VonageEventsObserver", "observeLegStatus status: ${status.toString()}")
 
                 jsEventSender.sendCallEvent(
                     callId = normalizedCallId,

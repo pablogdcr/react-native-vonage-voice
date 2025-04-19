@@ -14,6 +14,7 @@ import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.retryWithExponentialBackoff
+import com.vonagevoice.utils.stopRingtone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -126,6 +127,7 @@ class CallActionsHandler(
                 startedAt = storedCall?.startedAt,
                 outbound = storedCall is Call.Outbound
             )
+            stopRingtone()
             callRepository.removeHangedUpCall(callId)
         }
         CallLifecycleManager.callback?.onCallEnded()
@@ -138,6 +140,7 @@ class CallActionsHandler(
      */
     override suspend fun hangup(callId: String) {
         Log.d("CallActionsHandler", "hangup $callId")
+
         voiceClient.hangup(callId)
     }
 

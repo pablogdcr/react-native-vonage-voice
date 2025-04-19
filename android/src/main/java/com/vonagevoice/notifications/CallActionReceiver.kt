@@ -32,8 +32,8 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
 
                 scope.launch {
                     callHandler.reject(callId)
-                    notificationManager.cancelInboundNotification()
                     stopRingtone()
+                    notificationManager.cancelInboundNotification()
                     Log.d("CallActionReceiver", "onReceive reject done")
                 }
             }

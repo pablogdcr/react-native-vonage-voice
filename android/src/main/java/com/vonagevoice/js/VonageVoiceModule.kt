@@ -283,7 +283,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
             // Stop any existing tone
             toneGenerator?.stopTone()
             toneGenerator?.release()
-            toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 100)
+            toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 10)
             toneGenerator?.startTone(tone, 3000)
 
             Log.d("VonageVoiceModule", "Started DTMF tone for key: $key")
