@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.vonagevoice.R
@@ -16,7 +17,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-
+import android.app.KeyguardManager
 
 /**
  * Be sure to add this in manifest :
@@ -71,6 +72,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
                         enableLights(true)
                         lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                         enableVibration(true)
+                        vibrationPattern = longArrayOf(0, 1000, 500, 1000)
                         importance = NotificationManager.IMPORTANCE_HIGH
                     },
                 NotificationChannel(
@@ -120,15 +122,34 @@ class NotificationManager(private val context: Context, private val appIntent: I
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_CANCEL_CURRENT
         )
 
-        val answerPendingIntent = PendingIntent.getBroadcast(
-            context,
-            0,
-            Intent(context, CallActionReceiver::class.java).apply {
-                action = CallActionReceiver.ACTION_ANSWER_CALL
-                putExtra("call_id", callId)
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        val isDeviceUnlocked = !keyguardManager.isKeyguardLocked
+
+        val answerPendingIntent = if (isDeviceUnlocked) {
+            PendingIntent.getActivity(
+                context,
+                0,
+                appIntent.getCallActivity(
+                    callId = callId,
+                    from = from,
+                    phoneName = "",
+                    language = "",
+                    incomingCallImage = null,
+                    answerCall = true
+                ),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_CANCEL_CURRENT
+            )
+        } else {
+            PendingIntent.getBroadcast(
+                context,
+                0,
+                Intent(context, CallActionReceiver::class.java).apply {
+                    action = CallActionReceiver.ACTION_ANSWER_CALL
+                    putExtra("call_id", callId)
+                },
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        }
 
         val rejectPendingIntent = PendingIntent.getBroadcast(
             context,
@@ -157,6 +178,7 @@ class NotificationManager(private val context: Context, private val appIntent: I
             .setLights(Color.YELLOW, 2000, 1000)
             .setColorized(true)
             .setColor(0x0B2120)
+            .setSound(Settings.System.DEFAULT_RINGTONE_URI)
 
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
