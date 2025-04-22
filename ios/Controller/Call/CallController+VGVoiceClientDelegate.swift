@@ -30,7 +30,8 @@ extension VonageCallController: VGVoiceClientDelegate {
     public func voiceClient(_ client: VGVoiceClient, didReceiveInviteCancelForCall callId: VGCallId, with reason: VGVoiceInviteCancelReason) {
         let uuid = UUID(uuidString: callId)!
         var cxreason: CXCallEndedReason = .failed
-        
+
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveInviteCancelForCall")
         switch (reason){
         case .remoteTimeout: cxreason = .unanswered
         case .answeredElsewhere: cxreason = .answeredElsewhere
@@ -41,7 +42,6 @@ extension VonageCallController: VGVoiceClientDelegate {
         @unknown default:
             fatalError()
         }
-        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveInviteCancelForCall")
         self.vonageCallUpdates.send((uuid, .completed(remote: true, reason: cxreason)))
     }
 
@@ -49,6 +49,7 @@ extension VonageCallController: VGVoiceClientDelegate {
         let uuid = UUID(uuidString: callId)!
         var cxreason: CXCallEndedReason = .failed
 
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveHangupForCall")
         switch (reason){
         case .mediaTimeout: cxreason = .unanswered
         case .remoteReject: cxreason = .declinedElsewhere
@@ -59,7 +60,6 @@ extension VonageCallController: VGVoiceClientDelegate {
         @unknown default:
             fatalError()
         }
-        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveHangupForCall")
         self.vonageCallUpdates.send((uuid, .completed(remote: true, reason: cxreason)))
     }
 
@@ -89,13 +89,11 @@ extension VonageCallController: VGVoiceClientDelegate {
     // MARK: VGVoiceClientDelegate LegStatus
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: VGCallId, withLegId legId: String, andStatus status: VGLegStatus) {
-        if (status == .answered) {
-            let uuid = UUID(uuidString: callId)!
-            vonageCallUpdates.send((uuid, .answered))
-        }
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveLegStatusUpdateForCall: \(callId), legId: \(legId), status: \(status)")
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveCallTransferForCall callId: VGCallId, withConversationId conversationId: String) {
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveCallTransferForCall: \(callId)")
         // this will only be triggered for our own legs
         let uuid = UUID(uuidString: callId)!
         vonageCallUpdates.send((uuid, .answered)) // report to Call Kit

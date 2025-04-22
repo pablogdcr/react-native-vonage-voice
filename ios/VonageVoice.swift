@@ -451,6 +451,7 @@ extension VonageVoice {
                     "startedAt": call.startedAt?.timeIntervalSince1970 as Any
                 ]
                 
+                print("[VonageVoice] Send call event: \(call.status.description)")
                 EventEmitter.shared.sendEvent(withName: Event.callEvents.rawValue, body: callData)
             }
             .store(in: &cancellables)
