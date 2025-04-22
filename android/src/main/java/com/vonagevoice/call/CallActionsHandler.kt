@@ -57,7 +57,7 @@ class CallActionsHandler(
 
         processingServerCall = true
 
-        val callData = mutableMapOf<String, String>("to" to to)
+        val callData = mutableMapOf<String, Any>("to" to to)
 
         customData.let {
             val iterator = it.keySetIterator()
@@ -67,9 +67,10 @@ class CallActionsHandler(
                     is Dynamic -> {
                         when (value.type) {
                             ReadableType.String -> callData[key] = value.asString()
-                            ReadableType.Number -> callData[key] = value.asDouble().toString()
-                            ReadableType.Boolean -> callData[key] = value.asBoolean().toString()
-                            // Add support for maps/arrays if needed
+                            ReadableType.Number -> callData[key] = value
+                            ReadableType.Boolean -> callData[key] = value.asBoolean()
+                            ReadableType.Map -> callData[key] = value.asMap().toString()
+                            // Add support for arrays if needed
                             else -> {} // unsupported types can be skipped or handled
                         }
                     }
@@ -77,10 +78,11 @@ class CallActionsHandler(
             }
         }
 
+        Log.d("CallActionsHandler", "call to: $to, with custom data: $callData")
         return retryWithExponentialBackoff {
             val clientAppJwtToken: String = appAuthProvider.getJwtToken()
             vonageAuthenticationService.login(clientAppJwtToken)
-            val callId = voiceClient.serverCall(callData)
+            val callId = voiceClient.serverCall(callData as Map<String, String>)
             processingServerCall = false
             callRepository.newOutbound(callId = callId, phoneNumber = to)
             Log.d("CallActionsHandler", "call to: $to, callId: $callId")

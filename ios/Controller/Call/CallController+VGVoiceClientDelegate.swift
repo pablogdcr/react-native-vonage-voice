@@ -90,12 +90,19 @@ extension VonageCallController: VGVoiceClientDelegate {
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveLegStatusUpdateForCall callId: VGCallId, withLegId legId: String, andStatus status: VGLegStatus) {
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveLegStatusUpdateForCall: \(callId), legId: \(legId), status: \(status)")
+        let uuid = UUID(uuidString: callId)!
+
+        if let call = self.vonageActiveCalls.value[uuid],
+           call.isOutbound == true,
+           status == .answered {
+            self.vonageCallUpdates.send((uuid, .answered))
+        }
     }
     
     public func voiceClient(_ client: VGVoiceClient, didReceiveCallTransferForCall callId: VGCallId, withConversationId conversationId: String) {
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveCallTransferForCall: \(callId)")
-        // this will only be triggered for our own legs
-        let uuid = UUID(uuidString: callId)!
-        vonageCallUpdates.send((uuid, .answered)) // report to Call Kit
+//        // this will only be triggered for our own legs
+//        let uuid = UUID(uuidString: callId)!
+//        vonageCallUpdates.send((uuid, .answered)) // report to Call Kit
     }
 }
