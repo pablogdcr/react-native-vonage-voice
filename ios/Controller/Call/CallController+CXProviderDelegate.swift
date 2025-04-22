@@ -168,6 +168,7 @@ extension VonageCallController: CXProviderDelegate {
                     self?.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning::rotating_light: AudioSession category not .playAndRecord - \(audioSession.category)")
                     do {
                         try audioSession.setCategory(.playAndRecord, mode: .voiceChat)
+                        try audioSession.setActive(true)
                     } catch {
                         self?.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning::rotating_light: Error setting AudioSession category to .playAndRecord @Pablo\n\(error)")
                     }
