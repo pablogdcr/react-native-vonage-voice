@@ -14,26 +14,30 @@ import android.util.Log
 private var ringtone: Ringtone? = null
 private var audioManager: AudioManager? = null
 private var vibrator: Vibrator? = null
+private var previousAudioMode: Int = AudioManager.MODE_NORMAL
 
 fun startRingtone(context: Context) {
     try {
         // Get AudioManager
         audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        
+
+        // Store current audio mode
+        previousAudioMode = audioManager?.mode ?: AudioManager.MODE_NORMAL
+
         // Set audio mode to RINGTONE to ensure proper audio routing
         audioManager?.mode = AudioManager.MODE_RINGTONE
-        
+
         // Get the default ringtone
         val notification: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
         ringtone = RingtoneManager.getRingtone(context, notification)
-        
+
         // Configure audio attributes for ringtone
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .setLegacyStreamType(AudioManager.STREAM_RING)
             .build()
-        
+
         // Set audio attributes and play
         ringtone?.let {
             it.audioAttributes = audioAttributes
@@ -42,7 +46,7 @@ fun startRingtone(context: Context) {
 
         // Start vibration
         startVibration(context)
-        
+
         Log.d("Ringtone", "Started ringing with volume: ${audioManager?.getStreamVolume(AudioManager.STREAM_RING)}")
     } catch (e: Exception) {
         Log.e("Ringtone", "Error starting ringtone", e)
@@ -80,16 +84,16 @@ fun stopRingtone() {
     try {
         ringtone?.stop()
         ringtone = null
-        
+
         // Stop vibration
         vibrator?.cancel()
         vibrator = null
-        
-        // Reset audio mode to normal
-        audioManager?.mode = AudioManager.MODE_NORMAL
+
+        // Restore previous audio mode
+        audioManager?.mode = previousAudioMode
         audioManager = null
-        
-        Log.d("Ringtone", "Stopped ringing")
+
+        Log.d("Ringtone", "Stopped ringing and restored audio mode: $previousAudioMode")
     } catch (e: Exception) {
         Log.e("Ringtone", "Error stopping ringtone", e)
     }
