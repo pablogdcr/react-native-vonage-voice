@@ -4,17 +4,13 @@ import android.util.Log
 import com.facebook.react.bridge.Dynamic
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.ReadableType
-import com.facebook.react.bridge.WritableNativeMap
 import com.vonage.voice.api.CallId
 import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IAppAuthProvider
 import com.vonagevoice.auth.IVonageAuthenticationService
-import com.vonagevoice.js.Event
-import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.retryWithExponentialBackoff
-import com.vonagevoice.utils.stopRingtone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,14 +30,11 @@ import kotlinx.coroutines.launch
 class CallActionsHandler(
     private val appAuthProvider: IAppAuthProvider,
     private val vonageAuthenticationService: IVonageAuthenticationService,
-    private val eventEmitter: EventEmitter,
     private val callRepository: CallRepository,
     private val voiceClient: VoiceClient,
     private val jsEventSender: JSEventSender,
     vonageEventsObserver: VonageEventsObserver
 ) : ICallActionsHandler {
-
-
     private var processingServerCall = false
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -127,7 +120,6 @@ class CallActionsHandler(
                 startedAt = storedCall?.startedAt,
                 outbound = storedCall is Call.Outbound
             )
-            stopRingtone()
             callRepository.removeHangedUpCall(callId)
         }
         CallLifecycleManager.callback?.onCallEnded()

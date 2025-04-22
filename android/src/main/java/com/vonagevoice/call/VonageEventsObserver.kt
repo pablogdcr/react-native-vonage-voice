@@ -1,34 +1,25 @@
 package com.vonagevoice.call
 
-import android.content.Context
-import android.provider.CallLog.Calls
 import android.util.Log
-import com.facebook.react.bridge.WritableNativeMap
 import com.vonage.clientcore.core.api.LegStatus
 import com.vonage.clientcore.core.api.VoiceInviteCancelReason
 import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.audio.SpeakerController
-import com.vonagevoice.js.Event
-import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.notifications.NotificationManager
 import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.nowDate
-import com.vonagevoice.utils.startRingtone
-import com.vonagevoice.utils.stopRingtone
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class VonageEventsObserver(
     private val openCustomPhoneDialerUI: IOpenCustomPhoneDialerUI,
-    private val eventEmitter: EventEmitter,
     private val callRepository: CallRepository,
     private val voiceClient: VoiceClient,
     private val notificationManager: NotificationManager,
     private val speakerController: SpeakerController,
     private val jsEventSender: JSEventSender,
-    private val context: Context,
 ) {
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -73,7 +64,6 @@ class VonageEventsObserver(
                 "setCallInviteCancelListener callId: $callId, reason: $reason"
             )
             notificationManager.cancelInboundNotification()
-            stopRingtone()
             val storedCall = callRepository.getCall(callId)
                 ?: throw IllegalStateException("Call $callId does not exist on storage")
             Log.d("VonageEventsObserver", "observeCallInviteCancel storedCall: $storedCall")
@@ -156,12 +146,6 @@ class VonageEventsObserver(
         Log.d("VonageEventsObserver", "callLegUpdates")
         voiceClient.setOnLegStatusUpdate { callId, legId, status ->
 
-            if (status == LegStatus.ringing) {
-                startRingtone(context)
-            } else {
-                stopRingtone()
-            }
-
             // Call leg updates
             Log.d(
                 "VonageEventsObserver",
@@ -179,6 +163,7 @@ class VonageEventsObserver(
                     LegStatus.completed -> {
                         Log.d("VonageEventsObserver", "observeLegStatus completed")
                         notificationManager.cancelInProgressNotification()
+                        notificationManager.cancelInboundNotification()
                     }
 
                     LegStatus.ringing -> {
@@ -236,8 +221,6 @@ class VonageEventsObserver(
                 "VonageEventsObserver",
                 "observeIncomingCalls setCallInviteListener callId: $callId, from: $from, channelType: $channelType",
             )
-
-            startRingtone(context)
 
             callRepository.newInbound(callId, from)
 
