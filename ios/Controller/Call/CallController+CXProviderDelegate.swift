@@ -22,6 +22,7 @@ extension VonageCallController: CXProviderDelegate {
             return
         }
 
+        action.fulfill()
         self.client.answer(action.callUUID.toVGCallID()) { err in
             self.contactService.resetCallInfo()
             guard err == nil else {
@@ -34,9 +35,7 @@ extension VonageCallController: CXProviderDelegate {
             }
             self.vonageCallUpdates.send((action.callUUID, .answered))
             self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - fulfilled")
-            self.startAudioSessionTimer()
         }
-        action.fulfill()
     }
 
     public func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
@@ -166,7 +165,7 @@ extension VonageCallController: CXProviderDelegate {
                 let audioSession = AVAudioSession.sharedInstance()
 
                 if (audioSession.category != .playAndRecord) {
-                    self?.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning::rotating_light: AudioSession category not .playAndRecord @Pablo")
+                    self?.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":warning::rotating_light: AudioSession category not .playAndRecord - \(audioSession.category)")
                     do {
                         try audioSession.setCategory(.playAndRecord, mode: .voiceChat)
                     } catch {
@@ -241,6 +240,8 @@ extension VonageCallController {
                                         self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "Failed to reject failed call. \(err)")
                                     }
                                 }
+                            } else {
+                                self.startAudioSessionTimer()
                             }
                         }
 
