@@ -405,7 +405,6 @@ extension VonageCallController {
                     self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to refresh Vonage token: \(error)")
                     break
                 }
-                group.leave()
             } receiveValue: { [weak self] (response: TokenResponse) in
                 guard let self = self else {
                     return
@@ -420,6 +419,7 @@ extension VonageCallController {
                     self.vonageExpiresAt = NSNumber(value: exp)
                 }
                 self.isRefreshing = false
+                group.leave()
             }
             .store(in: &self.cancellables)
 
