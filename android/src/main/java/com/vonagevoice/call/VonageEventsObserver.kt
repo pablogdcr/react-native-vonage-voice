@@ -45,47 +45,7 @@ class VonageEventsObserver(
         observeSessionErrors()
         observeCallInviteCancel()
         observeMute()
-        // observeAudioRoute()
     }
-
-    /**
-     * Observes and handles audio route changes.
-     * Uses the system's audio focus listener to detect route changes.
-     */
-    // private fun observeAudioRoute() {
-    //     Log.d("VonageEventsObserver", "observeAudioRoute")
-    //     val audioDeviceCallback = object : AudioDeviceCallback() {
-    //         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
-    //             super.onAudioDevicesAdded(addedDevices)
-    //             Log.d("AudioOutputObserver", "Devices added: ${addedDevices.joinToString { it.productName.toString() }}")
-    //             emitCurrentAudioRoute()
-    //         }
-
-    //         override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
-    //             super.onAudioDevicesRemoved(removedDevices)
-    //             Log.d("AudioOutputObserver", "Devices removed: ${removedDevices.joinToString { it.productName.toString() }}")
-    //             emitCurrentAudioRoute()
-    //         }
-    //     }
-    //     speakerController.audioManager.registerAudioDeviceCallback(audioDeviceCallback, Handler(Looper.getMainLooper()))    }
-
-    // private fun emitCurrentAudioRoute() {
-    //     val isSpeakerOn = speakerController.isSpeakerOn()
-    //     val currentRoute = if (isSpeakerOn) "Speaker" else "Receiver"
-
-    //     val map = WritableNativeMap().apply {
-    //         putMap("device", WritableNativeMap().apply {
-    //             putString("name", currentRoute)
-    //             putString("id", "default")
-    //             putString("type", currentRoute)
-    //         })
-    //     }
-
-    //     Log.d("VonageEventsObserver", "Current audio route: $currentRoute")
-    //     scope.launch {
-    //         eventEmitter.sendEvent(Event.AUDIO_ROUTE_CHANGED, map)
-    //     }
-    // }
 
     /**
      * Observes and handles mute actions on the voice client.
