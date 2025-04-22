@@ -1,0 +1,27 @@
+# ========== Android build artifacts ==========
+# Gradle caches & wrappers
+android/.gradle/
+android/gradle/
+# compiled intermediates & APKs
+android/**/build/
+android/**/intermediates/
+android/**/outputs/
+android/**/generated/
+# CMake / NDK bits
+android/**/.cxx/
+android/**/obj/
+
+# ========== iOS build artifacts ==========
+# Xcode build folder
+ios/build/
+# CocoaPods
+ios/Pods/
+# Xcode user settings / derived data
+ios/**/*.xcuserdata/
+ios/**/*.xcworkspace/
+ios/DerivedData/
+
+# ========== Generated maps/tests/etc ==========
+*.map
+coverage/
+__tests__/
