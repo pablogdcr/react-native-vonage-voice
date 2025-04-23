@@ -38,6 +38,17 @@ fun startRingtone(context: Context) {
             .setLegacyStreamType(AudioManager.STREAM_RING)
             .build()
 
+        // Request audio focus to pause other audio streams
+        val result = audioManager?.requestAudioFocus(
+            null,
+            AudioManager.STREAM_RING,
+            AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+        )
+
+        if (result != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            Log.w("Ringtone", "Could not get audio focus")
+        }
+
         // Set audio attributes and play
         ringtone?.let {
             it.audioAttributes = audioAttributes
@@ -85,13 +96,14 @@ fun stopRingtone() {
         ringtone?.stop()
         ringtone = null
 
+        // Restore previous audio mode
+        audioManager?.mode = previousAudioMode
+
+        audioManager = null
+
         // Stop vibration
         vibrator?.cancel()
         vibrator = null
-
-        // Restore previous audio mode
-        audioManager?.mode = previousAudioMode
-        audioManager = null
 
         Log.d("Ringtone", "Stopped ringing and restored audio mode: $previousAudioMode")
     } catch (e: Exception) {
