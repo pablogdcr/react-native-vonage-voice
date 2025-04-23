@@ -82,7 +82,6 @@ class VonageEventsObserver(
                 )
             }
             notificationManager.cancelInProgressNotification()
-            notificationManager.showMissedCallNotification(from = storedCall.phoneNumber)
             CallLifecycleManager.callback?.onCallEnded()
         }
     }
@@ -155,51 +154,51 @@ class VonageEventsObserver(
             val normalizedCallId = callId.lowercase()
 
             scope.launch {
-                val storedCall =
-                    callRepository.getCall(callId)
-                        ?: throw IllegalStateException("Call $callId does not exist on storage")
+                val storedCall = callRepository.getCall(callId)
 
-                when (status) {
-                    LegStatus.completed -> {
-                        Log.d("VonageEventsObserver", "observeLegStatus completed")
-                        notificationManager.cancelInProgressNotification()
-                        notificationManager.cancelInboundNotification()
-                    }
-
-                    LegStatus.ringing -> {
-                        Log.d("VonageEventsObserver", "observeLegStatus ringing")
-                        // no need to call callRepository.newInbound because it's already called in observeIncomingCalls setCallInviteListener
-                    }
-
-                    LegStatus.answered -> {
-                        Log.d("VonageEventsObserver", "observeLegStatus answered")
-                        // update status
-                        // when status change
-                        // and update startedAt when answered for inbound
-                        if (!storedCall.isOutbound) {
-                            speakerController.disableSpeaker()
-                            callRepository.answerInboundCall(normalizedCallId)
+                if (storedCall != null) {
+                    when (status) {
+                        LegStatus.completed -> {
+                            Log.d("VonageEventsObserver", "observeLegStatus completed")
+                            notificationManager.cancelInProgressNotification()
                             notificationManager.cancelInboundNotification()
                         }
+
+                        LegStatus.ringing -> {
+                            Log.d("VonageEventsObserver", "observeLegStatus ringing")
+                            // no need to call callRepository.newInbound because it's already called in observeIncomingCalls setCallInviteListener
+                        }
+
+                        LegStatus.answered -> {
+                            Log.d("VonageEventsObserver", "observeLegStatus answered")
+                            // update status
+                            // when status change
+                            // and update startedAt when answered for inbound
+                            if (!storedCall.isOutbound) {
+                                speakerController.disableSpeaker()
+                                callRepository.answerInboundCall(normalizedCallId)
+                                notificationManager.cancelInboundNotification()
+                            }
+                        }
                     }
+
+                    // updated variable because when answering call repository changes status and startedAt
+                    val updatedStoredCall =
+                        callRepository.getCall(callId)
+                            ?: throw IllegalStateException("Call $callId does not exist on storage")
+
+                    Log.d("VonageEventsObserver", "observeLegStatus updatedStoredCall: $updatedStoredCall")
+                    Log.d("VonageEventsObserver", "observeLegStatus startedAt: ${updatedStoredCall.startedAt}")
+                    Log.d("VonageEventsObserver", "observeLegStatus status: ${status.toString()}")
+
+                    jsEventSender.sendCallEvent(
+                        callId = normalizedCallId,
+                        status = CallStatus.fromString(status.toString()),
+                        phoneNumber = updatedStoredCall.phoneNumber,
+                        startedAt = updatedStoredCall.startedAt,
+                        outbound = updatedStoredCall is Call.Outbound
+                    )
                 }
-
-                // updated variable because when answering call repository changes status and startedAt
-                val updatedStoredCall =
-                    callRepository.getCall(callId)
-                        ?: throw IllegalStateException("Call $callId does not exist on storage")
-
-                Log.d("VonageEventsObserver", "observeLegStatus updatedStoredCall: $updatedStoredCall")
-                Log.d("VonageEventsObserver", "observeLegStatus startedAt: ${updatedStoredCall.startedAt}")
-                Log.d("VonageEventsObserver", "observeLegStatus status: ${status.toString()}")
-
-                jsEventSender.sendCallEvent(
-                    callId = normalizedCallId,
-                    status = CallStatus.fromString(status.toString()),
-                    phoneNumber = updatedStoredCall.phoneNumber,
-                    startedAt = updatedStoredCall.startedAt,
-                    outbound = updatedStoredCall is Call.Outbound
-                )
             }
         }
     }

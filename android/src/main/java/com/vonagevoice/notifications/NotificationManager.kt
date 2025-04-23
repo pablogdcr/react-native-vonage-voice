@@ -33,9 +33,7 @@ class NotificationManager(
         private const val CALL_OUTBOUND_NOTIFICATION_ID = 1
         private const val CALL_INBOUND_NOTIFICATION_ID = 2
         private const val CALL_IN_PROGRESS_NOTIFICATION_ID = 3
-        private const val CALL_MISSED_NOTIFICATION_ID = 4
 
-        const val MISSED_CALL = "missed_call"
         const val INCOMING_CALL = "incoming_call"
         const val OUTGOING_CALL = "outgoing_call"
         const val ONGOING_CALL = "ongoing_call"
@@ -57,14 +55,6 @@ class NotificationManager(
         Log.d("NotificationManager", "createNotificationChannels")
         val channels =
             listOf(
-                NotificationChannel(
-                    MISSED_CALL,
-                    context.getString(R.string.notification_missed_calls),
-                    NotificationManager.IMPORTANCE_DEFAULT,
-                )
-                    .apply {
-                        description = context.getString(R.string.notification_missed_calls_desc)
-                    },
                 NotificationChannel(
                     INCOMING_CALL,
                     context.getString(R.string.notification_incoming_calls),
@@ -251,32 +241,6 @@ class NotificationManager(
         notificationManager.notify(CALL_IN_PROGRESS_NOTIFICATION_ID, notification)
     }
 
-    fun showMissedCallNotification(from: String) {
-        Log.d("NotificationManager", "showMissedCallNotification from: $from")
-        val intent = appIntent.getMainActivity()
-
-        val pendingIntent =
-            PendingIntent.getActivity(
-                context,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-
-        val notification =
-            NotificationCompat.Builder(context, MISSED_CALL)
-                .setContentTitle(context.getString(R.string.notification_missed_calls))
-                .setContentText(context.getString(R.string.notification_missed_calls_desc, from))
-                .setSmallIcon(R.drawable.ic_missed_call)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setContentIntent(pendingIntent)
-                .build()
-
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(CALL_OUTBOUND_NOTIFICATION_ID, notification)
-    }
-
     fun showNotificationAndStartCallTimer(
         callId: String,
         from: String,
@@ -342,11 +306,6 @@ class NotificationManager(
         Log.d("NotificationManager", "cancelInboundNotification")
         cancelCallNotification(CALL_INBOUND_NOTIFICATION_ID)
         stopRingtone()
-    }
-
-    fun cancelMissedNotification() {
-        Log.d("NotificationManager", "cancelMissedNotification")
-        cancelCallNotification(CALL_MISSED_NOTIFICATION_ID)
     }
 
     fun cancelOutboundNotification() {
