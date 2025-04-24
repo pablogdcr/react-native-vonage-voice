@@ -173,7 +173,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         Log.d("VonageVoiceModule", "getAvailableAudioDevices")
 
         try {
-            val inputs = deviceManager.getAvailableAudioOutputs()
+            val inputs = deviceManager.getAvailableAudioDevices()
             Log.d("VonageVoiceModule", "getAvailableAudioDevices inputs: $inputs")
             val array = Arguments.createArray()
 

@@ -10,31 +10,45 @@ class DeviceManager(
     private val speakerController: SpeakerController
 ) {
 
-    private fun getInputDeviceById(deviceId: Int): AudioDeviceInfo? {
-        Log.d("DeviceManager", "getInputDeviceById deviceId: $deviceId")
-        val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-        val deviceFound = devices.find { it.id == deviceId }
+    private fun getDeviceById(deviceId: Int): AudioDeviceInfo? {
+        Log.d("DeviceManager", "getDeviceById deviceId: $deviceId")
+        val deviceFound = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.availableCommunicationDevices.find { it.id == deviceId }
+        } else {
+            audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).find { it.id == deviceId }
+        }
         Log.d(
             "DeviceManager",
-            "getInputDeviceById devices: ${devices.map { it.toAudioDevice() }}, deviceFound: $deviceFound"
+            "getDeviceById deviceFound: ${deviceFound?.toAudioDevice()}"
         )
         return deviceFound
     }
 
-    fun getAvailableAudioOutputs(): List<AudioDevice> {
+    fun getAvailableAudioDevices(): List<AudioDevice> {
         Log.d("DeviceManager", "getAvailableAudioOutputs")
-        val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+        val devices = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.availableCommunicationDevices.mapNotNull { device ->
+                device.toAudioDevice()
+            }
+        } else {
+            audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).mapNotNull { device ->
+                device.toAudioDevice()
+            }
+        }
 
         Log.d("DeviceManager", "getAvailableAudioOutputs devices: $devices")
-        return devices.mapNotNull { device ->
-            device.toAudioDevice()
-        }
+        return devices
     }
 
     private fun AudioDeviceInfo.toAudioDevice(): AudioDevice? {
+        Log.d("DeviceManager", "toAudioDevice type: $type, name: ${productName}")
         return when (type) {
             AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
             AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_BLE_HEADSET,
+            AudioDeviceInfo.TYPE_BLE_SPEAKER,
+            AudioDeviceInfo.TYPE_BLE_BROADCAST,
             AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> {
                 AudioDevice(
                     name = productName.toString(),
@@ -42,12 +56,14 @@ class DeviceManager(
                     type = mapDeviceType(type)
                 )
             }
-
-            else -> null
+            else -> {
+                Log.d("DeviceManager", "Unhandled device type: $type")
+                null
+            }
         }
     }
 
-    private fun mapDeviceType(type: Int): String {
+    fun mapDeviceType(type: Int): String {
         return when (type) {
             AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Speaker"
             AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Receiver"
@@ -59,12 +75,15 @@ class DeviceManager(
     }
 
     fun setAudioDevice(deviceId: Int) {
-        val device = getInputDeviceById(deviceId)
+        Log.d("DeviceManager", "setAudioDevice deviceId: $deviceId")
+        val device = getDeviceById(deviceId)
             ?: throw IllegalStateException("DeviceManager Device with id $deviceId is not found")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Log.d("DeviceManager", "setCommunicationDevice device: ${device.toAudioDevice()}")
             audioManager.setCommunicationDevice(device)
         } else {
+            Log.d("DeviceManager", "old API logic for setting device: $device")
             // Best effort routing using legacy APIs
             when (device.type) {
                 AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,

@@ -1,15 +1,10 @@
 package com.vonagevoice.audio
 
-import android.content.Context
-import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.util.Log
-import com.facebook.react.bridge.WritableNativeMap
-import com.vonagevoice.js.Event
 import com.vonagevoice.js.EventEmitter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * The SpeakerController class manages the state of the speakerphone on the device.
@@ -37,21 +32,6 @@ class SpeakerController(
         Log.d("SpeakerController", "enableSpeaker")
         // This runs on the main thread, ensure it's run within a coroutine
         audioManager.isSpeakerphoneOn = true
-
-        scope.launch {
-            val map = WritableNativeMap().apply {
-                putMap("device", WritableNativeMap().apply {
-                    putString("name", "Speaker")
-                    putString("id", "idk")
-                    putString("type", "Speaker")
-                })
-            }
-
-            eventEmitter.sendEvent(
-                Event.AUDIO_ROUTE_CHANGED,
-                map
-            )
-        }
     }
 
     /**
@@ -62,19 +42,6 @@ class SpeakerController(
         Log.d("SpeakerController", "disableSpeaker")
         // This runs on the main thread, ensure it's run within a coroutine
         audioManager.isSpeakerphoneOn = false
-
-        scope.launch {
-            val map = WritableNativeMap().apply {
-                putString("name", "Receiver")
-                putString("id", "idk")
-                putString("type", "Receiver")
-            }
-
-            eventEmitter.sendEvent(
-                Event.AUDIO_ROUTE_CHANGED,
-                map
-            )
-        }
     }
 
     fun isSpeakerOn(): Boolean = audioManager.isSpeakerphoneOn

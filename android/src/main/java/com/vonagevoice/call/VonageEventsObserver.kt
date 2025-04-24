@@ -1,5 +1,7 @@
 package com.vonagevoice.call
 
+import android.media.AudioManager
+import android.os.Build
 import android.util.Log
 import com.vonage.clientcore.core.api.LegStatus
 import com.vonage.clientcore.core.api.VoiceInviteCancelReason
@@ -11,6 +13,7 @@ import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.nowDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.launch
 
 class VonageEventsObserver(
@@ -20,6 +23,7 @@ class VonageEventsObserver(
     private val notificationManager: NotificationManager,
     private val speakerController: SpeakerController,
     private val jsEventSender: JSEventSender,
+    private val audioManager: AudioManager,
 ) {
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -36,6 +40,20 @@ class VonageEventsObserver(
         observeSessionErrors()
         observeCallInviteCancel()
         observeMute()
+        observeAudioRouteChange()
+    }
+
+    private fun observeAudioRouteChange() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.addOnCommunicationDeviceChangedListener(Dispatchers.IO.asExecutor()) { device ->
+                Log.d("VonageEventsObserver", "addOnCommunicationDeviceChangedListener device: $device")
+                scope.launch {
+                    if (device != null) {
+                        jsEventSender.sendAudioRouteChanged(device)
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -162,6 +180,7 @@ class VonageEventsObserver(
                             Log.d("VonageEventsObserver", "observeLegStatus completed")
                             notificationManager.cancelInProgressNotification()
                             notificationManager.cancelInboundNotification()
+                            audioManager.mode = AudioManager.MODE_NORMAL
                         }
 
                         LegStatus.ringing -> {
@@ -179,6 +198,13 @@ class VonageEventsObserver(
                                 callRepository.answerInboundCall(normalizedCallId)
                                 notificationManager.cancelInboundNotification()
                             }
+                            // Set up volume control for the call
+                            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+                            audioManager.setStreamVolume(
+                                AudioManager.STREAM_VOICE_CALL,
+                                audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL),
+                                0
+                            )
                         }
                     }
 

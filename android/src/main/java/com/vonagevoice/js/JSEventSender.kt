@@ -1,14 +1,19 @@
 package com.vonagevoice.js
 
+import android.media.AudioDeviceInfo
 import android.provider.CallLog.Calls
 import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.WritableNativeMap
+import com.vonagevoice.audio.DeviceManager
 import com.vonagevoice.call.Call
 import com.vonagevoice.call.CallStatus
 import kotlinx.coroutines.launch
 
-class JSEventSender(private val eventEmitter: EventEmitter) {
+class JSEventSender(
+    private val eventEmitter: EventEmitter,
+    private val deviceManager: DeviceManager,
+) {
 
     suspend fun sendFirebasePushToken(pushToken: String) {
         eventEmitter.sendEvent(
@@ -44,5 +49,20 @@ class JSEventSender(private val eventEmitter: EventEmitter) {
     suspend fun sendMuteChanged(muted: Boolean) {
         val param = WritableNativeMap().apply { putBoolean("muted", muted) }
         eventEmitter.sendEvent(Event.MUTE_CHANGED, param)
+    }
+
+    suspend fun sendAudioRouteChanged(device: AudioDeviceInfo) {
+        val map = WritableNativeMap().apply {
+            putString("name", device.productName.toString())
+            putString("id", device.id.toString())
+            putString("type", deviceManager.mapDeviceType(device.type))
+        }
+        Log.d("JSEventSender", "sendAudioRouteChanged map: $map")
+        eventEmitter.sendEvent(
+            Event.AUDIO_ROUTE_CHANGED,
+            WritableNativeMap().apply {
+              putMap("device", map)
+            }
+        )
     }
 }
