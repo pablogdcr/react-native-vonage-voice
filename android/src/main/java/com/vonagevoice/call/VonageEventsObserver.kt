@@ -1,5 +1,6 @@
 package com.vonagevoice.call
 
+import android.content.Context
 import android.media.AudioManager
 import android.os.Build
 import android.util.Log
@@ -11,12 +12,14 @@ import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.notifications.NotificationManager
 import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.nowDate
+import com.vonagevoice.utils.ProximitySensorManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.launch
 
 class VonageEventsObserver(
+    private val context: Context,
     private val openCustomPhoneDialerUI: IOpenCustomPhoneDialerUI,
     private val callRepository: CallRepository,
     private val voiceClient: VoiceClient,
@@ -27,6 +30,7 @@ class VonageEventsObserver(
 ) {
 
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val proximitySensorManager = ProximitySensorManager(context)
 
     init {
         Log.d("VonageEventsObserver", "init")
@@ -128,6 +132,7 @@ class VonageEventsObserver(
             )
 
             notificationManager.cancelInProgressNotification()
+            proximitySensorManager.stopListening()
 
             scope.launch {
                 val storedCall = callRepository.getCall(callId)
@@ -205,6 +210,8 @@ class VonageEventsObserver(
                                 audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL),
                                 0
                             )
+                            // Start listening to proximity sensor when call is answered
+                            proximitySensorManager.startListening()
                         }
                     }
 
