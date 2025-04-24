@@ -189,7 +189,7 @@ class NotificationManager(
     private fun showInProgressCallNotification(
         callId: String,
         from: String,
-        phoneName: String,
+        phoneName: String?,
         language: String,
         incomingCallImage: String?,
         elapsedTime: Long,
@@ -244,7 +244,7 @@ class NotificationManager(
     fun showNotificationAndStartCallTimer(
         callId: String,
         from: String,
-        phoneName: String,
+        phoneName: String?,
         language: String,
         incoming_call_image: String?,
     ): Job {

@@ -4,6 +4,7 @@
     <string name="call_from">Appel de %1$s</string>
     <string name="answer">Répondre</string>
     <string name="reject">Refuser</string>
+    <string name="anonymous">Anonyme</string>
     <string name="end_to_end_encrypted">Chiffré de bout en bout</string>
     <string name="minimize">Réduire</string>
     <string name="mute">Muet</string>

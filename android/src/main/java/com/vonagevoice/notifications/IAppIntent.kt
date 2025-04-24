@@ -6,7 +6,7 @@ interface IAppIntent {
     fun getCallActivity(
         callId: String,
         from: String,
-        phoneName: String,
+        phoneName: String?,
         language: String,
         incomingCallImage: String?,
         answerCall: Boolean,
