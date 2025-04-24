@@ -14,7 +14,8 @@
     <string name="call_in_progress">Call in progress</string>
     <string name="call_duration">%1$s - %2$s</string>
     <string name="hang_up">Hang up</string>
-    <string name="swipe_to_answer">Swipe to answer</string>
+    <string name="swipe_to_answer">Swipe to</string>
+    <string name="swipe_to_answer_2">answer</string>
     
     <!-- Notification strings -->
     <string name="notification_incoming_calls">Incoming Calls</string>
