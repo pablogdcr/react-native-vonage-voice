@@ -409,7 +409,12 @@ extension VonageCallController {
                 guard let self = self else {
                     return
                 }
-                self.updateSessionToken(response.data.token)
+                self.updateSessionToken(response.data.token) { error in
+                    if (error != nil) {
+                        self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to create Vonage Session ! \(error)")
+                    }
+                    group.leave()
+                }
 
                 let tokenComponents = response.data.token.components(separatedBy: ".")
                 if tokenComponents.count > 1,
@@ -419,7 +424,6 @@ extension VonageCallController {
                     self.vonageExpiresAt = NSNumber(value: exp)
                 }
                 self.isRefreshing = false
-                group.leave()
             }
             .store(in: &self.cancellables)
 
