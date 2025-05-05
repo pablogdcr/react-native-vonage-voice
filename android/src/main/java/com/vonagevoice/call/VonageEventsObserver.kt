@@ -200,11 +200,7 @@ class VonageEventsObserver(
                             Log.d("VonageEventsObserver", "observeLegStatus answered")
 
                             // updates repository for inbound + outbound
-                            if (storedCall.isOutbound) {
-                                callRepository.answerOutboundCall(normalizedCallId)
-                            } else {
-                                callRepository.answerInboundCall(normalizedCallId)
-                            }
+                            callRepository.answer(normalizedCallId)
 
                             // update status
                             // when status change
