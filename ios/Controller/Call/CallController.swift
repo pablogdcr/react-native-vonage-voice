@@ -65,6 +65,7 @@ public class VonageCallController: NSObject {
     var vonageActiveCalls = CurrentValueSubject<Dictionary<UUID,Call>,Never>([:])
 
     var contactReady = false
+    var sessionReady = false
     var contactName: String?
     var isRefreshing = false
     var timedOut = false
@@ -409,12 +410,15 @@ extension VonageCallController {
                 guard let self = self else {
                     return
                 }
+                // Wait for 3 seconds before proceeding
                 self.updateSessionToken(response.data.token) { error in
                     if (error != nil) {
                         self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to create Vonage Session ! \(error)")
                     }
-                    group.leave()
+                    print("SESSION UPDATED")
+                    self.sessionReady = true
                 }
+                group.leave()
 
                 let tokenComponents = response.data.token.components(separatedBy: ".")
                 if tokenComponents.count > 1,
@@ -438,7 +442,7 @@ extension VonageCallController {
             group.leave()
         }
 
-        let result = group.wait(timeout: .now() + 3.0)
+        let result = group.wait(timeout: .now() + 3.5)
 
         if result == .timedOut {
             self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after 3.0 seconds. Call reported successfully :white_check_mark:")
@@ -520,6 +524,7 @@ extension VonageCallController {
             self.contactReady = false
             self.contactName = nil
             self.timedOut = false
+            self.sessionReady = false
             let group = DispatchGroup()
 
             group.enter()
@@ -547,7 +552,7 @@ extension VonageCallController {
                     group.leave()
                 }
             }
-            let result = group.wait(timeout: .now() + 5.0)
+            let result = group.wait(timeout: .now() + 4.0)
             
             if result == .timedOut {
                 self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after 5.0 seconds.")

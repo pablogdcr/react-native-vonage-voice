@@ -13,6 +13,19 @@ extension VonageCallController: CXProviderDelegate {
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXStartCallAction")
         action.fulfill()
     }
+        
+    private func checkSessionReady() {
+        let startTime = Date()
+        let maxWaitTime: TimeInterval = 5.0
+        
+        while !self.sessionReady {
+            if Date().timeIntervalSince(startTime) >= maxWaitTime {
+                self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Timed out waiting for session ready after \(maxWaitTime) seconds")
+                return
+            }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+    }
 
     public func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction")
@@ -20,9 +33,9 @@ extension VonageCallController: CXProviderDelegate {
             self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - failed 1")
             action.fail()
             return
-        }
+        }        
 
-        action.fulfill()
+        checkSessionReady()
         self.client.answer(action.callUUID.toVGCallID()) { err in
             self.contactService.resetCallInfo()
             guard err == nil else {
@@ -35,6 +48,7 @@ extension VonageCallController: CXProviderDelegate {
             }
             self.vonageCallUpdates.send((action.callUUID, .answered))
             self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXAnswerCallAction - fulfilled")
+            action.fulfill()
         }
     }
 
@@ -47,6 +61,7 @@ extension VonageCallController: CXProviderDelegate {
         }
 
         if case .inbound(_,_,.ringing,_) = call {
+            checkSessionReady()
             self.vonageCalls.send(Call.inbound(id: action.callUUID, from: call.phoneNumber, status: .completed(remote: true, reason: .declinedElsewhere)))
             self.client.reject(action.callUUID.toVGCallID()){ err in
                 self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CXProviderDelegate] - CXEndCallAction - fulfilled 1")
