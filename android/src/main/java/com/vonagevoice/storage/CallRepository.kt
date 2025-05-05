@@ -76,6 +76,19 @@ class CallRepository {
         }
     }
 
+    fun answerOutboundCall(callId: String) {
+        Log.d("CallRepository", "answerInboundCall callId: $callId")
+        val index = calls.indexOfFirst { it is Call.Outbound && it.id == callId }
+        if (index != -1) {
+            val inboundCall = calls[index] as Call.Outbound
+            val updatedCall = inboundCall.copy(status = CallStatus.ANSWERED)
+            calls[index] = updatedCall
+            Log.d("CallRepository", "answerInboundCall callId: $callId")
+        } else {
+            throw IllegalStateException("answerInboundCall can't find call $callId. Cannot update status and startedAt")
+        }
+    }
+
     /**
      * Vonage doesn't provide the caller's phone number immediately for inbound calls. We store the
      * call in a list and update its phone number later when it becomes available.
@@ -109,6 +122,7 @@ class CallRepository {
     }
 
     fun getActiveCall(): Call? {
+        Log.d("CallRepository", "all calls: $calls")
         return calls.find { it.status == CallStatus.ANSWERED }
     }
 }

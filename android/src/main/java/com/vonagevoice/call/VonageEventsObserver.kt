@@ -50,7 +50,10 @@ class VonageEventsObserver(
     private fun observeAudioRouteChange() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             audioManager.addOnCommunicationDeviceChangedListener(Dispatchers.IO.asExecutor()) { device ->
-                Log.d("VonageEventsObserver", "addOnCommunicationDeviceChangedListener device: $device")
+                Log.d(
+                    "VonageEventsObserver",
+                    "addOnCommunicationDeviceChangedListener device: $device"
+                )
                 scope.launch {
                     if (device != null) {
                         jsEventSender.sendAudioRouteChanged(device)
@@ -195,12 +198,19 @@ class VonageEventsObserver(
 
                         LegStatus.answered -> {
                             Log.d("VonageEventsObserver", "observeLegStatus answered")
+
+                            // updates repository for inbound + outbound
+                            if (storedCall.isOutbound) {
+                                callRepository.answerOutboundCall(normalizedCallId)
+                            } else {
+                                callRepository.answerInboundCall(normalizedCallId)
+                            }
+
                             // update status
                             // when status change
                             // and update startedAt when answered for inbound
                             if (!storedCall.isOutbound) {
                                 speakerController.disableSpeaker()
-                                callRepository.answerInboundCall(normalizedCallId)
                                 notificationManager.cancelInboundNotification()
                             }
                             // Set up volume control for the call
@@ -220,8 +230,14 @@ class VonageEventsObserver(
                         callRepository.getCall(callId)
                             ?: throw IllegalStateException("Call $callId does not exist on storage")
 
-                    Log.d("VonageEventsObserver", "observeLegStatus updatedStoredCall: $updatedStoredCall")
-                    Log.d("VonageEventsObserver", "observeLegStatus startedAt: ${updatedStoredCall.startedAt}")
+                    Log.d(
+                        "VonageEventsObserver",
+                        "observeLegStatus updatedStoredCall: $updatedStoredCall"
+                    )
+                    Log.d(
+                        "VonageEventsObserver",
+                        "observeLegStatus startedAt: ${updatedStoredCall.startedAt}"
+                    )
                     Log.d("VonageEventsObserver", "observeLegStatus status: ${status.toString()}")
 
                     jsEventSender.sendCallEvent(
