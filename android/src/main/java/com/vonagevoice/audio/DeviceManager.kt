@@ -57,18 +57,39 @@ class DeviceManager(
     }
 
     private fun AudioDeviceInfo.toAudioDevice(): AudioDevice? {
-        Log.d("DeviceManager", "toAudioDevice type: $type, name: ${productName}")
-        return when (type) {
-            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER, AudioDeviceInfo.TYPE_BLE_BROADCAST, AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> {
-                AudioDevice(
-                    name = productName.toString(), id = id.toString(), type = mapDeviceType(type)
-                )
-            }
+        Log.d("DeviceManager", "toAudioDevice type: $type, name: $productName")
+        return if (isSupportedOutputDevice(type)) {
+            AudioDevice(
+                name = toDisplayName(),
+                id = id.toString(),
+                type = mapDeviceType(type)
+            )
+        } else {
+            Log.e("DeviceManager", "Unhandled device type: $type")
+            null
+        }
+    }
 
-            else -> {
-                Log.d("DeviceManager", "Unhandled device type: $type")
-                null
-            }
+    private fun AudioDeviceInfo.toDisplayName(): String {
+        return "$productName (${mapDeviceType(type)})"
+    }
+
+    private fun isSupportedOutputDevice(type: Int): Boolean {
+        return when (type) {
+            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
+            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_BLE_HEADSET,
+            AudioDeviceInfo.TYPE_BLE_SPEAKER,
+            AudioDeviceInfo.TYPE_BLE_BROADCAST,
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_WIRED_HEADSET,
+            AudioDeviceInfo.TYPE_USB_DEVICE,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+            AudioDeviceInfo.TYPE_HDMI -> true
+
+            else -> false
         }
     }
 
@@ -76,10 +97,20 @@ class DeviceManager(
         return when (type) {
             AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Speaker"
             AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Receiver"
-            AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth"
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
             AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth"
-            AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Headphones"
-            else -> "UNKNOWN (type: $type)"
+
+            AudioDeviceInfo.TYPE_BLE_HEADSET -> "BLE Headset"
+            AudioDeviceInfo.TYPE_BLE_SPEAKER -> "BLE Speaker"
+            AudioDeviceInfo.TYPE_BLE_BROADCAST -> "BLE Broadcast"
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired Headphones"
+
+            AudioDeviceInfo.TYPE_USB_DEVICE,
+            AudioDeviceInfo.TYPE_USB_HEADSET -> "USB Audio"
+
+            AudioDeviceInfo.TYPE_HDMI -> "HDMI Output"
+            else -> "Unknown (type: $type)"
         }
     }
 
@@ -140,18 +171,36 @@ class DeviceManager(
             Log.d("DeviceManager", "Audio mode set to MODE_IN_COMMUNICATION")
         }
 
-        // Detect if Bluetooth is connected or already routing audio
-        val isBluetoothScoOn = audioManager.isBluetoothScoOn || audioManager.isBluetoothA2dpOn
-        val isBluetoothConnected = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            .any { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP }
-
-        if (!isBluetoothScoOn && !isBluetoothConnected) {
+        if (!isBluetoothConnected()) {
             Log.d("DeviceManager", "No Bluetooth device detected, disabling speaker")
             speakerController.disableSpeaker()
         } else {
             Log.d("DeviceManager", "Bluetooth audio already active, leaving routing unchanged")
         }
     }
+
+    fun getBluetoothDevice(): AudioDeviceInfo? {
+        val outputDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+
+        return outputDevices.firstOrNull {
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+        }
+    }
+
+
+    fun isBluetoothConnected(): Boolean {
+        val outputDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+        val isBluetoothDeviceConnected = outputDevices.any {
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+        }
+
+        val isBluetoothActive = audioManager.isBluetoothScoOn || audioManager.isBluetoothA2dpOn
+
+        return isBluetoothDeviceConnected || isBluetoothActive
+    }
+
 
     fun stopOtherAppsDoingAudio() {
         val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
@@ -188,7 +237,6 @@ class DeviceManager(
 
     @SuppressLint("MissingPermission")
     fun startRingtoneSong() {
-
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val interruptionFilter = notificationManager.currentInterruptionFilter
@@ -284,6 +332,7 @@ class DeviceManager(
     fun onCommunicationDeviceChangedListener(callback: (AudioDeviceInfo?) -> Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             audioManager.addOnCommunicationDeviceChangedListener(Dispatchers.IO.asExecutor()) { device ->
+                Log.d("DeviceManager", "device : ${device?.toAudioDevice()}")
                 callback(device)
             }
         } else {

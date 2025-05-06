@@ -100,6 +100,7 @@ class CallActionsHandler(
         Log.d("CallActionsHandler", "answer $callId")
         val normalizedCallId = callId.lowercase()
 
+        inboundCallNotifier.stopRingtoneAndInboundNotification()
         voiceClient.answer(normalizedCallId)
     }
 
@@ -194,6 +195,7 @@ class CallActionsHandler(
     override suspend fun sendDTMF(dtmf: String) {
         val call = callRepository.getActiveCall()
             ?: throw IllegalStateException("sendDTMF called while no active call found")
+        Log.d("CallActionsHandler", "sendDTMF $dtmf, found call: $call")
         voiceClient.sendDTMF(callId = call.id, digits = dtmf)
     }
 }

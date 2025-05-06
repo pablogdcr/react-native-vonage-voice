@@ -205,6 +205,11 @@ class VonageEventsObserver(
                         LegStatus.answered -> {
                             Log.d("VonageEventsObserver", "observeLegStatus answered")
 
+                            if (deviceManager.isBluetoothConnected()) {
+                                deviceManager.getBluetoothDevice()
+                                    ?.let { jsEventSender.sendAudioRouteChanged(it) }
+                            }
+
                             // updates repository for inbound + outbound
                             callRepository.answer(normalizedCallId)
 
