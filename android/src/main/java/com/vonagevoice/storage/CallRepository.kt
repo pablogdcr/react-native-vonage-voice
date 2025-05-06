@@ -62,6 +62,7 @@ class CallRepository {
      * @throws IllegalStateException if no call with the given ID is found.
      */
     fun answer(callId: String) {
+        Log.d("CallRepository", "answer callId: $callId")
         when (val call = calls.find { it.id == callId }) {
             is Call.Inbound -> answerInboundCall(call)
             is Call.Outbound -> answerOutboundCall(call)
@@ -75,6 +76,7 @@ class CallRepository {
      * @param call The inbound call to update.
      */
     private fun answerInboundCall(call: Call.Inbound) {
+        Log.d("CallRepository", "answerInboundCall call: $call")
         val index = calls.indexOfFirst { it.id == call.id }
         if (index != -1) {
             // Update the status and set the start timestamp to now
@@ -91,6 +93,7 @@ class CallRepository {
      * @param call The outbound call to update.
      */
     private fun answerOutboundCall(call: Call.Outbound) {
+        Log.d("CallRepository", "answerOutboundCall call: $call")
         val index = calls.indexOfFirst { it.id == call.id }
         if (index != -1) {
             // Update the status only (no timestamp)

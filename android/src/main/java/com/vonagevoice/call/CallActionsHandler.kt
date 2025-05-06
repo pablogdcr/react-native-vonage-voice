@@ -33,6 +33,7 @@ class CallActionsHandler(
     private val callRepository: CallRepository,
     private val voiceClient: VoiceClient,
     private val jsEventSender: JSEventSender,
+    private val inboundCallNotifier: InboundCallNotifier,
     vonageEventsObserver: VonageEventsObserver
 ) : ICallActionsHandler {
     private var processingServerCall = false
@@ -112,6 +113,7 @@ class CallActionsHandler(
         val normalizedCallId = callId.lowercase()
 
         voiceClient.reject(normalizedCallId)
+        inboundCallNotifier.stop()
 
         scope.launch {
             val storedCall = callRepository.getCall(callId)
@@ -134,7 +136,6 @@ class CallActionsHandler(
      */
     override suspend fun hangup(callId: String) {
         Log.d("CallActionsHandler", "hangup $callId")
-
         voiceClient.hangup(callId)
     }
 

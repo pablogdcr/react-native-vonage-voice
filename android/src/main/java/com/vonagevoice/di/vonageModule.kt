@@ -12,6 +12,7 @@ import com.vonagevoice.call.CallActionsHandler
 import com.vonagevoice.call.ICallActionsHandler
 import com.vonagevoice.js.EventEmitter
 import com.vonagevoice.audio.SpeakerController
+import com.vonagevoice.call.InboundCallNotifier
 import com.vonagevoice.call.VonageEventsObserver
 import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.notifications.NotificationManager
@@ -43,4 +44,5 @@ val vonageModule = module {
     singleOf(::NotificationManager)
     single { get<Context>().getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     singleOf(::DeviceManager)
+    singleOf(::InboundCallNotifier)
 }

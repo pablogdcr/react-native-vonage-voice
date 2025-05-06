@@ -16,8 +16,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import android.app.KeyguardManager
-import com.vonagevoice.utils.startRingtone
-import com.vonagevoice.utils.stopRingtone
 
 /**
  * Be sure to add this in manifest :
@@ -168,21 +166,20 @@ class NotificationManager(
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notification.build())
 
-        startRingtone(context)
         return notification
     }
 
     fun updateInboundCallNotification(
-        notification: NotificationCompat.Builder,
+        notificationBuilder: NotificationCompat.Builder,
         phoneName: String
     ) {
         // Only update if present
         if (isNotificationDisplayed(notificationId = CALL_INBOUND_NOTIFICATION_ID)) {
-            notification.setContentText(context.getString(R.string.call_from, phoneName))
+            notificationBuilder.setContentText(context.getString(R.string.call_from, phoneName))
 
             val notificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notification.build())
+            notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notificationBuilder.build())
         }
     }
 
@@ -305,7 +302,6 @@ class NotificationManager(
     fun cancelInboundNotification() {
         Log.d("NotificationManager", "cancelInboundNotification")
         cancelCallNotification(CALL_INBOUND_NOTIFICATION_ID)
-        stopRingtone()
     }
 
     fun cancelOutboundNotification() {
