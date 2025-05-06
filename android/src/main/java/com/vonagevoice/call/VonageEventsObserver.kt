@@ -83,7 +83,8 @@ class VonageEventsObserver(
                 "VonageEventsObserver",
                 "setCallInviteCancelListener callId: $callId, reason: $reason"
             )
-            inboundCallNotifier.stop()
+            inboundCallNotifier.stopRingtoneAndInboundNotification()
+            inboundCallNotifier.stopCall()
 
             val storedCall = callRepository.getCall(callId)
                 ?: throw IllegalStateException("Call $callId does not exist on storage")
@@ -130,6 +131,8 @@ class VonageEventsObserver(
                 "observeHangups callId: $callId, callQuality: $callQuality, reason: $reason",
             )
 
+
+
             notificationManager.cancelInProgressNotification()
             proximitySensorManager.stopListening()
 
@@ -137,7 +140,9 @@ class VonageEventsObserver(
                 val storedCall = callRepository.getCall(callId)
 
                 if (storedCall?.isInbound == true) {
-                    inboundCallNotifier.stop()
+                    inboundCallNotifier.stopCall()
+                } else {
+                    deviceManager.releaseAudioFocus()
                 }
 
                 Log.d("VonageEventsObserver", "observeHangups storedCall: $storedCall")
@@ -187,14 +192,14 @@ class VonageEventsObserver(
                         LegStatus.completed -> {
                             Log.d("VonageEventsObserver", "observeLegStatus completed")
                             notificationManager.cancelInProgressNotification()
-                            inboundCallNotifier.stop()
+                            inboundCallNotifier.stopCall()
                             //audioManager.mode = AudioManager.MODE_NORMAL
                         }
 
                         LegStatus.ringing -> {
                             Log.d("VonageEventsObserver", "observeLegStatus ringing")
                             // no need to call callRepository.newInbound because it's already called in observeIncomingCalls setCallInviteListener
-
+                            deviceManager.stopOtherAppsDoingAudio()
                         }
 
                         LegStatus.answered -> {
@@ -203,11 +208,8 @@ class VonageEventsObserver(
                             // updates repository for inbound + outbound
                             callRepository.answer(normalizedCallId)
 
-                            // update status
-                            // when status change
-                            // and update startedAt when answered for inbound
                             if (storedCall.isInbound) {
-                                inboundCallNotifier.stop()
+                                inboundCallNotifier.stopRingtoneAndInboundNotification()
                             }
 
                             //deviceManager.prepareAudioForCall()

@@ -176,12 +176,14 @@ class DeviceManager(
         }
     }
 
-    // Call after ringtone
+    // Called after end call
     fun releaseAudioFocus() {
         Log.d("DeviceManager", "releaseAudioFocus audioFocusRequest: $audioFocusRequest")
         audioFocusRequest?.let {
             audioManager.abandonAudioFocusRequest(it)
         }
+        audioManager.mode = previousAudioMode
+        previousAudioMode = AudioManager.MODE_NORMAL
     }
 
     @SuppressLint("MissingPermission")
@@ -220,14 +222,7 @@ class DeviceManager(
             }
 
             // 5. Optional: request audio focus
-            val result = audioManager.requestAudioFocus(
-                null,
-                AudioManager.STREAM_RING,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
-            )
-            if (result != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-                Log.e("DeviceManager", "Could not get audio focus for ringtone")
-            }
+            stopOtherAppsDoingAudio()
 
             // 6. Play
             ringtoneInstance.streamType = AudioManager.STREAM_RING

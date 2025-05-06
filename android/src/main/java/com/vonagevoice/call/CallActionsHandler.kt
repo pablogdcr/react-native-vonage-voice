@@ -113,7 +113,7 @@ class CallActionsHandler(
         val normalizedCallId = callId.lowercase()
 
         voiceClient.reject(normalizedCallId)
-        inboundCallNotifier.stop()
+        inboundCallNotifier.stopRingtoneAndInboundNotification()
 
         scope.launch {
             val storedCall = callRepository.getCall(callId)

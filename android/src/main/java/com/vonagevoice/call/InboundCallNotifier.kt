@@ -25,7 +25,7 @@ class InboundCallNotifier(
             callId = callId,
         )
 
-        //deviceManager.stopOtherAppsDoingAudio()
+        deviceManager.stopOtherAppsDoingAudio()
         playRingtoneEffects()
 
         return notification
@@ -36,10 +36,14 @@ class InboundCallNotifier(
         if (ringtonePreferences.vibrationEnabled) startRingtoneVibration()
     }
 
-    fun stop() {
+    fun stopRingtoneAndInboundNotification() {
         Log.d("InboundCallNotifier", "stop")
         stopRingtoneEffects()
         notificationManager.cancelInboundNotification()
+    }
+
+    fun stopCall() {
+        stopRingtoneAndInboundNotification()
         deviceManager.releaseAudioFocus()
     }
 
