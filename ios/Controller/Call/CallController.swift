@@ -67,7 +67,6 @@ public class VonageCallController: NSObject {
     var contactReady = false
     var sessionReady = false
     var contactName: String?
-    var isRefreshing = false
     var timedOut = false
 
     var audioSessionTimer: Timer?
@@ -388,8 +387,6 @@ extension VonageCallController {
         }
         let group = DispatchGroup()
 
-        group.enter()
-        self.isRefreshing = true
         self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[CallController] Refresh Vonage token...")
         let networkController = NetworkController()
         let api = RefreshTokenAPI(token: self.supabaseToken!, url: refreshVonageTokenUrl)
@@ -410,15 +407,12 @@ extension VonageCallController {
                 guard let self = self else {
                     return
                 }
-                // Wait for 3 seconds before proceeding
                 self.updateSessionToken(response.data.token) { error in
                     if (error != nil) {
                         self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: "[CallController] :x: Failed to create Vonage Session ! \(error)")
                     }
-                    print("SESSION UPDATED")
                     self.sessionReady = true
                 }
-                group.leave()
 
                 let tokenComponents = response.data.token.components(separatedBy: ".")
                 if tokenComponents.count > 1,
@@ -427,7 +421,6 @@ extension VonageCallController {
                    let exp = payload["exp"] as? TimeInterval {
                     self.vonageExpiresAt = NSNumber(value: exp)
                 }
-                self.isRefreshing = false
             }
             .store(in: &self.cancellables)
 
@@ -442,7 +435,7 @@ extension VonageCallController {
             group.leave()
         }
 
-        let result = group.wait(timeout: .now() + 3.5)
+        let result = group.wait(timeout: .now() + 4.0)
 
         if result == .timedOut {
             self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after 3.0 seconds. Call reported successfully :white_check_mark:")
@@ -544,15 +537,13 @@ extension VonageCallController {
                     if let error = error {
                         self.logger?.didReceiveLog(logLevel: .error, topic: .DEFAULT.first!, message: "[CallController] Call preparation failed: \(error.localizedDescription)")
                         self.callProvider.reportCall(with: UUID(), endedAt: Date(), reason: .failed)
-                        group.leave()
-                        return
+                    } else {
+                        self.client.processCallInvitePushData(notification.object as! Dictionary<String, Any>)
                     }
-                    
-                    self.client.processCallInvitePushData(notification.object as! Dictionary<String, Any>)
                     group.leave()
                 }
             }
-            let result = group.wait(timeout: .now() + 4.0)
+            let result = group.wait(timeout: .now() + 5.0)
             
             if result == .timedOut {
                 self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after 5.0 seconds.")
