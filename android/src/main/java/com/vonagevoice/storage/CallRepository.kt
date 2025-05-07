@@ -55,24 +55,51 @@ class CallRepository {
     }
 
     /**
+     * Answers a call (inbound or outbound) by updating its status and start date for inbound.
+     * Delegates to the appropriate internal method based on call type.
+     *
+     * @param callId The unique identifier of the call to answer.
+     * @throws IllegalStateException if no call with the given ID is found.
+     */
+    fun answer(callId: String) {
+        Log.d("CallRepository", "answer callId: $callId")
+        when (val call = calls.find { it.id == callId }) {
+            is Call.Inbound -> answerInboundCall(call)
+            is Call.Outbound -> answerOutboundCall(call)
+            else -> throw IllegalStateException("answer() can't find call $callId. Cannot update status.")
+        }
+    }
+
+    /**
      * Marks an inbound call as answered by updating its status and start time.
      *
-     * This is called when the user accepts the incoming call. We update:
-     * - the call's status to [CallStatus.ANSWERED]
-     * - and the start timestamp to the current time.
-     *
-     * @param callId The unique identifier of the inbound call to update.
+     * @param call The inbound call to update.
      */
-    fun answerInboundCall(callId: String) {
-        Log.d("CallRepository", "answerInboundCall callId: $callId")
-        val index = calls.indexOfFirst { it is Call.Inbound && it.id == callId }
+    private fun answerInboundCall(call: Call.Inbound) {
+        Log.d("CallRepository", "answerInboundCall call: $call")
+        val index = calls.indexOfFirst { it.id == call.id }
         if (index != -1) {
-            val inboundCall = calls[index] as Call.Inbound
-            val updatedCall = inboundCall.copy(status = CallStatus.ANSWERED, startedAt = nowDate())
+            // Update the status and set the start timestamp to now
+            val updatedCall = call.copy(status = CallStatus.ANSWERED, startedAt = nowDate())
             calls[index] = updatedCall
-            Log.d("CallRepository", "answerInboundCall callId: $callId")
-        } else {
-            throw IllegalStateException("answerInboundCall can't find call $callId. Cannot update status and startedAt")
+            Log.d("CallRepository", "Inbound call answered: ${call.id}")
+        }
+    }
+
+    /**
+     * Marks an outbound call as answered by updating its status.
+     * (No timestamp needed for outbound calls in this implementation.)
+     *
+     * @param call The outbound call to update.
+     */
+    private fun answerOutboundCall(call: Call.Outbound) {
+        Log.d("CallRepository", "answerOutboundCall call: $call")
+        val index = calls.indexOfFirst { it.id == call.id }
+        if (index != -1) {
+            // Update the status only (no timestamp)
+            val updatedCall = call.copy(status = CallStatus.ANSWERED)
+            calls[index] = updatedCall
+            Log.d("CallRepository", "Outbound call answered: ${call.id}")
         }
     }
 
@@ -109,6 +136,7 @@ class CallRepository {
     }
 
     fun getActiveCall(): Call? {
+        Log.d("CallRepository", "all calls: $calls")
         return calls.find { it.status == CallStatus.ANSWERED }
     }
 }

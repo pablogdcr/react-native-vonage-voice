@@ -5,7 +5,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.vonagevoice.audio.DeviceManager
 import com.vonagevoice.call.ICallActionsHandler
+import com.vonagevoice.call.InboundCallNotifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -14,6 +16,8 @@ import org.koin.core.component.inject
 
 class CallActionReceiver : BroadcastReceiver(), KoinComponent {
     private val callHandler: ICallActionsHandler by inject()
+    private val inboundCallNotifier: InboundCallNotifier by inject()
+    private val deviceManager: DeviceManager by inject()
     private val notificationManager: NotificationManager by inject()
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -26,22 +30,23 @@ class CallActionReceiver : BroadcastReceiver(), KoinComponent {
             ?: throw IllegalArgumentException("CallActionReceiver notifications call_id is required")
 
         when (intent.action) {
-            ACTION_REJECT_CALL-> {
+            ACTION_REJECT_CALL -> {
                 Log.d("CallActionReceiver", "onReceive reject")
 
                 scope.launch {
                     callHandler.reject(callId)
-                    notificationManager.cancelInboundNotification()
+                    inboundCallNotifier.stopCall()
+                    deviceManager.releaseAudioFocus()
                     Log.d("CallActionReceiver", "onReceive reject done")
                 }
             }
 
-            ACTION_ANSWER_CALL-> {
+            ACTION_ANSWER_CALL -> {
                 Log.d("CallActionReceiver", "onReceive answer")
 
                 scope.launch {
                     callHandler.answer(callId)
-                    notificationManager.cancelInboundNotification()
+                    inboundCallNotifier.stopRingtoneAndInboundNotification()
                     Log.d("CallActionReceiver", "onReceive answer done")
                 }
             }

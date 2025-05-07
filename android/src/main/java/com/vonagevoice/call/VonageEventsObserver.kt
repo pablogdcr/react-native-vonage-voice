@@ -1,21 +1,18 @@
 package com.vonagevoice.call
 
 import android.content.Context
-import android.media.AudioManager
-import android.os.Build
 import android.util.Log
 import com.vonage.clientcore.core.api.LegStatus
 import com.vonage.clientcore.core.api.VoiceInviteCancelReason
 import com.vonage.voice.api.VoiceClient
-import com.vonagevoice.audio.SpeakerController
+import com.vonagevoice.audio.DeviceManager
 import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.notifications.NotificationManager
 import com.vonagevoice.storage.CallRepository
-import com.vonagevoice.utils.nowDate
 import com.vonagevoice.utils.ProximitySensorManager
+import com.vonagevoice.utils.nowDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.launch
 
 class VonageEventsObserver(
@@ -24,9 +21,9 @@ class VonageEventsObserver(
     private val callRepository: CallRepository,
     private val voiceClient: VoiceClient,
     private val notificationManager: NotificationManager,
-    private val speakerController: SpeakerController,
     private val jsEventSender: JSEventSender,
-    private val audioManager: AudioManager,
+    private val deviceManager: DeviceManager,
+    private val inboundCallNotifier: InboundCallNotifier
 ) {
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -48,13 +45,14 @@ class VonageEventsObserver(
     }
 
     private fun observeAudioRouteChange() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            audioManager.addOnCommunicationDeviceChangedListener(Dispatchers.IO.asExecutor()) { device ->
-                Log.d("VonageEventsObserver", "addOnCommunicationDeviceChangedListener device: $device")
-                scope.launch {
-                    if (device != null) {
-                        jsEventSender.sendAudioRouteChanged(device)
-                    }
+        deviceManager.onCommunicationDeviceChangedListener { device ->
+            Log.d(
+                "VonageEventsObserver",
+                "addOnCommunicationDeviceChangedListener device: $device"
+            )
+            scope.launch {
+                if (device != null) {
+                    jsEventSender.sendAudioRouteChanged(device)
                 }
             }
         }
@@ -85,7 +83,9 @@ class VonageEventsObserver(
                 "VonageEventsObserver",
                 "setCallInviteCancelListener callId: $callId, reason: $reason"
             )
-            notificationManager.cancelInboundNotification()
+            inboundCallNotifier.stopRingtoneAndInboundNotification()
+            inboundCallNotifier.stopCall()
+
             val storedCall = callRepository.getCall(callId)
                 ?: throw IllegalStateException("Call $callId does not exist on storage")
             Log.d("VonageEventsObserver", "observeCallInviteCancel storedCall: $storedCall")
@@ -131,11 +131,19 @@ class VonageEventsObserver(
                 "observeHangups callId: $callId, callQuality: $callQuality, reason: $reason",
             )
 
+
+
             notificationManager.cancelInProgressNotification()
             proximitySensorManager.stopListening()
 
             scope.launch {
                 val storedCall = callRepository.getCall(callId)
+
+                if (storedCall?.isInbound == true) {
+                    inboundCallNotifier.stopCall()
+                } else {
+                    deviceManager.releaseAudioFocus()
+                }
 
                 Log.d("VonageEventsObserver", "observeHangups storedCall: $storedCall")
                 Log.d("VonageEventsObserver", "observeHangups startedAt: ${storedCall?.startedAt}")
@@ -184,32 +192,33 @@ class VonageEventsObserver(
                         LegStatus.completed -> {
                             Log.d("VonageEventsObserver", "observeLegStatus completed")
                             notificationManager.cancelInProgressNotification()
-                            notificationManager.cancelInboundNotification()
-                            audioManager.mode = AudioManager.MODE_NORMAL
+                            inboundCallNotifier.stopCall()
+                            //audioManager.mode = AudioManager.MODE_NORMAL
                         }
 
                         LegStatus.ringing -> {
                             Log.d("VonageEventsObserver", "observeLegStatus ringing")
                             // no need to call callRepository.newInbound because it's already called in observeIncomingCalls setCallInviteListener
+                            deviceManager.stopOtherAppsDoingAudio()
                         }
 
                         LegStatus.answered -> {
                             Log.d("VonageEventsObserver", "observeLegStatus answered")
-                            // update status
-                            // when status change
-                            // and update startedAt when answered for inbound
-                            if (!storedCall.isOutbound) {
-                                speakerController.disableSpeaker()
-                                callRepository.answerInboundCall(normalizedCallId)
-                                notificationManager.cancelInboundNotification()
+
+                            if (deviceManager.isBluetoothConnected()) {
+                                deviceManager.getBluetoothDevice()
+                                    ?.let { jsEventSender.sendAudioRouteChanged(it) }
                             }
-                            // Set up volume control for the call
-                            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-                            audioManager.setStreamVolume(
-                                AudioManager.STREAM_VOICE_CALL,
-                                audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL),
-                                0
-                            )
+
+                            // updates repository for inbound + outbound
+                            callRepository.answer(normalizedCallId)
+
+                            if (storedCall.isInbound) {
+                                inboundCallNotifier.stopRingtoneAndInboundNotification()
+                            }
+
+                            //deviceManager.prepareAudioForCall()
+
                             // Start listening to proximity sensor when call is answered
                             proximitySensorManager.startListening()
                         }
@@ -220,8 +229,14 @@ class VonageEventsObserver(
                         callRepository.getCall(callId)
                             ?: throw IllegalStateException("Call $callId does not exist on storage")
 
-                    Log.d("VonageEventsObserver", "observeLegStatus updatedStoredCall: $updatedStoredCall")
-                    Log.d("VonageEventsObserver", "observeLegStatus startedAt: ${updatedStoredCall.startedAt}")
+                    Log.d(
+                        "VonageEventsObserver",
+                        "observeLegStatus updatedStoredCall: $updatedStoredCall"
+                    )
+                    Log.d(
+                        "VonageEventsObserver",
+                        "observeLegStatus startedAt: ${updatedStoredCall.startedAt}"
+                    )
                     Log.d("VonageEventsObserver", "observeLegStatus status: ${status.toString()}")
 
                     jsEventSender.sendCallEvent(
@@ -253,6 +268,11 @@ class VonageEventsObserver(
                 "VonageEventsObserver",
                 "observeIncomingCalls setCallInviteListener callId: $callId, from: $from, channelType: $channelType",
             )
+
+            /*inboundCallNotifier.notifyIncomingCall(
+                callId = callId,
+                from =  from
+            )*/
 
             callRepository.newInbound(callId, from)
 

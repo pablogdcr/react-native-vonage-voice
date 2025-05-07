@@ -33,6 +33,7 @@ class CallActionsHandler(
     private val callRepository: CallRepository,
     private val voiceClient: VoiceClient,
     private val jsEventSender: JSEventSender,
+    private val inboundCallNotifier: InboundCallNotifier,
     vonageEventsObserver: VonageEventsObserver
 ) : ICallActionsHandler {
     private var processingServerCall = false
@@ -99,6 +100,7 @@ class CallActionsHandler(
         Log.d("CallActionsHandler", "answer $callId")
         val normalizedCallId = callId.lowercase()
 
+        inboundCallNotifier.stopRingtoneAndInboundNotification()
         voiceClient.answer(normalizedCallId)
     }
 
@@ -112,6 +114,7 @@ class CallActionsHandler(
         val normalizedCallId = callId.lowercase()
 
         voiceClient.reject(normalizedCallId)
+        inboundCallNotifier.stopRingtoneAndInboundNotification()
 
         scope.launch {
             val storedCall = callRepository.getCall(callId)
@@ -134,7 +137,6 @@ class CallActionsHandler(
      */
     override suspend fun hangup(callId: String) {
         Log.d("CallActionsHandler", "hangup $callId")
-
         voiceClient.hangup(callId)
     }
 
@@ -193,6 +195,7 @@ class CallActionsHandler(
     override suspend fun sendDTMF(dtmf: String) {
         val call = callRepository.getActiveCall()
             ?: throw IllegalStateException("sendDTMF called while no active call found")
+        Log.d("CallActionsHandler", "sendDTMF $dtmf, found call: $call")
         voiceClient.sendDTMF(callId = call.id, digits = dtmf)
     }
 }
