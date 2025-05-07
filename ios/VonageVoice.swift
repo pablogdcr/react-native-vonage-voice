@@ -190,21 +190,14 @@ public class VonageVoice: NSObject {
             return
         }
 
-        shouldRegisterToken(with: tokenData) { shouldRegister in
-            if shouldRegister {
-                self.callController.registerPushTokens(tokenData, isSandbox: isSandbox) { error, deviceId in
-                    if error == nil {
-                        UserDefaults.standard.setValue(tokenData, forKey: Constants.pushToken)
-                        UserDefaults.standard.setValue(deviceId, forKey: Constants.deviceId)
-                        resolve(deviceId)
-                        return
-                    } else {
-                        reject("Failed to register token", error?.localizedDescription, error)
-                        return
-                    }
-                }
+        self.callController.registerPushTokens(tokenData, isSandbox: isSandbox) { error, deviceId in
+            if error == nil {
+                UserDefaults.standard.setValue(tokenData, forKey: Constants.pushToken)
+                UserDefaults.standard.setValue(deviceId, forKey: Constants.deviceId)
+                resolve(deviceId)
+                return
             } else {
-                resolve(UserDefaults.standard.object(forKey: Constants.deviceId))
+                reject("Failed to register token", error?.localizedDescription, error)
                 return
             }
         }
