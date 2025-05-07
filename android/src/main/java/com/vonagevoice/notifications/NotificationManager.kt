@@ -1,5 +1,6 @@
 package com.vonagevoice.notifications
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,13 +10,6 @@ import android.content.Intent
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.vonagevoice.R
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import android.app.KeyguardManager
 
 /**
  * Be sure to add this in manifest :
@@ -30,11 +24,11 @@ class NotificationManager(
     companion object {
         private const val CALL_OUTBOUND_NOTIFICATION_ID = 1
         private const val CALL_INBOUND_NOTIFICATION_ID = 2
-        private const val CALL_IN_PROGRESS_NOTIFICATION_ID = 3
+        const val CALL_IN_PROGRESS_NOTIFICATION_ID = 3
 
-        const val INCOMING_CALL = "incoming_call"
-        const val OUTGOING_CALL = "outgoing_call"
-        const val ONGOING_CALL = "ongoing_call"
+        const val INCOMING_CALL_CHANNEL_ID = "incoming_call"
+        const val OUTGOING_CALL_CHANNEL_ID = "outgoing_call"
+        const val ONGOING_CALL_CHANNEL_ID = "ongoing_call"
     }
 
     init {
@@ -54,7 +48,7 @@ class NotificationManager(
         val channels =
             listOf(
                 NotificationChannel(
-                    INCOMING_CALL,
+                    INCOMING_CALL_CHANNEL_ID,
                     context.getString(R.string.notification_incoming_calls),
                     NotificationManager.IMPORTANCE_HIGH,
                 )
@@ -64,7 +58,7 @@ class NotificationManager(
                         importance = NotificationManager.IMPORTANCE_HIGH
                     },
                 NotificationChannel(
-                    OUTGOING_CALL,
+                    OUTGOING_CALL_CHANNEL_ID,
                     context.getString(R.string.notification_outgoing_calls),
                     NotificationManager.IMPORTANCE_LOW,
                 )
@@ -72,7 +66,7 @@ class NotificationManager(
                         description = context.getString(R.string.notification_outgoing_calls_desc)
                     },
                 NotificationChannel(
-                    ONGOING_CALL,
+                    ONGOING_CALL_CHANNEL_ID,
                     context.getString(R.string.notification_ongoing_calls),
                     NotificationManager.IMPORTANCE_MIN,
                 )
@@ -91,20 +85,14 @@ class NotificationManager(
         callId: String,
     ): NotificationCompat.Builder {
         Log.d("NotificationManager", "showInboundCallNotification callId: $callId, from: $from")
-        val callActivityIntent = appIntent.getCallActivity(
-            callId = callId,
-            from = from,
-            phoneName = "",
-            language = "",
-            incomingCallImage = null,
-            answerCall = false
-        )
+
+        val activityIntent = appIntent.getMainActivity()
 
         val pendingIntent = PendingIntent.getActivity(
             context,
             0,
-            callActivityIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_CANCEL_CURRENT
+            activityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
@@ -146,16 +134,17 @@ class NotificationManager(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notification = NotificationCompat.Builder(context, INCOMING_CALL)
+        val notification = NotificationCompat.Builder(context, INCOMING_CALL_CHANNEL_ID)
             .setContentTitle(context.getString(R.string.notification_incoming_call_title))
             .setContentText(context.getString(R.string.call_from, from))
             .setSmallIcon(R.drawable.ic_incoming_call)
             .addAction(0, context.getString(R.string.answer), answerPendingIntent)
             .addAction(0, context.getString(R.string.reject), rejectPendingIntent)
             .setOnlyAlertOnce(true)
-            .setAutoCancel(true)
+            .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setContentIntent(pendingIntent)
             .setFullScreenIntent(pendingIntent, true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
@@ -183,89 +172,6 @@ class NotificationManager(
         }
     }
 
-    private fun showInProgressCallNotification(
-        callId: String,
-        from: String,
-        phoneName: String?,
-        language: String,
-        incomingCallImage: String?,
-        elapsedTime: Long,
-    ) {
-        Log.d("NotificationManager", "showInProgressCallNotification callId: $callId, from: $from")
-        val intent =
-            appIntent.getCallActivity(
-                callId = callId,
-                from = from,
-                phoneName = phoneName,
-                language = language,
-                incomingCallImage = incomingCallImage,
-                answerCall = false
-            )
-
-        val pendingIntent =
-            PendingIntent.getActivity(
-                context,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-
-        // Intent pour raccrocher
-        val hangUpPendingIntent = CallActionReceiver.hangUp(context, callId)
-
-        // Formatage du temps écoulé
-        val minutes = (elapsedTime / 60).toInt()
-        val seconds = (elapsedTime % 60).toInt()
-        val time = String.format("%02d:%02d", minutes, seconds)
-
-        val notification =
-            NotificationCompat.Builder(context, ONGOING_CALL)
-                .setContentTitle(context.getString(R.string.call_in_progress))
-                .setContentText(context.getString(R.string.call_duration, phoneName, time))
-                .setSilent(true)
-                .setSmallIcon(R.drawable.ic_call)
-                .addAction(0, context.getString(R.string.hang_up), hangUpPendingIntent)
-                .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_CALL)
-                .setOngoing(true)
-                .setVibrate(null)
-                .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-                .build()
-
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(CALL_IN_PROGRESS_NOTIFICATION_ID, notification)
-    }
-
-    fun showNotificationAndStartCallTimer(
-        callId: String,
-        from: String,
-        phoneName: String?,
-        language: String,
-        incoming_call_image: String?,
-    ): Job {
-        Log.d(
-            "NotificationManager",
-            "showNotificationAndStartCallTimer callId: $callId, from: $from",
-        )
-        return GlobalScope.launch(Dispatchers.Main) {
-            var elapsedTime = 0L
-            while (isActive) {
-                showInProgressCallNotification(
-                    callId = callId,
-                    from = from,
-                    phoneName = phoneName,
-                    elapsedTime = elapsedTime,
-                    incomingCallImage = incoming_call_image,
-                    language = language,
-                )
-                delay(1000)
-                elapsedTime++
-            }
-        }
-    }
-
     fun showOutboundCallNotification(callId: String, from: String) {
         Log.d("NotificationManager", "showOutboundCallNotification callId: $callId, from: $from")
         val intent = appIntent.getMainActivity()
@@ -279,14 +185,14 @@ class NotificationManager(
             )
 
         val notification =
-            NotificationCompat.Builder(context, OUTGOING_CALL)
+            NotificationCompat.Builder(context, OUTGOING_CALL_CHANNEL_ID)
                 .setContentTitle(context.getString(R.string.call_in_progress))
                 .setContentText(context.getString(R.string.notification_call_with, from))
                 .setSmallIcon(R.drawable.ic_outgoing_call)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
-                .setChannelId(OUTGOING_CALL)
+                .setChannelId(OUTGOING_CALL_CHANNEL_ID)
                 .build()
 
         val notificationManager =
@@ -315,7 +221,44 @@ class NotificationManager(
         val activeNotifications = notificationManager.activeNotifications
 
         val isNotificationVisible = activeNotifications.any { it.id == notificationId }
-        Log.d("NotificationStatus", "isNotificationDisplayed? $isNotificationVisible")
+        Log.d("NotificationManager", "isNotificationDisplayed? $isNotificationVisible")
         return isNotificationVisible
+    }
+
+    fun inProgressNotification(
+        callId: String,
+        startedAt: Long = System.currentTimeMillis()
+    ): Notification {
+        Log.d("NotificationManager", "inProgressNotification $callId")
+
+        val activityIntent = appIntent.getMainActivity()
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            activityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val hangUpPendingIntent = CallActionReceiver.hangUp(context, callId)
+
+
+        return NotificationCompat.Builder(context, ONGOING_CALL_CHANNEL_ID)
+            .setContentTitle(context.getString(R.string.call_in_progress))
+            .setSmallIcon(R.drawable.ic_call)
+            .setOngoing(true)
+            .setSilent(true)
+            .setAutoCancel(false)
+            .setVibrate(longArrayOf(0L)) // Force no vibration
+            .setDefaults(0) // Force no vibration
+            .setChronometerCountDown(true)
+            .setUsesChronometer(true)
+            .setWhen(startedAt)
+            .setFullScreenIntent(pendingIntent, true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .addAction(0, context.getString(R.string.hang_up), hangUpPendingIntent)
+            .setContentIntent(pendingIntent)
+            .build()
     }
 }

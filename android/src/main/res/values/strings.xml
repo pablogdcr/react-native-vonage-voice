@@ -27,4 +27,17 @@
     <string name="notification_ongoing_calls_desc">Persistent notification for active calls</string>
     <string name="notification_incoming_call_title">Incoming call</string>
     <string name="notification_call_with">Call with %1$s</string>
+
+
+    <string name="audio_device_speaker">Speaker</string>
+    <string name="audio_device_receiver">Receiver</string>
+    <string name="audio_device_bluetooth">Bluetooth</string>
+    <string name="audio_device_ble_headset">BLE Headset</string>
+    <string name="audio_device_ble_speaker">BLE Speaker</string>
+    <string name="audio_device_ble_broadcast">BLE Broadcast</string>
+    <string name="audio_device_wired_headphones">Wired Headphones</string>
+    <string name="audio_device_usb">USB Audio</string>
+    <string name="audio_device_hdmi">HDMI Output</string>
+    <string name="audio_device_unknown">Unknown (type: %1$d)</string>
+
 </resources> 

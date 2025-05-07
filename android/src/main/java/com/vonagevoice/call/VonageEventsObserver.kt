@@ -8,6 +8,7 @@ import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.audio.DeviceManager
 import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.notifications.NotificationManager
+import com.vonagevoice.service.CallService
 import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.ProximitySensorManager
 import com.vonagevoice.utils.nowDate
@@ -131,7 +132,7 @@ class VonageEventsObserver(
                 "observeHangups callId: $callId, callQuality: $callQuality, reason: $reason",
             )
 
-
+            CallService.stop(context)
 
             notificationManager.cancelInProgressNotification()
             proximitySensorManager.stopListening()
@@ -193,6 +194,8 @@ class VonageEventsObserver(
                             Log.d("VonageEventsObserver", "observeLegStatus completed")
                             notificationManager.cancelInProgressNotification()
                             inboundCallNotifier.stopCall()
+
+                            CallService.stop(context)
                             //audioManager.mode = AudioManager.MODE_NORMAL
                         }
 
@@ -204,6 +207,13 @@ class VonageEventsObserver(
 
                         LegStatus.answered -> {
                             Log.d("VonageEventsObserver", "observeLegStatus answered")
+
+                            /*try {
+                                CallService.start(context)
+                                Log.d("CallActivity", "CallService started in VonageEventsObserver in observeLegStatus answered")
+                            } catch (e: Exception) {
+                                Log.e("VonageEventsObserver", "cannot start service in observeLegStatus answered")
+                            }*/
 
                             if (deviceManager.isBluetoothConnected()) {
                                 deviceManager.getBluetoothDevice()
@@ -268,11 +278,6 @@ class VonageEventsObserver(
                 "VonageEventsObserver",
                 "observeIncomingCalls setCallInviteListener callId: $callId, from: $from, channelType: $channelType",
             )
-
-            /*inboundCallNotifier.notifyIncomingCall(
-                callId = callId,
-                from =  from
-            )*/
 
             callRepository.newInbound(callId, from)
 

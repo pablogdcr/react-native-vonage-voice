@@ -14,6 +14,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import com.vonagevoice.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 
@@ -71,7 +72,7 @@ class DeviceManager(
     }
 
     private fun AudioDeviceInfo.toDisplayName(): String {
-        return "$productName (${mapDeviceType(type)})"
+        return "$productName (${translateDeviceType(type)})"
     }
 
     private fun isSupportedOutputDevice(type: Int): Boolean {
@@ -93,7 +94,37 @@ class DeviceManager(
         }
     }
 
+    fun translateDeviceType(type: Int): String {
+        return when (type) {
+            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> context.getString(R.string.audio_device_speaker)
+            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> context.getString(R.string.audio_device_receiver)
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> context.getString(R.string.audio_device_bluetooth)
+
+            AudioDeviceInfo.TYPE_BLE_HEADSET -> context.getString(R.string.audio_device_ble_headset)
+            AudioDeviceInfo.TYPE_BLE_SPEAKER -> context.getString(R.string.audio_device_ble_speaker)
+            AudioDeviceInfo.TYPE_BLE_BROADCAST -> context.getString(R.string.audio_device_ble_broadcast)
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_WIRED_HEADSET -> context.getString(R.string.audio_device_wired_headphones)
+
+            AudioDeviceInfo.TYPE_USB_DEVICE,
+            AudioDeviceInfo.TYPE_USB_HEADSET -> context.getString(R.string.audio_device_usb)
+
+            AudioDeviceInfo.TYPE_HDMI -> context.getString(R.string.audio_device_hdmi)
+            else -> context.getString(R.string.audio_device_unknown, type)
+        }
+    }
+
     fun mapDeviceType(type: Int): String {
+        return when (type) {
+            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Speaker"
+            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Receiver"
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth"
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth"
+            AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Headphones"
+            else -> "UNKNOWN (type: $type)"
+        }
+/* if we want more details:
         return when (type) {
             AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Speaker"
             AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Receiver"
@@ -112,6 +143,7 @@ class DeviceManager(
             AudioDeviceInfo.TYPE_HDMI -> "HDMI Output"
             else -> "Unknown (type: $type)"
         }
+ */
     }
 
     fun setAudioDevice(deviceId: Int) {
@@ -152,30 +184,6 @@ class DeviceManager(
                     throw IllegalStateException("DeviceManager No direct routing possible for device type: ${device.type}")
                 }
             }
-        }
-    }
-
-    fun prepareAudioForCall() {
-        Log.d("DeviceManager", "prepareAudioForCall called")
-
-        // Set volume control for the call
-        val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)
-        audioManager.setStreamVolume(
-            AudioManager.STREAM_VOICE_CALL, currentVolume, 0
-        )
-        Log.d("DeviceManager", "Stream volume for VOICE_CALL set to $currentVolume")
-
-        // Ensure we are in communication mode
-        if (audioManager.mode != AudioManager.MODE_IN_COMMUNICATION) {
-            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-            Log.d("DeviceManager", "Audio mode set to MODE_IN_COMMUNICATION")
-        }
-
-        if (!isBluetoothConnected()) {
-            Log.d("DeviceManager", "No Bluetooth device detected, disabling speaker")
-            speakerController.disableSpeaker()
-        } else {
-            Log.d("DeviceManager", "Bluetooth audio already active, leaving routing unchanged")
         }
     }
 

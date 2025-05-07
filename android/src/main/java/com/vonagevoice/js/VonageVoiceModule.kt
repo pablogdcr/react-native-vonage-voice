@@ -18,6 +18,7 @@ import com.vonagevoice.audio.SpeakerController
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.call.ICallActionsHandler
 import com.vonagevoice.call.VonagePushMessageService
+import com.vonagevoice.service.CallService
 import com.vonagevoice.storage.VonageStorage
 import com.vonagevoice.utils.success
 import com.vonagevoice.utils.tryBlocking
@@ -135,6 +136,7 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun serverCall(to: String, customData: ReadableMap, promise: Promise) {
         Log.d("VonageVoiceModule", "serverCall to: $to, customData: $customData")
+
         scope.launch {
             promise.tryBlocking {
                 try {
