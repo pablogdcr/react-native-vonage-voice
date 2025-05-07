@@ -1,5 +1,6 @@
 package com.vonagevoice.call
 
+import android.content.Context
 import android.util.Log
 import com.facebook.react.bridge.Dynamic
 import com.facebook.react.bridge.ReadableMap
@@ -9,6 +10,7 @@ import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IAppAuthProvider
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.js.JSEventSender
+import com.vonagevoice.service.CallService
 import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.retryWithExponentialBackoff
 import kotlinx.coroutines.CoroutineScope
@@ -34,6 +36,7 @@ class CallActionsHandler(
     private val voiceClient: VoiceClient,
     private val jsEventSender: JSEventSender,
     private val inboundCallNotifier: InboundCallNotifier,
+    private val context: Context,
     vonageEventsObserver: VonageEventsObserver
 ) : ICallActionsHandler {
     private var processingServerCall = false
@@ -80,7 +83,7 @@ class CallActionsHandler(
         }
 
         Log.d("CallActionsHandler", "call to: $to, with custom data: $callData")
-        return retryWithExponentialBackoff {
+        val callId = retryWithExponentialBackoff {
             val clientAppJwtToken: String = appAuthProvider.getJwtToken()
             vonageAuthenticationService.login(clientAppJwtToken)
             val callId = voiceClient.serverCall(callData as Map<String, String>)
@@ -89,6 +92,9 @@ class CallActionsHandler(
             Log.d("CallActionsHandler", "call to: $to, callId: $callId")
             callId
         }
+        val normalizedCallId = callId.lowercase()
+        CallService.start(context, normalizedCallId)
+        return normalizedCallId
     }
 
     /**
@@ -99,7 +105,7 @@ class CallActionsHandler(
     override suspend fun answer(callId: String) {
         Log.d("CallActionsHandler", "answer $callId")
         val normalizedCallId = callId.lowercase()
-
+        CallService.start(context, normalizedCallId)
         inboundCallNotifier.stopRingtoneAndInboundNotification()
         voiceClient.answer(normalizedCallId)
     }
@@ -137,6 +143,7 @@ class CallActionsHandler(
      */
     override suspend fun hangup(callId: String) {
         Log.d("CallActionsHandler", "hangup $callId")
+        CallService.stop(context)
         voiceClient.hangup(callId)
     }
 

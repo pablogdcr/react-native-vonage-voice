@@ -28,5 +28,16 @@
     <string name="notification_incoming_call_title">Appel entrant</string>
     <string name="notification_call_with">Appel avec %1$s</string>
 
+    <string name="audio_device_speaker">Haut-parleur</string>
+    <string name="audio_device_receiver">Écouteur</string>
+    <string name="audio_device_bluetooth">Bluetooth</string>
+    <string name="audio_device_ble_headset">Casque BLE</string>
+    <string name="audio_device_ble_speaker">Haut-parleur BLE</string>
+    <string name="audio_device_ble_broadcast">Diffusion BLE</string>
+    <string name="audio_device_wired_headphones">Casque filaire</string>
+    <string name="audio_device_usb">Audio USB</string>
+    <string name="audio_device_hdmi">Sortie HDMI</string>
+    <string name="audio_device_unknown">Inconnu (type : %1$d)</string>
+
 </resources>
 
