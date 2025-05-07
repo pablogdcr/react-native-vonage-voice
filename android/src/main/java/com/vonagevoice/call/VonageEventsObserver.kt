@@ -216,8 +216,20 @@ class VonageEventsObserver(
                             }*/
 
                             if (deviceManager.isBluetoothConnected()) {
-                                deviceManager.getBluetoothDevice()
-                                    ?.let { jsEventSender.sendAudioRouteChanged(it) }
+                                deviceManager.getBluetoothDevice()?.let {
+                                    deviceManager.setAudioDevice(it.id)
+                                    jsEventSender.sendAudioRouteChanged(it)
+                                }
+                            } else {
+                                deviceManager.setOutputToReceiver()
+                                val receiver = deviceManager.getReceiver()
+                                receiver?.let {
+                                    jsEventSender.sendAudioRouteChanged(
+                                        it.name,
+                                        it.id,
+                                        it.type
+                                    )
+                                }
                             }
 
                             // updates repository for inbound + outbound

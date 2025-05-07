@@ -61,7 +61,26 @@ class JSEventSender(
         eventEmitter.sendEvent(
             Event.AUDIO_ROUTE_CHANGED,
             WritableNativeMap().apply {
-              putMap("device", map)
+                putMap("device", map)
+            }
+        )
+    }
+
+    suspend fun sendAudioRouteChanged(
+        name: String,
+        id: String,
+        type: String
+    ) {
+        val map = WritableNativeMap().apply {
+            putString("name", name)
+            putString("id", id)
+            putString("type", type)
+        }
+        Log.d("JSEventSender", "sendAudioRouteChanged map: $map")
+        eventEmitter.sendEvent(
+            Event.AUDIO_ROUTE_CHANGED,
+            WritableNativeMap().apply {
+                putMap("device", map)
             }
         )
     }

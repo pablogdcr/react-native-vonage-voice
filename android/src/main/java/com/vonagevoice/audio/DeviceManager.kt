@@ -124,26 +124,26 @@ class DeviceManager(
             AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Headphones"
             else -> "UNKNOWN (type: $type)"
         }
-/* if we want more details:
-        return when (type) {
-            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Speaker"
-            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Receiver"
-            AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth"
+        /* if we want more details:
+                return when (type) {
+                    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Speaker"
+                    AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Receiver"
+                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth"
 
-            AudioDeviceInfo.TYPE_BLE_HEADSET -> "BLE Headset"
-            AudioDeviceInfo.TYPE_BLE_SPEAKER -> "BLE Speaker"
-            AudioDeviceInfo.TYPE_BLE_BROADCAST -> "BLE Broadcast"
-            AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-            AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired Headphones"
+                    AudioDeviceInfo.TYPE_BLE_HEADSET -> "BLE Headset"
+                    AudioDeviceInfo.TYPE_BLE_SPEAKER -> "BLE Speaker"
+                    AudioDeviceInfo.TYPE_BLE_BROADCAST -> "BLE Broadcast"
+                    AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+                    AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired Headphones"
 
-            AudioDeviceInfo.TYPE_USB_DEVICE,
-            AudioDeviceInfo.TYPE_USB_HEADSET -> "USB Audio"
+                    AudioDeviceInfo.TYPE_USB_DEVICE,
+                    AudioDeviceInfo.TYPE_USB_HEADSET -> "USB Audio"
 
-            AudioDeviceInfo.TYPE_HDMI -> "HDMI Output"
-            else -> "Unknown (type: $type)"
-        }
- */
+                    AudioDeviceInfo.TYPE_HDMI -> "HDMI Output"
+                    else -> "Unknown (type: $type)"
+                }
+         */
     }
 
     fun setAudioDevice(deviceId: Int) {
@@ -346,5 +346,14 @@ class DeviceManager(
         } else {
             Log.e("DeviceManager", "Cannot do onCommunicationDeviceChangedListener")
         }
+    }
+
+    fun setOutputToReceiver() {
+        getReceiver()?.id?.toInt()?.let { setAudioDevice(it) }
+    }
+
+    fun getReceiver(): AudioDevice? {
+        return getAvailableAudioDevices()
+            .find { it.type == "Receiver" }
     }
 }
