@@ -86,17 +86,37 @@ class NotificationManager(
     ): NotificationCompat.Builder {
         Log.d("NotificationManager", "showInboundCallNotification callId: $callId, from: $from")
 
-        val activityIntent = appIntent.getMainActivity()
-
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            activityIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         val isDeviceUnlocked = !keyguardManager.isKeyguardLocked
+
+        val pendingIntent = if (isDeviceUnlocked) {
+            val activityIntent = appIntent.getMainActivity()
+
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                activityIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            pendingIntent
+        } else {
+            val callActivityIntent = appIntent.getCallActivity(
+                callId = callId,
+                from = from,
+                phoneName = "",
+                language = "",
+                incomingCallImage = null,
+                answerCall = false
+            )
+
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                callActivityIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_CANCEL_CURRENT
+            )
+            pendingIntent
+        }
 
         val answerPendingIntent = if (isDeviceUnlocked) {
             PendingIntent.getActivity(
