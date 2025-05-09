@@ -83,6 +83,7 @@ class NotificationManager(
     fun showInboundCallNotification(
         from: String,
         callId: String,
+        phoneName: String?
     ): NotificationCompat.Builder {
         Log.d("NotificationManager", "showInboundCallNotification callId: $callId, from: $from")
 
@@ -103,8 +104,7 @@ class NotificationManager(
             val callActivityIntent = appIntent.getCallActivity(
                 callId = callId,
                 from = from,
-                phoneName = "",
-                language = "",
+                phoneName = phoneName,
                 incomingCallImage = null,
                 answerCall = false
             )
@@ -125,8 +125,7 @@ class NotificationManager(
                 appIntent.getCallActivity(
                     callId = callId,
                     from = from,
-                    phoneName = "",
-                    language = "",
+                    phoneName = phoneName,
                     incomingCallImage = null,
                     answerCall = true
                 ),

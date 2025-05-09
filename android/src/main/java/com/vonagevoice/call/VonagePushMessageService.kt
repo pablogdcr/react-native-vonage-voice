@@ -33,7 +33,6 @@ class VonagePushMessageService : FirebaseMessagingService(), KoinComponent {
 
     companion object {
         suspend fun requestToken(): String = suspendCancellableCoroutine { continuation ->
-            Log.d("VonagePushMessageService", "requestToken")
             FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val token = task.result

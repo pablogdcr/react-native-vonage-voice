@@ -7,7 +7,6 @@ interface IAppIntent {
         callId: String,
         from: String,
         phoneName: String?,
-        language: String,
         incomingCallImage: String?,
         answerCall: Boolean,
     ): Intent

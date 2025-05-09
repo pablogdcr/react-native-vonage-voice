@@ -19,10 +19,11 @@ class InboundCallNotifier(
         songEnabled = true, vibrationEnabled = true
     )
 
-    fun notifyIncomingCall(from: String, callId: String): NotificationCompat.Builder {
+    fun notifyIncomingCall(from: String, callId: String, phoneName: String?): NotificationCompat.Builder {
         val notification = notificationManager.showInboundCallNotification(
             from = from,
             callId = callId,
+            phoneName = phoneName
         )
 
         deviceManager.stopOtherAppsDoingAudio()
