@@ -435,7 +435,7 @@ extension VonageCallController {
             group.leave()
         }
 
-        let result = group.wait(timeout: .now() + 4.0)
+        let result = group.wait(timeout: .now() + 2.0)
 
         if result == .timedOut {
             self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after 3.0 seconds. Call reported successfully :white_check_mark:")
@@ -543,7 +543,7 @@ extension VonageCallController {
                     group.leave()
                 }
             }
-            let result = group.wait(timeout: .now() + 5.0)
+            let result = group.wait(timeout: .now() + 3.0)
             
             if result == .timedOut {
                 self.logger?.didReceiveLog(logLevel: .warn, topic: .DEFAULT.first!, message: ":hourglass_flowing_sand: Call UI timed out after 5.0 seconds.")
