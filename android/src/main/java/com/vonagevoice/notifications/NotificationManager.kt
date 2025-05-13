@@ -155,7 +155,7 @@ class NotificationManager(
 
         val notification = NotificationCompat.Builder(context, INCOMING_CALL_CHANNEL_ID)
             .setContentTitle(context.getString(R.string.notification_incoming_call_title))
-            .setContentText(context.getString(R.string.call_from, from))
+            .setContentText(context.getString(R.string.call_from, phoneName))
             .setSmallIcon(R.drawable.ic_incoming_call)
             .addAction(0, context.getString(R.string.answer), answerPendingIntent)
             .addAction(0, context.getString(R.string.reject), rejectPendingIntent)

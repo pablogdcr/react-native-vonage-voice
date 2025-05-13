@@ -16,6 +16,7 @@ class JSEventSender(
 ) {
 
     suspend fun sendFirebasePushToken(pushToken: String) {
+        Log.d("JSEventSender", "send event REGISTER: $pushToken")
         eventEmitter.sendEvent(
             Event.REGISTER,
             Arguments.createMap().apply { putString("token", pushToken) }
