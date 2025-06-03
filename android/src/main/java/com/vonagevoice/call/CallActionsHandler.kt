@@ -11,6 +11,7 @@ import com.vonagevoice.auth.IAppAuthProvider
 import com.vonagevoice.auth.IVonageAuthenticationService
 import com.vonagevoice.js.JSEventSender
 import com.vonagevoice.service.CallService
+import com.vonagevoice.service.IncomingCallService
 import com.vonagevoice.storage.CallRepository
 import com.vonagevoice.utils.retryWithExponentialBackoff
 import kotlinx.coroutines.CoroutineScope
@@ -93,6 +94,7 @@ class CallActionsHandler(
             callId
         }
         val normalizedCallId = callId.lowercase()
+        IncomingCallService.stop(context)
         CallService.start(context, normalizedCallId)
         return normalizedCallId
     }
@@ -105,9 +107,20 @@ class CallActionsHandler(
     override suspend fun answer(callId: String) {
         Log.d("CallActionsHandler", "answer $callId")
         val normalizedCallId = callId.lowercase()
+        IncomingCallService.stop(context)
         CallService.start(context, normalizedCallId)
         inboundCallNotifier.stopRingtoneAndInboundNotification()
-        voiceClient.answer(normalizedCallId)
+
+        val storedCall = callRepository.getCall(callId)
+        Log.d("CallActionsHandler", "answer storedCall: $storedCall")
+
+        if (storedCall?.status == CallStatus.RINGING) {
+            try {
+                voiceClient.answer(normalizedCallId)
+            } catch (e: com.vonage.android_core.VGError) {
+                Log.e("CallActionsHandler", "answer failed", e)
+            }
+        }
     }
 
     /**
@@ -120,6 +133,7 @@ class CallActionsHandler(
         val normalizedCallId = callId.lowercase()
 
         voiceClient.reject(normalizedCallId)
+        IncomingCallService.stop(context)
         inboundCallNotifier.stopRingtoneAndInboundNotification()
 
         scope.launch {

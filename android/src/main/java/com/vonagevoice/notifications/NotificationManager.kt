@@ -23,7 +23,7 @@ class NotificationManager(
 
     companion object {
         private const val CALL_OUTBOUND_NOTIFICATION_ID = 1
-        private const val CALL_INBOUND_NOTIFICATION_ID = 2
+        const val CALL_INBOUND_NOTIFICATION_ID = 2
         const val CALL_IN_PROGRESS_NOTIFICATION_ID = 3
 
         const val INCOMING_CALL_CHANNEL_ID = "incoming_call"
@@ -80,7 +80,7 @@ class NotificationManager(
         channels.forEach { notificationManager.createNotificationChannel(it) }
     }
 
-    fun showInboundCallNotification(
+    fun notificationBuilderForInboundCall(
         from: String,
         callId: String,
         phoneName: String?
@@ -169,10 +169,6 @@ class NotificationManager(
             .setOngoing(true)
             .setColorized(true)
             .setColor(0x0B2120)
-
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(CALL_INBOUND_NOTIFICATION_ID, notification.build())
 
         return notification
     }
