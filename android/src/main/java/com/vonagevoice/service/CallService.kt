@@ -17,17 +17,20 @@ class CallService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         callId = intent?.getStringExtra("callId")
-            ?: throw IllegalStateException("callId is required in CallService")
-        Log.d("CallService", "onStartCommand callId: $callId")
-
-        startForeground(
-            CALL_IN_PROGRESS_NOTIFICATION_ID,
-
-            notificationManager.inProgressNotification(
-                callId = requireNotNull(callId),
+        if (callId == null) {
+            Log.e("CallService", "Missing callId, stopping service.")
+            stopSelf()
+            return START_NOT_STICKY
+        } else {
+            Log.d("CallService", "onStartCommand callId: $callId")
+            startForeground(
+                CALL_IN_PROGRESS_NOTIFICATION_ID,
+                notificationManager.inProgressNotification(
+                    callId = requireNotNull(callId),
+                )
             )
-        )
-        return START_STICKY
+            return START_STICKY
+        }
     }
 
     override fun onDestroy() {

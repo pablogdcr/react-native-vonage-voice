@@ -110,7 +110,17 @@ class CallActionsHandler(
         IncomingCallService.stop(context)
         CallService.start(context, normalizedCallId)
         inboundCallNotifier.stopRingtoneAndInboundNotification()
-        voiceClient.answer(normalizedCallId)
+
+        val storedCall = callRepository.getCall(callId)
+        Log.d("CallActionsHandler", "answer storedCall: $storedCall")
+
+        if (storedCall?.status == CallStatus.RINGING) {
+            try {
+                voiceClient.answer(normalizedCallId)
+            } catch (e: com.vonage.android_core.VGError) {
+                Log.e("CallActionsHandler", "answer failed", e)
+            }
+        }
     }
 
     /**
@@ -123,6 +133,7 @@ class CallActionsHandler(
         val normalizedCallId = callId.lowercase()
 
         voiceClient.reject(normalizedCallId)
+        IncomingCallService.stop(context)
         inboundCallNotifier.stopRingtoneAndInboundNotification()
 
         scope.launch {
