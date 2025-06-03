@@ -20,7 +20,8 @@ class InboundCallNotifier(
     )
 
     fun notifyIncomingCall(from: String, callId: String, phoneName: String?): NotificationCompat.Builder {
-        val notification = notificationManager.showInboundCallNotification(
+        Log.d("InboundCallNotifier", "notifyIncomingCall")
+        val notification = notificationManager.notificationBuilderForInboundCall(
             from = from,
             callId = callId,
             phoneName = phoneName
@@ -32,9 +33,12 @@ class InboundCallNotifier(
         return notification
     }
 
-    private fun playRingtoneEffects() = with(deviceManager) {
-        if (ringtonePreferences.songEnabled) startRingtoneSong()
-        if (ringtonePreferences.vibrationEnabled) startRingtoneVibration()
+    private fun playRingtoneEffects() {
+        Log.d("InboundCallNotifier", "playRingtoneEffects")
+        with(deviceManager) {
+            if (ringtonePreferences.songEnabled) startRingtoneSong()
+            if (ringtonePreferences.vibrationEnabled) startRingtoneVibration()
+        }
     }
 
     fun stopRingtoneAndInboundNotification() {
