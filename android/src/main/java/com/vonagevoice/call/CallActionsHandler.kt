@@ -158,7 +158,13 @@ class CallActionsHandler(
     override suspend fun hangup(callId: String) {
         Log.d("CallActionsHandler", "hangup $callId")
         CallService.stop(context)
-        voiceClient.hangup(callId)
+        try {
+            voiceClient.hangup(callId)
+        } catch (e: Exception) {
+            Log.e("CallActionsHandler", "Error during voiceClient.hangup: ${e.message}", e)
+            // throwing e so RN can use it through promise in VonageVoiceModule
+            throw e
+        }
     }
 
     /**

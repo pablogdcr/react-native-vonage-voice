@@ -93,6 +93,7 @@ class VonageEventsObserver(
             CallLifecycleManager.callback?.onCallEnded()
 
             val storedCall = callRepository.getCall(callId)
+            Log.d("VonageEventsObserver", "observeCallInviteCancel storedCall: $storedCall")
 
             if (storedCall == null) {
                 Log.e("VonageEventsObserver","Call $callId does not exist on storage")
@@ -108,7 +109,6 @@ class VonageEventsObserver(
                     )
                 }
             } else {
-                Log.d("VonageEventsObserver", "observeCallInviteCancel storedCall: $storedCall")
                 callRepository.removeHangedUpCall(normalizedCallId)
                 scope.launch {
                     jsEventSender.sendCallEvent(
