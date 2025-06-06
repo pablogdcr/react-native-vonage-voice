@@ -132,7 +132,11 @@ class CallActionsHandler(
         Log.d("CallActionsHandler", "reject $callId")
         val normalizedCallId = callId.lowercase()
 
-        voiceClient.reject(normalizedCallId)
+        try {
+            voiceClient.reject(normalizedCallId)
+        } catch (e: Exception) {
+            Log.e("CallActionsHandler", "Error in voiceClient.reject: ${e.message}", e)
+        }
         IncomingCallService.stop(context)
         inboundCallNotifier.stopRingtoneAndInboundNotification()
 
@@ -162,8 +166,6 @@ class CallActionsHandler(
             voiceClient.hangup(callId)
         } catch (e: Exception) {
             Log.e("CallActionsHandler", "Error during voiceClient.hangup: ${e.message}", e)
-            // throwing e so RN can use it through promise in VonageVoiceModule
-            throw e
         }
     }
 
