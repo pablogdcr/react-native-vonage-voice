@@ -249,7 +249,9 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
         Log.d("VonageVoiceModule", "registerVoipToken")
 
         scope.launch {
-            jsEventSender.sendFirebasePushToken(VonagePushMessageService.requestToken())
+            jsEventSender.sendFirebasePushToken(
+                VonagePushMessageService.requestToken()
+            )
         }
     }
 

@@ -20,10 +20,6 @@ class SpeakerController(
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    init {
-        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-    }
-
     /**
      * Enables the speakerphone (speakerphone mode on).
      * It changes the audio output to the speaker and sends an event to notify that the speaker has been enabled.
