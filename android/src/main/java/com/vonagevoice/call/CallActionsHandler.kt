@@ -126,10 +126,18 @@ class CallActionsHandler(
 
         if (storedCall?.status == CallStatus.RINGING) {
             try {
+                Log.d("CallActionsHandler", "answer voiceClient.answer")
                 voiceClient.answer(normalizedCallId)
             } catch (e: VGError) {
                 Log.e("CallActionsHandler", "answer failed ${e.message}", e)
+                throw e
             }
+        } else {
+            Log.e(
+                "CallActionsHandler",
+                "answer storedCall is not in ringing status",
+                IllegalStateException("answer storedCall is not in ringing status")
+            )
         }
     }
 

@@ -115,7 +115,9 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
     fun answerCall(callId: String, promise: Promise) {
         val normalizedCallId = callId.lowercase()
         Log.d("VonageVoiceModule", "answerCall $normalizedCallId")
-        scope.launch { callActionsHandler.answer(normalizedCallId) }
+        scope.launch {
+            promise.tryBlocking { callActionsHandler.answer(normalizedCallId) }
+        }
     }
 
     @ReactMethod
