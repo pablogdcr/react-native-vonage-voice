@@ -142,8 +142,12 @@ class VonageVoiceModule(reactContext: ReactApplicationContext) :
                 try {
                     val callId = callActionsHandler.call(to, customData)
                     Log.d("VonageVoiceModule", "serverCall callId: $callId")
-                    speakerController.disableSpeaker()
-                    promise.resolve(callId)
+                    if (callId == null) {
+                        promise.reject(IllegalStateException("serverCall failed, callId is null"))
+                    } else {
+                        speakerController.disableSpeaker()
+                        promise.resolve(callId)
+                    }
                 } catch (e: Exception) {
                     Log.d("VonageVoiceModule", "serverCall error $e")
                     promise.reject(e)
