@@ -30,7 +30,11 @@ class VonageAuthenticationService(
      */
     override suspend fun login(jwt: String) {
         Log.d("VonageAuthenticationService", "login $jwt")
-        voiceClient.createSession(jwt)
+        try {
+            voiceClient.createSession(jwt)
+        } catch (e: Exception) {
+            Log.e("CallActionsHandler", "createSession failed ${e.message}", e)
+        }
     }
 
     /**
@@ -38,9 +42,12 @@ class VonageAuthenticationService(
      */
     override suspend fun logout() {
         Log.d("VonageAuthenticationService", "logout")
-        voiceClient.deleteSession()
+        try {
+            voiceClient.deleteSession()
+        } catch (e: Exception) {
+            Log.e("CallActionsHandler", "deleteSession failed ${e.message}", e)
+        }
     }
-
 
     /**
      * Registers a Firebase push token with the Vonage Voice service to enable push notifications.

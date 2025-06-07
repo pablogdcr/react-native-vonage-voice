@@ -87,25 +87,39 @@ class VonageEventsObserver(
             inboundCallNotifier.stopRingtoneAndInboundNotification()
             inboundCallNotifier.stopCall()
 
-            val storedCall = callRepository.getCall(callId)
-                ?: throw IllegalStateException("Call $callId does not exist on storage")
-            Log.d("VonageEventsObserver", "observeCallInviteCancel storedCall: $storedCall")
-
             val normalizedCallId = callId.lowercase()
 
-            callRepository.removeHangedUpCall(normalizedCallId)
-
-            scope.launch {
-                jsEventSender.sendCallEvent(
-                    callId = normalizedCallId,
-                    status = CallStatus.COMPLETED,
-                    phoneNumber = storedCall.phoneNumber,
-                    startedAt = storedCall.startedAt,
-                    outbound = storedCall is Call.Outbound
-                )
-            }
             notificationManager.cancelInProgressNotification()
             CallLifecycleManager.callback?.onCallEnded()
+
+            val storedCall = callRepository.getCall(callId)
+            Log.d("VonageEventsObserver", "observeCallInviteCancel storedCall: $storedCall")
+
+            if (storedCall == null) {
+                Log.e("VonageEventsObserver","Call $callId does not exist on storage")
+
+                // Fallback: storedCall is null (seen in prod) => notify RN as completed.
+                scope.launch {
+                    jsEventSender.sendCallEvent(
+                        callId = normalizedCallId,
+                        status = CallStatus.COMPLETED,
+                        phoneNumber = "",
+                        startedAt = 0.0,
+                        outbound = false
+                    )
+                }
+            } else {
+                callRepository.removeHangedUpCall(normalizedCallId)
+                scope.launch {
+                    jsEventSender.sendCallEvent(
+                        callId = normalizedCallId,
+                        status = CallStatus.COMPLETED,
+                        phoneNumber = storedCall.phoneNumber,
+                        startedAt = storedCall.startedAt,
+                        outbound = storedCall is Call.Outbound
+                    )
+                }
+            }
         }
     }
 

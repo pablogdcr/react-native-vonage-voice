@@ -5,6 +5,7 @@ import android.util.Log
 import com.facebook.react.bridge.Dynamic
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.ReadableType
+import com.vonage.android_core.VGError
 import com.vonage.voice.api.CallId
 import com.vonage.voice.api.VoiceClient
 import com.vonagevoice.auth.IAppAuthProvider
@@ -53,7 +54,7 @@ class CallActionsHandler(
      *
      * @param to The phone number to call.
      */
-    override suspend fun call(to: String, customData: ReadableMap): CallId {
+    override suspend fun call(to: String, customData: ReadableMap): CallId? {
         Log.d("CallActionsHandler", "call to: $to")
 
         if (processingServerCall) {
@@ -87,16 +88,25 @@ class CallActionsHandler(
         val callId = retryWithExponentialBackoff {
             val clientAppJwtToken: String = appAuthProvider.getJwtToken()
             vonageAuthenticationService.login(clientAppJwtToken)
-            val callId = voiceClient.serverCall(callData as Map<String, String>)
-            processingServerCall = false
-            callRepository.newOutbound(callId = callId, phoneNumber = to)
-            Log.d("CallActionsHandler", "call to: $to, callId: $callId")
+            val callId = try {
+                val callId = voiceClient.serverCall(callData as Map<String, String>)
+                processingServerCall = false
+                callRepository.newOutbound(callId = callId, phoneNumber = to)
+                Log.d("CallActionsHandler", "call to: $to, callId: $callId")
+                callId
+            } catch (e: Exception) {
+                Log.e("CallActionsHandler", "serverCall failed ${e.message}", e)
+                null
+            }
+
             callId
         }
-        val normalizedCallId = callId.lowercase()
-        IncomingCallService.stop(context)
-        CallService.start(context, normalizedCallId)
-        return normalizedCallId
+        return callId?.let {
+            val normalizedCallId = callId.lowercase()
+            IncomingCallService.stop(context)
+            CallService.start(context, normalizedCallId)
+            normalizedCallId
+        }
     }
 
     /**
@@ -116,10 +126,18 @@ class CallActionsHandler(
 
         if (storedCall?.status == CallStatus.RINGING) {
             try {
+                Log.d("CallActionsHandler", "answer voiceClient.answer")
                 voiceClient.answer(normalizedCallId)
-            } catch (e: com.vonage.android_core.VGError) {
-                Log.e("CallActionsHandler", "answer failed", e)
+            } catch (e: VGError) {
+                Log.e("CallActionsHandler", "answer failed ${e.message}", e)
+                throw e
             }
+        } else {
+            Log.e(
+                "CallActionsHandler",
+                "answer storedCall is not in ringing status",
+                IllegalStateException("answer storedCall is not in ringing status")
+            )
         }
     }
 
@@ -132,7 +150,11 @@ class CallActionsHandler(
         Log.d("CallActionsHandler", "reject $callId")
         val normalizedCallId = callId.lowercase()
 
-        voiceClient.reject(normalizedCallId)
+        try {
+            voiceClient.reject(normalizedCallId)
+        } catch (e: VGError) {
+            Log.e("CallActionsHandler", "reject failed ${e.message}", e)
+        }
         IncomingCallService.stop(context)
         inboundCallNotifier.stopRingtoneAndInboundNotification()
 
@@ -158,7 +180,11 @@ class CallActionsHandler(
     override suspend fun hangup(callId: String) {
         Log.d("CallActionsHandler", "hangup $callId")
         CallService.stop(context)
-        voiceClient.hangup(callId)
+        try {
+            voiceClient.hangup(callId)
+        } catch (e: Exception) {
+            Log.e("CallActionsHandler", "hangup failed ${e.message}", e)
+        }
     }
 
     /**
@@ -168,7 +194,12 @@ class CallActionsHandler(
      */
     override suspend fun mute(callId: String) {
         Log.d("CallActionsHandler", "mute $callId")
-        voiceClient.mute(callId)
+
+        try {
+            voiceClient.mute(callId)
+        } catch (e: VGError) {
+            Log.e("CallActionsHandler", "mute failed ${e.message}", e)
+        }
     }
 
     /**
@@ -178,22 +209,41 @@ class CallActionsHandler(
      */
     override suspend fun unmute(callId: String) {
         Log.d("CallActionsHandler", "unmute $callId")
-        voiceClient.unmute(callId)
+
+        try {
+            voiceClient.unmute(callId)
+        } catch (e: VGError) {
+            Log.e("CallActionsHandler", "unmute failed ${e.message}", e)
+        }
     }
 
     override suspend fun reconnectCall(legId: String) {
         Log.d("CallActionsHandler", "reconnectCall $legId")
-        voiceClient.reconnectCall(legId)
+
+        try {
+            voiceClient.reconnectCall(legId)
+        } catch (e: VGError) {
+            Log.e("CallActionsHandler", "reconnectCall failed ${e.message}", e)
+        }
     }
 
     override suspend fun enableNoiseSuppression(callId: String) {
         Log.d("CallActionsHandler", "enableNoiseSuppression")
-        voiceClient.enableNoiseSuppression(callId)
+
+        try {
+            voiceClient.enableNoiseSuppression(callId)
+        } catch (e: VGError) {
+            Log.e("CallActionsHandler", "enableNoiseSuppression failed ${e.message}", e)
+        }
     }
 
     override suspend fun disableNoiseSuppression(callId: String) {
         Log.d("CallActionsHandler", "disableNoiseSuppression")
-        voiceClient.disableNoiseSuppression(callId)
+        try {
+            voiceClient.disableNoiseSuppression(callId)
+        } catch (e: VGError) {
+            Log.e("CallActionsHandler", "disableNoiseSuppression failed ${e.message}", e)
+        }
     }
 
     /** Give the incoming push to the SDK to process */
@@ -210,13 +260,23 @@ class CallActionsHandler(
 
         // This voiceClient::processPushCallInvite call triggers
         // CallActionsHandler::observeIncomingCalls
-        voiceClient.processPushCallInvite(remoteMessageStr)
+
+        try {
+            voiceClient.processPushCallInvite(remoteMessageStr)
+        } catch (e: VGError) {
+            Log.e("CallActionsHandler", "processPushCallInvite failed ${e.message}", e)
+        }
     }
 
     override suspend fun sendDTMF(dtmf: String) {
         val call = callRepository.getActiveCall()
             ?: throw IllegalStateException("sendDTMF called while no active call found")
         Log.d("CallActionsHandler", "sendDTMF $dtmf, found call: $call")
-        voiceClient.sendDTMF(callId = call.id, digits = dtmf)
+
+        try {
+            voiceClient.sendDTMF(callId = call.id, digits = dtmf)
+        } catch (e: VGError) {
+            Log.e("CallActionsHandler", "sendDTMF failed ${e.message}", e)
+        }
     }
 }
