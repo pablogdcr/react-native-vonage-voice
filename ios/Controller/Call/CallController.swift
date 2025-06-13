@@ -173,7 +173,7 @@ public class VonageCallController: NSObject {
     }
 
     public func resetCallInfo() {
-        contactService.emergentlyResetCallInfo()
+        contactService.resetCallInfo()
     }
 
     deinit {
