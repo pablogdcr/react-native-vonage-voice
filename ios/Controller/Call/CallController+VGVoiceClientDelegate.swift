@@ -31,7 +31,7 @@ extension VonageCallController: VGVoiceClientDelegate {
         let uuid = UUID(uuidString: callId)!
         var cxreason: CXCallEndedReason = .failed
 
-        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveInviteCancelForCall")
+        self.logger?.didReceiveLog(logLevel: .info, topic: .DEFAULT.first!, message: "[VGVoiceClientDelegate] - didReceiveInviteCancelForCall (reason raw value: \(reason.rawValue))")
         switch (reason){
         case .remoteTimeout: cxreason = .unanswered
         case .answeredElsewhere: cxreason = .answeredElsewhere
