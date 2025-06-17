@@ -5,7 +5,6 @@ import {
   withDangerousMod,
   withXcodeProject,
 } from 'expo/config-plugins';
-import { mergeContents } from '@expo/config-plugins/build/utils/generateCode';
 import fs from 'fs';
 import path from 'path';
 
@@ -28,73 +27,89 @@ const withXcodeLinkBinaryWithLibraries: ConfigPlugin<{
   });
 };
 
-// Matchers for the AppDelegate modifications
-const handlersLineMatcher =
-  /return \[super application:application didFinishLaunchingWithOptions:launchOptions\];/g;
+// Matchers for the Swift AppDelegate modifications
+const importsLineMatcher = /import ReactAppDependencyProvider/g;
 
-const handlersBlock = (url: string) => `
-// --- Handle updated push credentials
-- (void)pushRegistry:(PKPushRegistry *)registry didUpdatePushCredentials:(PKPushCredentials *)credentials forType:(PKPushType)type {
-    // Register VoIP push token with VonageVoice
-    [VonageVoice didUpdatePushCredentials:credentials forType:type];
-}
+const swiftImportsBlock = `import ReactAppDependencyProvider
+import PushKit
+import CallKit
+import Intents`;
 
-- (void)pushRegistry:(PKPushRegistry *)registry didInvalidatePushTokenForType:(PKPushType)type {
-    // Handle token invalidation if needed
-    [VonageVoice didInvalidatePushTokenForType:type];
-}
+// Matcher for class declaration to add protocol conformance
+const classDeclarationMatcher = /public class AppDelegate: ExpoAppDelegate \{/g;
 
-// --- Handle incoming pushes
-- (void)pushRegistry:(PKPushRegistry *)registry didReceiveIncomingPushWithPayload:(PKPushPayload *)payload forType:(PKPushType)type withCompletionHandler:(void (^)(void))completion {
-    void (^refreshSessionBlock)(RCTPromiseResolveBlock, RCTPromiseRejectBlock) = ^(RCTPromiseResolveBlock resolve, RCTPromiseRejectBlock reject) {
-        [[SupabaseService shared] refreshSession:^(id result) {
-            if (resolve) {
-                resolve(result); // Hook into resolve callback
-            }
-        } rejecter:^(NSString *code, NSString *message, NSError *error) {
-            if (reject) {
-                reject(code, message, error); // Hook into reject callback
-            }
-        }];
-    };
+const classDeclarationReplacement = `public class AppDelegate: ExpoAppDelegate, PKPushRegistryDelegate {`;
 
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"voip-push-received"
-                                                    object:payload.dictionaryPayload
-                                                    userInfo:@{
-      @"refreshSessionBlock": [refreshSessionBlock copy],
-      @"refreshVonageTokenUrlString": @"${url}/v1/app/voip/auth",
-    }];
+// Matcher for didFinishLaunchingWithOptions to add PushKit setup
+const didFinishLaunchingMatcher = /return super\.application\(application, didFinishLaunchingWithOptions: launchOptions\)/g;
+
+const pushKitSetupBlock = `    // Setup PushKit for VoIP
+    let voipRegistry = PKPushRegistry(queue: DispatchQueue.main)
+    voipRegistry.delegate = self
+    voipRegistry.desiredPushTypes = [.voIP]
     
-    completion();
-}
-`;
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)`;
 
-// Add this new matcher constant
-const userActivityLineMatcher =
-  /- \(BOOL\)application:\(UIApplication \*\)application continueUserActivity:\(nonnull NSUserActivity \*\)userActivity restorationHandler:\(nonnull void \(\^\)\(NSArray<id<UIUserActivityRestoring>> \* _Nullable\)\)restorationHandler \{/g;
-
-// Add this new block constant
-const userActivityBlock = `
-  if ([userActivity.interaction.intent isKindOfClass:[INStartCallIntent class]]) {
-    INPerson *person = [[(INStartCallIntent*)userActivity.interaction.intent contacts] firstObject];
-    NSString *phoneNumber = person.personHandle.value;
-    NSString *telURL = [NSString stringWithFormat:@"tel:%@", phoneNumber];
-
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:telURL] options:@{} completionHandler:nil];
-    return YES;
+// Swift handlers block
+const handlersBlock = (url: string) => `
+  // MARK: - PKPushRegistryDelegate
+  
+  public func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
+    // Register VoIP push token with VonageVoice
+    VonageVoice.didUpdate(pushCredentials, forType: type)
   }
-`;
+  
+  public func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
+    // Handle token invalidation if needed
+    VonageVoice.didInvalidatePushToken(forType: type)
+  }
+  
+  public func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
+    let refreshSessionBlock: (RCTPromiseResolveBlock?, RCTPromiseRejectBlock?) -> Void = { resolve, reject in
+      SupabaseService.shared.refreshSession(
+        resolve: { result in
+          resolve?(result)
+        },
+        reject: { code, message, error in
+          reject?(code, message, error)
+        }
+      )
+    }
+    
+    NotificationCenter.default.post(
+      name: Notification.Name("voip-push-received"),
+      object: payload.dictionaryPayload,
+      userInfo: [
+        "refreshSessionBlock": refreshSessionBlock,
+        "refreshVonageTokenUrlString": "${url}/v1/app/voip/auth"
+      ]
+    )
+    
+    completion()
+  }`;
 
-// Add new matcher constant for applicationWillTerminate
-const terminateLineMatcher = /@end/g;
+// Matcher for continueUserActivity
+const userActivityMatcher = /let result = RCTLinkingManager\.application\(application, continue: userActivity, restorationHandler: restorationHandler\)/g;
 
-// Add new block constant for applicationWillTerminate
+const userActivityBlock = `    // Handle Intents for CallKit
+    if let intent = userActivity.interaction?.intent as? INStartCallIntent,
+       let person = intent.contacts?.first,
+       let phoneNumber = person.personHandle?.value {
+      let telURL = "tel:\\(phoneNumber)"
+      if let url = URL(string: telURL) {
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        return true
+      }
+    }
+    
+    let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)`;
+
+// Add applicationWillTerminate
 const terminateBlock = `
-- (void)applicationWillTerminate:(UIApplication *)application {
-  [super applicationWillTerminate:application];
-  [[VonageVoice shared] resetCallInfo];
-}
-`;
+  public override func applicationWillTerminate(_ application: UIApplication) {
+    super.applicationWillTerminate(application)
+    VonageVoice.shared().resetCallInfo()
+  }`;
 
 const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
   let updatedConfig = config;
@@ -112,83 +127,92 @@ const withIosVonageVoice: ConfigPlugin<{ url: string }> = (config, options) => {
     library: 'Intents.framework',
   });
 
-  // Modify AppDelegate.h using withDangerousMod
+  // Modify AppDelegate.swift
   updatedConfig = withAppDelegate(updatedConfig, (appDelegateConfig) => {
-    // Update imports to include Intents
-    appDelegateConfig.modResults.contents =
-      appDelegateConfig.modResults.contents.replace(
-        /#import "AppDelegate.h"/g,
-        `#import "AppDelegate.h"
-#import <PushKit/PushKit.h>
-#import <VonageVoice.h>
-#import <Intents/Intents.h>`
-      );
+    // Update imports
+    appDelegateConfig.modResults.contents = appDelegateConfig.modResults.contents.replace(
+      importsLineMatcher,
+      swiftImportsBlock
+    );
 
-    // Add handlers
-    appDelegateConfig.modResults.contents = mergeContents({
-      tag: '@react-native-vonage-voice-handlers',
-      src: appDelegateConfig.modResults.contents,
-      newSrc: handlersBlock(options.url),
-      anchor: handlersLineMatcher,
-      offset: 2,
-      comment: '//',
-    }).contents;
+    // Update class declaration to add PKPushRegistryDelegate
+    appDelegateConfig.modResults.contents = appDelegateConfig.modResults.contents.replace(
+      classDeclarationMatcher,
+      classDeclarationReplacement
+    );
 
-    // Add user activity handling
-    appDelegateConfig.modResults.contents = mergeContents({
-      tag: '@react-native-vonage-voice-useractivity',
-      src: appDelegateConfig.modResults.contents,
-      newSrc: userActivityBlock,
-      anchor: userActivityLineMatcher,
-      offset: 2,
-      comment: '//',
-    }).contents;
+    // Add PushKit setup in didFinishLaunchingWithOptions
+    appDelegateConfig.modResults.contents = appDelegateConfig.modResults.contents.replace(
+      didFinishLaunchingMatcher,
+      pushKitSetupBlock
+    );
 
-    // Add applicationWillTerminate
-    appDelegateConfig.modResults.contents = mergeContents({
-      tag: '@react-native-vonage-voice-terminate',
-      src: appDelegateConfig.modResults.contents,
-      newSrc: terminateBlock,
-      anchor: terminateLineMatcher,
-      offset: 0,
-      comment: '//',
-    }).contents;
+    // Add handlers before the closing brace of the AppDelegate class
+    // Find the end of the AppDelegate class (before ReactNativeDelegate)
+    const appDelegateEndPattern = /\n}\n\nclass ReactNativeDelegate/;
+    const appDelegateEndMatch = appDelegateConfig.modResults.contents.match(appDelegateEndPattern);
+    
+    if (appDelegateEndMatch) {
+      const insertPosition = appDelegateEndMatch.index!;
+      appDelegateConfig.modResults.contents = 
+        appDelegateConfig.modResults.contents.slice(0, insertPosition) +
+        handlersBlock(options.url) +
+        terminateBlock +
+        appDelegateConfig.modResults.contents.slice(insertPosition);
+    } else {
+      // Fallback: add before the last closing brace
+      const lastBraceIndex = appDelegateConfig.modResults.contents.lastIndexOf('}');
+      if (lastBraceIndex !== -1) {
+        appDelegateConfig.modResults.contents = 
+          appDelegateConfig.modResults.contents.slice(0, lastBraceIndex) +
+          handlersBlock(options.url) +
+          terminateBlock +
+          '\n}' +
+          appDelegateConfig.modResults.contents.slice(lastBraceIndex + 1);
+      }
+    }
+
+    // Update user activity handling
+    appDelegateConfig.modResults.contents = appDelegateConfig.modResults.contents.replace(
+      userActivityMatcher,
+      userActivityBlock
+    );
 
     return appDelegateConfig;
   });
 
-  return withDangerousMod(updatedConfig, [
+  // Update bridging header for VonageVoice
+  updatedConfig = withDangerousMod(updatedConfig, [
     'ios',
     (dangerousConfig) => {
-      const appDelegateHeaderPath = path.join(
+      const projectName = dangerousConfig.modRequest.projectName!;
+      const bridgingHeaderPath = path.join(
         dangerousConfig.modRequest.platformProjectRoot,
-        dangerousConfig.modRequest.projectName!,
-        'AppDelegate.h'
+        projectName,
+        `${projectName}-Bridging-Header.h`
       );
 
-      if (fs.existsSync(appDelegateHeaderPath)) {
-        let headerContents = fs.readFileSync(appDelegateHeaderPath, 'utf-8');
+      if (fs.existsSync(bridgingHeaderPath)) {
+        let headerContents = fs.readFileSync(bridgingHeaderPath, 'utf-8');
 
-        // Add PushKit import if not already present
-        if (!headerContents.includes('#import <PushKit/PushKit.h>')) {
-          headerContents = headerContents.replace(
-            /#import <UIKit\/UIKit.h>/,
-            '#import <UIKit/UIKit.h>\n#import <PushKit/PushKit.h>'
-          );
+        // Add VonageVoice import if not already present
+        if (!headerContents.includes('#import <VonageVoice.h>')) {
+          headerContents += '\n#import <VonageVoice.h>';
         }
 
-        // Update interface declaration
-        headerContents = headerContents.replace(
-          /@interface AppDelegate : EXAppDelegateWrapper/,
-          '@interface AppDelegate : EXAppDelegateWrapper <UNUserNotificationCenterDelegate, PKPushRegistryDelegate>'
-        );
+        // Remove SupabaseService.h import if present (it doesn't exist as a header file)
+        if (headerContents.includes('#import "SupabaseService.h"')) {
+          headerContents = headerContents.replace(/\n?#import "SupabaseService\.h"/g, '');
+        }
 
-        fs.writeFileSync(appDelegateHeaderPath, headerContents);
+        fs.writeFileSync(bridgingHeaderPath, headerContents);
       }
 
       return dangerousConfig;
     },
   ]);
+
+  return updatedConfig;
 };
 
 export default withIosVonageVoice;
